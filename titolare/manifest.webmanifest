@@ -1,0 +1,12 @@
+{
+  "name": "Vico Dashboard",
+  "short_name": "Vico Dash",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#1a1210",
+  "theme_color": "#1a1210",
+  "icons": [
+    { "src": "../assets/img/logo.jpg", "sizes": "1024x1024", "type": "image/jpeg", "purpose": "any" }
+  ]
+}

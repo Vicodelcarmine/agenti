@@ -1,0 +1,185 @@
+/* Vico del Carmine · Agenti — stile comune alle tre pagine
+   (gioco del cliente, app agente, dashboard del titolare).
+   Stessi colori del menu: carminio, oro, crema, basilico. */
+
+:root {
+  --bg:        #1a1210;
+  --bg-2:      #241915;
+  --card:      #2a1d18;
+  --card-2:    #33241e;
+  --flame:     #c8102e;
+  --ember:     #d13b2f;
+  --brick:     #7a1f2b;
+  --gold:      #e6b24a;
+  --gold-soft: #edcf94;
+  --basil:     #86b64a;
+  --cream:     #f7efe2;
+  --muted:     #cbb49c;
+  --dim:       #8d7a68;
+  --line:      rgba(230,178,74,.18);
+  --danger:    #ff6b5e;
+  --radius:    16px;
+  --font-display: "Playfair Display", Georgia, serif;
+  --font-body:    "Poppins", system-ui, -apple-system, sans-serif;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--cream);
+  min-height: 100vh;
+  min-height: 100dvh;
+  line-height: 1.45;
+  -webkit-tap-highlight-color: transparent;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+a { color: var(--gold); }
+img { max-width: 100%; display: block; }
+[hidden] { display: none !important; }
+
+.wrap { max-width: 520px; margin: 0 auto; padding: 16px 16px 32px; }
+
+h1, h2, h3 { font-family: var(--font-display); font-weight: 700; line-height: 1.2; }
+h2 { font-size: 1.35rem; color: var(--gold-soft); }
+h3 { font-size: 1.1rem; }
+.muted { color: var(--muted); }
+.dim { color: var(--dim); font-size: .85rem; }
+.center { text-align: center; }
+.small { font-size: .85rem; }
+
+/* ---------- testata ---------- */
+.top {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(26,18,16,.92);
+  backdrop-filter: blur(8px);
+  position: sticky; top: 0; z-index: 20;
+}
+.top img { width: 40px; height: 40px; border-radius: 10px; }
+.top .t1 { font-family: var(--font-display); font-size: 1.05rem; color: var(--gold-soft); }
+.top .t2 { font-size: .75rem; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; }
+.top .spazio { flex: 1; }
+
+/* ---------- schede ---------- */
+.card {
+  background: linear-gradient(160deg, var(--card-2), var(--card));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px;
+  margin: 14px 0;
+}
+.card.oro { border-color: var(--gold); }
+.card h3 { margin-bottom: 8px; color: var(--gold-soft); }
+
+/* ---------- numeri grandi ---------- */
+.kpi { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.kpi.due { grid-template-columns: repeat(2, 1fr); }
+.kpi > div {
+  background: rgba(0,0,0,.22);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 8px;
+  text-align: center;
+}
+.kpi b { display: block; font-size: 1.5rem; font-weight: 700; color: var(--cream); line-height: 1.1; }
+.kpi span { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.kpi .euro b { color: var(--gold); }
+
+/* ---------- bottoni ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 48px; padding: 12px 22px;
+  border: 0; border-radius: 999px;
+  font-weight: 600; font-size: 1rem;
+  cursor: pointer; text-decoration: none;
+  transition: transform .12s, opacity .12s;
+}
+.btn:active { transform: scale(.97); }
+.btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+.btn.pieno { width: 100%; }
+.btn.rosso { background: linear-gradient(135deg, var(--flame), var(--brick)); color: #fff; box-shadow: 0 6px 22px rgba(200,16,46,.35); }
+.btn.oro   { background: linear-gradient(135deg, var(--gold), #c58f2b); color: #2a1a08; box-shadow: 0 6px 22px rgba(230,178,74,.28); }
+.btn.verde { background: linear-gradient(135deg, var(--basil), #5f8a2e); color: #142008; }
+.btn.vuoto { background: transparent; border: 1px solid var(--line); color: var(--cream); }
+.btn.piccolo { min-height: 36px; padding: 6px 14px; font-size: .88rem; }
+
+/* ---------- campi ---------- */
+label.campo { display: block; margin: 10px 0; }
+label.campo > span { display: block; font-size: .8rem; color: var(--muted); margin-bottom: 4px; }
+.input, input[type=text], input[type=tel], input[type=number], input[type=time], input[type=password], textarea, select {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 14px;
+  background: rgba(0,0,0,.3);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  outline: none;
+  font-size: 1rem;
+}
+input:focus, textarea:focus, select:focus { border-color: var(--gold); }
+.riga { display: flex; gap: 10px; align-items: center; }
+.riga > * { flex: 1; }
+.riga > .fisso { flex: 0 0 auto; }
+
+/* interruttore acceso/spento */
+.switch { position: relative; width: 52px; height: 30px; flex: 0 0 auto; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.switch i {
+  position: absolute; inset: 0; border-radius: 999px;
+  background: #4a3a33; transition: background .2s; cursor: pointer;
+}
+.switch i::after {
+  content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px;
+  border-radius: 50%; background: var(--cream); transition: transform .2s;
+}
+.switch input:checked + i { background: var(--basil); }
+.switch input:checked + i::after { transform: translateX(22px); }
+
+/* ---------- etichette ---------- */
+.pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: .75rem; font-weight: 600; }
+.pill.ok   { background: rgba(134,182,74,.18); color: #b5dc84; }
+.pill.no   { background: rgba(255,107,94,.16); color: #ffa198; }
+.pill.oro  { background: rgba(230,178,74,.16); color: var(--gold-soft); }
+
+/* ---------- QR ---------- */
+.qr { background: #fff; border-radius: 14px; padding: 12px; margin: 0 auto; }
+.qr svg { width: 100%; height: auto; display: block; }
+
+/* ---------- elenchi ---------- */
+.lista { list-style: none; }
+.lista li {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.lista li:last-child { border-bottom: 0; }
+.lista .cresce { flex: 1; min-width: 0; }
+.lista .euro { color: var(--gold); font-weight: 700; white-space: nowrap; }
+
+/* ---------- avviso a scomparsa ---------- */
+#toast {
+  position: fixed; left: 50%; bottom: 90px; transform: translate(-50%, 20px);
+  background: var(--cream); color: var(--bg);
+  padding: 12px 20px; border-radius: 999px; font-weight: 600; font-size: .92rem;
+  opacity: 0; pointer-events: none; transition: all .25s; z-index: 100;
+  max-width: calc(100vw - 32px); text-align: center;
+}
+#toast.on { opacity: 1; transform: translate(-50%, 0); }
+#toast.errore { background: var(--danger); color: #fff; }
+
+/* striscia DEMO */
+.demo-bar {
+  background: repeating-linear-gradient(135deg, #3a2a10, #3a2a10 10px, #2f220d 10px, #2f220d 20px);
+  color: var(--gold-soft); font-size: .78rem; text-align: center; padding: 6px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.card.no { border-color: rgba(255,107,94,.45); background: linear-gradient(160deg, #3a1d1a, #2a1714); }
+
+/* ---------- coriandoli ---------- */
+.coriandoli { position: fixed; inset: 0; pointer-events: none; z-index: 90; overflow: hidden; }
+.coriandoli i { position: absolute; top: -12px; width: 10px; height: 10px; animation: cade 3s ease-in forwards; }
+@keyframes cade { to { transform: translateY(110vh) rotate(720deg); } }
+@media (prefers-reduced-motion: reduce) { .coriandoli i { display: none; } }

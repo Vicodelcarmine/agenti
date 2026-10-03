@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1a1210">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Vico Agenti">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Vico Agenti</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="../assets/img/logo.jpg">
+<link rel="apple-touch-icon" href="../assets/img/logo.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/base.css">
+<link rel="stylesheet" href="../assets/css/app.css">
+</head>
+<body>
+
+<div class="demo-bar" id="demo-bar" hidden>DEMO · dati di prova</div>
+
+<!-- senza link d'accesso -->
+<section id="fuori" class="accesso" hidden>
+  <img src="../assets/img/logo.jpg" alt="">
+  <h1>Vico Agenti</h1>
+  <p class="muted">Questa app si apre dal link personale che ti ha mandato il Vico del Carmine.</p>
+  <div id="demo-scelta" hidden>
+    <p class="dim" style="margin:22px 0 8px">Demo: entra come</p>
+  </div>
+</section>
+
+<!-- app -->
+<div id="app" hidden>
+  <header class="top">
+    <img src="../assets/img/logo.jpg" alt="">
+    <div>
+      <div class="t1" id="saluto">Ciao</div>
+      <div class="t2">Agente · Vico del Carmine</div>
+    </div>
+    <div class="spazio"></div>
+    <span class="pill" id="stato"></span>
+  </header>
+
+  <main class="wrap">
+    <div class="card no center" id="in-pausa" hidden>
+      <h3>⏸️ Il tuo QR è in pausa</h3>
+      <p class="muted small">Chi lo inquadra non può giocare. Parlane con il ristorante.</p>
+    </div>
+
+    <section class="card oro center">
+      <h3>Il tuo QR</h3>
+      <p class="muted small">Fallo inquadrare: il cliente gioca, vince un premio per il tavolo e trova la strada per il ristorante.</p>
+      <div class="qr" id="mio-qr" style="width:210px;margin-top:14px"></div>
+      <div class="riga" style="margin-top:14px">
+        <button class="btn oro" id="pieno">⛶ Schermo intero</button>
+        <button class="btn vuoto fisso" id="condividi" aria-label="Condividi link">↗︎</button>
+      </div>
+    </section>
+
+    <section class="card" id="avvisi">
+      <h3>🔔 Avvisi</h3>
+      <p class="muted small" id="avvisi-testo">Ricevi una notifica appena un tuo cliente si siede, con quanto hai guadagnato.</p>
+      <button class="btn verde pieno" id="attiva-avvisi" style="margin-top:12px" hidden>🔔 Attiva le notifiche</button>
+    </section>
+
+    <section class="card">
+      <h3>🌙 Stasera</h3>
+      <div class="kpi">
+        <div><b id="s-giocate">0</b><span>hanno giocato</span></div>
+        <div><b id="s-persone">0</b><span>persone arrivate</span></div>
+        <div class="euro"><b id="s-euro">0 €</b><span>guadagnati</span></div>
+      </div>
+      <p class="small muted" id="s-prossima" style="margin-top:12px"></p>
+      <div class="barra" id="s-barra"><i style="width:0"></i></div>
+    </section>
+
+    <section class="card">
+      <h3>💶 Le tue tariffe</h3>
+      <ul class="lista" id="fasce"></ul>
+      <p class="dim">Ogni sera si riparte da zero.</p>
+    </section>
+
+    <section class="card">
+      <h3 id="m-titolo">📅 Questo mese</h3>
+      <div class="kpi">
+        <div><b id="m-tavoli">0</b><span>tavoli</span></div>
+        <div><b id="m-persone">0</b><span>persone</span></div>
+        <div class="euro"><b id="m-euro">0 €</b><span>guadagnati</span></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3>👛 I tuoi soldi</h3>
+      <div class="kpi">
+        <div><b id="t-maturato">0 €</b><span>guadagnati in tutto</span></div>
+        <div><b id="t-pagato">0 €</b><span>già ricevuti</span></div>
+        <div class="euro"><b id="t-dapagare">0 €</b><span>da ricevere</span></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3>🍽️ Ultimi tavoli</h3>
+      <ul class="lista" id="ultimi"></ul>
+    </section>
+
+    <p class="dim center" id="aggiornato"></p>
+  </main>
+</div>
+
+<div class="festa" id="festa" hidden>
+  <div class="dentro">
+    <div class="emoji">🎉</div>
+    <h2 id="festa-titolo">È arrivato un tuo tavolo!</h2>
+    <p id="festa-testo"></p>
+    <div class="soldi" id="festa-euro"></div>
+    <button class="btn oro pieno" id="festa-ok">Grande! 💪</button>
+  </div>
+</div>
+
+<div class="qr-pieno" id="qr-pieno" hidden>
+  <div class="qr" id="qr-grande"></div>
+  <p>🎰 Inquadra e tenta la fortuna!</p>
+  <small>Tocca per chiudere</small>
+</div>
+
+<script src="../assets/js/qr.js"></script>
+<script src="../assets/js/comune.js"></script>
+<script src="../assets/js/store.js"></script>
+<script src="../assets/js/agente.js"></script>
+</body>
+</html>

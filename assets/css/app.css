@@ -1,0 +1,128 @@
+/* App agente + dashboard del titolare */
+
+body.con-tab { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+
+/* ---------- barra delle schede in basso ---------- */
+.tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+  display: flex; justify-content: center;
+  background: rgba(26,18,16,.96); backdrop-filter: blur(10px);
+  border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.tabbar button {
+  flex: 1; max-width: 120px;
+  background: none; border: 0; cursor: pointer;
+  padding: 8px 2px 10px; color: var(--dim);
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  font-size: .7rem; font-weight: 600;
+}
+.tabbar button i { font-style: normal; font-size: 1.35rem; line-height: 1.2; filter: grayscale(1); opacity: .7; }
+.tabbar button.on { color: var(--gold); }
+.tabbar button.on i { filter: none; opacity: 1; }
+
+/* ---------- accesso ---------- */
+.accesso { max-width: 360px; margin: 10vh auto 0; padding: 0 20px; text-align: center; }
+.accesso img { width: 88px; height: 88px; border-radius: 18px; margin: 0 auto 14px; }
+.accesso h1 { font-size: 1.4rem; color: var(--gold-soft); margin-bottom: 4px; }
+.accesso .pin { text-align: center; font-size: 1.6rem; letter-spacing: .4em; margin: 18px 0 10px; }
+.accesso label.ricorda { display: flex; gap: 8px; align-items: center; justify-content: center; color: var(--muted); font-size: .88rem; margin-bottom: 14px; }
+
+/* ---------- finestra sopra la pagina ---------- */
+.foglio {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(0,0,0,.6);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.foglio > .dentro {
+  width: 100%; max-width: 560px; max-height: 92vh; max-height: 92dvh; overflow-y: auto;
+  background: var(--bg-2); border-radius: 22px 22px 0 0; border: 1px solid var(--line); border-bottom: 0;
+  padding: 18px 16px calc(24px + env(safe-area-inset-bottom));
+  animation: sale .22s ease-out;
+}
+@keyframes sale { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+.foglio .chiudi { float: right; background: none; border: 0; font-size: 1.6rem; color: var(--muted); cursor: pointer; line-height: 1; padding: 4px 8px; }
+
+/* ---------- QR a tutto schermo (agente) ---------- */
+.qr-pieno {
+  position: fixed; inset: 0; z-index: 80; background: #fff; color: #1a1210;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 24px;
+  text-align: center;
+}
+.qr-pieno .qr { width: min(82vw, 60vh); padding: 0; }
+.qr-pieno p { font-weight: 700; font-size: 1.2rem; }
+.qr-pieno small { color: #7a6a5c; }
+
+/* ---------- scanner ---------- */
+.scanner { position: fixed; inset: 0; z-index: 70; background: #000; display: flex; flex-direction: column; }
+.scanner video { flex: 1; width: 100%; object-fit: cover; min-height: 0; }
+.scanner .mirino {
+  position: absolute; left: 50%; top: 45%; width: min(66vw, 300px); aspect-ratio: 1;
+  transform: translate(-50%, -50%); border: 3px solid var(--gold); border-radius: 22px;
+  box-shadow: 0 0 0 100vmax rgba(0,0,0,.45);
+}
+.scanner .sotto { padding: 16px 16px calc(20px + env(safe-area-inset-bottom)); background: #000; text-align: center; }
+.scanner .sotto p { color: #ddd; margin-bottom: 12px; }
+
+/* ---------- contatore persone ---------- */
+.stepper { display: flex; align-items: center; justify-content: center; gap: 18px; margin: 10px 0; }
+.stepper button {
+  width: 58px; height: 58px; border-radius: 50%; border: 1px solid var(--line);
+  background: var(--card-2); font-size: 1.8rem; font-weight: 700; cursor: pointer;
+}
+.stepper button:active { transform: scale(.94); }
+.stepper output { font-size: 2.8rem; font-weight: 700; min-width: 70px; text-align: center; color: var(--cream); }
+
+/* ---------- barre (premi, fasce) ---------- */
+.barra { height: 8px; background: rgba(255,255,255,.07); border-radius: 99px; overflow: hidden; margin-top: 6px; }
+.barra > i { display: block; height: 100%; background: linear-gradient(90deg, var(--gold), var(--flame)); border-radius: 99px; }
+
+/* ---------- premio/buono letto dal titolare ---------- */
+.esito { text-align: center; }
+.esito .emoji { font-size: 2.6rem; }
+.esito .nome { font-size: 1.25rem; font-weight: 700; color: var(--gold); }
+.esito .avviso { border-radius: 12px; padding: 12px; margin: 12px 0; font-weight: 600; }
+.esito .avviso.no { background: rgba(255,107,94,.14); color: #ffb0a8; }
+.esito .avviso.ok { background: rgba(134,182,74,.16); color: #c7e59b; }
+.provv { background: rgba(230,178,74,.1); border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin: 10px 0 14px; }
+.provv b { color: var(--gold); font-size: 1.4rem; }
+
+/* fasce modificabili */
+.fascia { display: grid; grid-template-columns: 1fr 92px; gap: 10px; align-items: center; margin: 8px 0; }
+.fascia .quale { font-size: .9rem; color: var(--muted); }
+.fascia .quale input { width: 64px; min-height: 38px; padding: 4px 8px; display: inline-block; text-align: center; }
+.fascia .soldi { position: relative; }
+.fascia .soldi input { padding-right: 28px; text-align: right; }
+.fascia .soldi::after { content: "€"; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+
+/* premi modificabili */
+.premio-ed { border: 1px solid var(--line); border-radius: 14px; padding: 12px; margin: 10px 0; background: rgba(0,0,0,.15); }
+.premio-ed.spento { opacity: .55; }
+.premio-ed .testa { display: flex; gap: 10px; align-items: center; }
+.premio-ed .testa .emo { width: 56px; text-align: center; font-size: 1.5rem; padding: 4px; }
+.premio-ed .testa .cresce { flex: 1; min-width: 0; }
+.premio-ed .perc { color: var(--gold); font-weight: 700; white-space: nowrap; }
+.premio-ed input[type=range] { width: 100%; accent-color: var(--gold); margin-top: 8px; }
+.premio-ed details { margin-top: 8px; }
+.premio-ed summary { cursor: pointer; color: var(--muted); font-size: .85rem; }
+
+.sez-titolo { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 18px 0 6px; }
+.sez-titolo h2 { margin: 0; }
+
+.vuoto { text-align: center; color: var(--dim); padding: 22px 8px; }
+
+/* ---------- festa: è arrivato un tavolo (app agente) ---------- */
+.festa {
+  position: fixed; inset: 0; z-index: 85; background: rgba(10,6,4,.78);
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+.festa .dentro {
+  width: 100%; max-width: 360px; text-align: center;
+  background: linear-gradient(160deg, #3a2410, #20140d); border: 2px solid var(--gold);
+  border-radius: 24px; padding: 26px 20px 20px; animation: salta .5s cubic-bezier(.2,1.4,.4,1);
+}
+@keyframes salta { from { transform: scale(.6); opacity: 0; } to { transform: none; opacity: 1; } }
+.festa .emoji { font-size: 3.4rem; }
+.festa h2 { margin: 6px 0 8px; }
+.festa .soldi { font-size: 2.6rem; font-weight: 700; color: var(--gold); margin: 6px 0 16px; }
+#avvisi.attivi { border-color: rgba(134,182,74,.5); }

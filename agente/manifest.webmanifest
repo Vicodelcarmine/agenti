@@ -1,0 +1,16 @@
+{
+  "name": "Vico Agenti",
+  "short_name": "Vico Agenti",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#1a1210",
+  "theme_color": "#1a1210",
+  "icons": [
+    {
+      "src": "../assets/img/logo.jpg",
+      "sizes": "1024x1024",
+      "type": "image/jpeg",
+      "purpose": "any"
+    }
+  ]
+}

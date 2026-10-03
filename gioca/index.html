@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1a1210">
+<title>Tenta la Fortuna · Vico del Carmine</title>
+<link rel="icon" href="../assets/img/logo.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/base.css">
+<link rel="stylesheet" href="../assets/css/gioca.css">
+</head>
+<body>
+
+<div class="demo-bar" id="demo-bar" hidden>DEMO · dati di prova</div>
+
+<div class="wrap">
+  <nav class="lingue" id="lingue" aria-label="Lingua"></nav>
+
+  <header class="testa">
+    <img src="../assets/img/logo.jpg" alt="Vico del Carmine" width="96" height="96">
+    <h1>VICO DEL CARMINE</h1>
+    <p>Osteria Pizzeria Napoletana · San Frediano, Firenze</p>
+  </header>
+
+  <section id="gioco" hidden>
+    <div class="card oro invito">
+      <h2 data-t="titolo"></h2>
+      <p data-t="sotto"></p>
+    </div>
+    <div class="slots" aria-hidden="true">
+      <div class="slot"><span>🍕</span></div>
+      <div class="slot"><span>🎰</span></div>
+      <div class="slot"><span>🍕</span></div>
+    </div>
+    <button id="gira" class="btn rosso grande" data-t="gira"></button>
+  </section>
+
+  <section id="vincita" hidden></section>
+
+  <section id="messaggio" class="card center" hidden></section>
+
+  <section class="dove">
+    <h3 data-t="dove"></h3>
+    <div class="mappa"><iframe id="mappa" title="Mappa" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div>
+    <a class="btn oro pieno" id="strada" target="_blank" rel="noopener" data-t="strada"></a>
+    <p class="indirizzo">📍 Via Pisana 40/r · San Frediano · Firenze</p>
+  </section>
+
+  <a class="btn vuoto pieno" id="menu" data-t="menu"></a>
+  <p class="center small prenota"><a id="prenota" target="_blank" rel="noopener" data-t="prenota"></a></p>
+</div>
+
+<div class="coriandoli" id="coriandoli" aria-hidden="true"></div>
+
+<script src="../assets/js/qr.js"></script>
+<script src="../assets/js/comune.js"></script>
+<script src="../assets/js/store.js"></script>
+<script src="../assets/js/gioca.js"></script>
+</body>
+</html>

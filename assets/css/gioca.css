@@ -1,0 +1,93 @@
+/* Pagina del cliente: slot, buono, mappa */
+
+.wrap { text-align: center; }
+
+.lingue { display: flex; justify-content: flex-end; gap: 4px; }
+.lingue button {
+  background: none; border: 1px solid transparent; border-radius: 8px;
+  font-size: 1.25rem; padding: 2px 6px; cursor: pointer; opacity: .55;
+}
+.lingue button.on { opacity: 1; border-color: var(--line); }
+
+.testa { padding: 4px 0 6px; }
+.testa img { width: 96px; height: 96px; border-radius: 18px; margin: 0 auto 10px; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+.testa h1 { font-size: 1.5rem; letter-spacing: .12em; color: var(--gold); }
+.testa p { font-size: .8rem; color: var(--muted); margin-top: 2px; }
+
+.invito h2 { font-size: 1.55rem; margin-bottom: 6px; }
+.invito p { color: var(--muted); }
+
+/* ---------- slot ---------- */
+.slots { display: flex; justify-content: center; gap: 10px; margin: 22px 0 18px; }
+.slot {
+  width: 84px; height: 96px;
+  background: #0d0806; border: 2px solid var(--gold); border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 2.6rem; overflow: hidden;
+  box-shadow: inset 0 0 18px rgba(0,0,0,.8), 0 0 0 4px rgba(230,178,74,.08);
+}
+.slot.gira span { animation: rullo .12s linear infinite; }
+@keyframes rullo { from { transform: translateY(-35%); } to { transform: translateY(35%); } }
+.slot.ferma span { animation: tonfo .35s ease-out; }
+@keyframes tonfo { 0% { transform: translateY(-30%); } 70% { transform: translateY(6%); } 100% { transform: none; } }
+
+.btn.grande { font-size: 1.25rem; padding: 16px 52px; letter-spacing: .06em; font-weight: 700; }
+
+/* ---------- buono ---------- */
+.buono {
+  position: relative;
+  margin: 18px 0;
+  padding: 24px 20px 22px;
+  background: linear-gradient(160deg, #3a2410, #20140d);
+  border: 2px dashed var(--gold);
+  border-radius: 20px;
+  animation: entra .5s ease;
+}
+@keyframes entra { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: none; } }
+.buono::before, .buono::after {
+  content: ""; position: absolute; top: 50%; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--bg); border: 2px dashed var(--gold); transform: translateY(-50%);
+}
+.buono::before { left: -13px; border-left-color: transparent; border-bottom-color: transparent; transform: translateY(-50%) rotate(45deg); }
+.buono::after { right: -13px; border-right-color: transparent; border-top-color: transparent; transform: translateY(-50%) rotate(45deg); }
+
+.buono-testa { font-family: var(--font-display); font-size: 1.6rem; font-weight: 900; color: var(--gold-soft); }
+.buono-emoji { font-size: 2.6rem; margin: 6px 0; letter-spacing: .1em; }
+.buono-nome { font-weight: 700; font-size: 1.3rem; color: var(--gold); }
+.buono-desc { color: var(--muted); font-size: .92rem; margin: 4px 0 14px; }
+.buono-qr { position: relative; width: 200px; }
+.buono-codice { font-family: ui-monospace, Menlo, monospace; font-size: 1.5rem; letter-spacing: .25em; color: var(--gold-soft); margin: 10px 0 12px; }
+.buono-tavolo { display: inline-block; background: rgba(134,182,74,.16); color: #c7e59b; border-radius: 999px; padding: 6px 14px; font-weight: 600; font-size: .9rem; }
+.buono-valido { color: #ff8d7f; font-weight: 700; margin-top: 10px; }
+.buono-mostra { margin-top: 10px; font-weight: 600; }
+.buono .dim { margin-top: 4px; }
+
+/* timbro sopra il QR quando è già usato o scaduto */
+.timbro {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,.82); border-radius: 14px;
+}
+.timbro b {
+  transform: rotate(-12deg); border: 4px solid currentColor; border-radius: 10px;
+  padding: 6px 12px; font-size: 1.15rem; letter-spacing: .08em;
+}
+.timbro.ok b { color: #3f7d1c; }
+.timbro.no b { color: #b3261e; }
+
+/* ---------- messaggi ---------- */
+#messaggio .grande-emoji { font-size: 2.6rem; }
+#messaggio p { margin-top: 6px; }
+
+/* ---------- mappa ---------- */
+.dove { margin: 26px 0 10px; }
+.dove h3 { color: var(--gold-soft); margin-bottom: 10px; }
+.mappa { border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line); background: var(--card); aspect-ratio: 4 / 3; margin-bottom: 12px; }
+.mappa iframe { width: 100%; height: 100%; border: 0; display: block; filter: saturate(.9); }
+.indirizzo { color: var(--muted); font-size: .85rem; margin-top: 10px; }
+#menu { margin-top: 12px; }
+.prenota { margin-top: 14px; }
+
+
+@media (prefers-reduced-motion: reduce) {
+  .slot.gira span, .slot.ferma span, .buono { animation: none; }
+}

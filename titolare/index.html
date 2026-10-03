@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1a1210">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Vico Dashboard">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Vico Dashboard</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="../assets/img/logo.jpg">
+<link rel="apple-touch-icon" href="../assets/img/logo.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/base.css">
+<link rel="stylesheet" href="../assets/css/app.css">
+</head>
+<body>
+
+<div class="demo-bar" id="demo-bar" hidden>DEMO · dati di prova · PIN 1234</div>
+
+<!-- PIN -->
+<section id="login" class="accesso" hidden>
+  <img src="../assets/img/logo.jpg" alt="">
+  <h1>Vico Dashboard</h1>
+  <p class="muted">Agenti e premi · solo per il titolare</p>
+  <p class="dim" style="margin-top:6px">Usa il PIN da titolare del menu</p>
+  <form id="f-login">
+    <input class="pin" id="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="8" aria-label="PIN">
+    <label class="ricorda"><input type="checkbox" id="ricorda" checked> Ricorda su questo telefono</label>
+    <button class="btn rosso pieno">Entra</button>
+  </form>
+</section>
+
+<div id="app" hidden>
+  <header class="top">
+    <img src="../assets/img/logo.jpg" alt="">
+    <div>
+      <div class="t1">Vico Dashboard</div>
+      <div class="t2" id="sottotitolo">Agenti · premi · provvigioni</div>
+    </div>
+  </header>
+
+  <main class="wrap">
+
+    <!-- RISCATTA -->
+    <section data-tab="riscatta">
+      <div id="r-inizio">
+        <button class="btn rosso pieno grande" id="scansiona" style="min-height:64px;font-size:1.15rem">📷 Scansiona il buono</button>
+        <form id="f-codice" class="riga" style="margin-top:12px">
+          <input id="codice" type="text" placeholder="oppure scrivi il codice" autocapitalize="characters" autocomplete="off" spellcheck="false">
+          <button class="btn oro fisso">Cerca</button>
+        </form>
+        <p class="dim center" style="margin-top:12px">Puoi anche inquadrare il buono con la fotocamera normale del telefono: si apre direttamente qui.</p>
+      </div>
+      <div id="r-esito"></div>
+      <div class="card" id="r-sera"></div>
+    </section>
+
+    <!-- STASERA -->
+    <section data-tab="stasera" hidden>
+      <div class="sez-titolo"><h2>🌙 Stasera</h2><span class="dim" id="st-chiusura"></span></div>
+      <div class="kpi">
+        <div><b id="st-giocate">0</b><span>hanno giocato</span></div>
+        <div><b id="st-tavoli">0</b><span>tavoli arrivati</span></div>
+        <div><b id="st-persone">0</b><span>persone</span></div>
+      </div>
+      <div class="kpi due" style="margin-top:10px">
+        <div class="euro"><b id="st-euro">0 €</b><span>provvigioni stasera</span></div>
+        <div><b id="st-attesa">0</b><span>buoni ancora in giro</span></div>
+      </div>
+      <div class="card"><h3>Per agente</h3><ul class="lista" id="st-agenti"></ul></div>
+      <div class="card"><h3>Tavoli arrivati</h3><ul class="lista" id="st-tavoli-lista"></ul></div>
+    </section>
+
+    <!-- AGENTI -->
+    <section data-tab="agenti" hidden>
+      <div class="sez-titolo"><h2>👥 Agenti</h2><button class="btn oro piccolo" id="nuovo-agente">＋ Nuovo</button></div>
+      <div id="lista-agenti"></div>
+    </section>
+
+    <!-- PREMI -->
+    <section data-tab="premi" hidden>
+      <div class="sez-titolo"><h2>🎁 Premi</h2><button class="btn vuoto piccolo" id="nuovo-premio">＋ Premio</button></div>
+      <p class="dim">Sposta la barra per far uscire un premio più o meno spesso. La percentuale accanto al nome è la probabilità reale.</p>
+      <div id="lista-premi"></div>
+      <button class="btn rosso pieno" id="salva-premi" style="margin-top:8px">Salva premi</button>
+    </section>
+
+    <!-- ALTRO -->
+    <section data-tab="altro" hidden>
+      <h2 style="margin:8px 0">⚙️ Impostazioni</h2>
+      <div class="card">
+        <h3>⏰ Chiusura</h3>
+        <p class="dim">I buoni valgono solo la sera stessa, fino a quest'ora.</p>
+        <div class="riga" style="margin-top:10px">
+          <input type="time" id="chiusura">
+          <button class="btn oro fisso" id="salva-chiusura">Salva</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>💶 Tariffe per i nuovi agenti</h3>
+        <p class="dim">Euro a persona, si riparte da zero ogni sera. Ogni agente poi può avere le sue.</p>
+        <div id="fasce-standard"></div>
+        <button class="btn oro pieno" id="salva-fasce" style="margin-top:6px">Salva tariffe</button>
+      </div>
+      <div class="card">
+        <h3>🔑 PIN</h3>
+        <p class="dim">È lo stesso PIN da titolare del menu: se lo cambi lì, cambia anche qui.</p>
+      </div>
+      <div class="card">
+        <h3>🔗 Pagine</h3>
+        <ul class="lista">
+          <li><span class="cresce">Pagina del gioco del primo agente attivo</span><a class="btn vuoto piccolo" id="link-gioco" target="_blank" rel="noopener">Apri</a></li>
+        </ul>
+      </div>
+      <button class="btn vuoto pieno" id="esci">Esci da questo telefono</button>
+      <button class="btn vuoto pieno" id="demo-azzera" style="margin-top:10px" hidden>↺ Ricrea i dati di prova</button>
+    </section>
+  </main>
+
+  <nav class="tabbar">
+    <button data-vai="riscatta" class="on"><i>📷</i>Riscatta</button>
+    <button data-vai="stasera"><i>🌙</i>Stasera</button>
+    <button data-vai="agenti"><i>👥</i>Agenti</button>
+    <button data-vai="premi"><i>🎁</i>Premi</button>
+    <button data-vai="altro"><i>⚙️</i>Altro</button>
+  </nav>
+</div>
+
+<div class="foglio" id="foglio" hidden>
+  <div class="dentro">
+    <button class="chiudi" id="chiudi-foglio" aria-label="Chiudi">×</button>
+    <div id="foglio-corpo"></div>
+  </div>
+</div>
+
+<div class="scanner" id="scanner" hidden>
+  <video playsinline muted></video>
+  <div class="mirino"></div>
+  <div class="sotto">
+    <p>Inquadra il QR del buono</p>
+    <button class="btn vuoto" id="chiudi-scanner">Annulla</button>
+  </div>
+</div>
+
+<script src="../assets/js/qr.js"></script>
+<script src="../assets/js/comune.js"></script>
+<script src="../assets/js/store.js"></script>
+<script src="../assets/js/titolare.js"></script>
+</body>
+</html>
