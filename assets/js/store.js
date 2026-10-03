@@ -366,6 +366,20 @@ const Store = (function () {
     });
   }
 
+  function eliminaAgente(pin, id) {
+    return rete(function () {
+      const db = leggi();
+      controllaPin(db, pin);
+      const a = agenteDa(db, id);
+      const tavoli = db.buoni.filter(function (b) { return b.agente === id && b.stato === "riscattato"; }).length;
+      db.buoni = db.buoni.filter(function (b) { return b.agente !== id; });
+      db.pagamenti = db.pagamenti.filter(function (p) { return p.agente !== id; });
+      db.agenti = db.agenti.filter(function (x) { return x.id !== id; });
+      scrivi(db);
+      return { nome: a.nome, tavoli: tavoli };
+    });
+  }
+
   function pagamento(pin, agenteId, importo, nota) {
     return rete(function () {
       const db = leggi();
@@ -440,7 +454,7 @@ const Store = (function () {
     chiavePush: function () { return Promise.reject(errore("demo", "Nella demo le notifiche non partono")); },
     salvaPush: function () { return Promise.resolve(true); },
     notifica: function () { return Promise.resolve({ inviate: 0 }); },
-    entra, leggiBuono, riscatta, annulla, panoramica, dettaglioAgente, salvaAgente, nuovaChiave,
+    entra, leggiBuono, riscatta, annulla, panoramica, dettaglioAgente, salvaAgente, nuovaChiave, eliminaAgente,
     pagamento, premi, salvaPremi, impostazioni, salvaImpostazioni,
     demoAgenti, demoAzzera,
   };
@@ -499,6 +513,7 @@ const Store = (function () {
     dettaglioAgente: function (pin, id) { return rpc("pr_dettaglio_agente", { p_pin: pin, p_id: id }); },
     salvaAgente: function (pin, dati) { return rpc("pr_salva_agente", { p_pin: pin, p_dati: dati }); },
     nuovaChiave: function (pin, id) { return rpc("pr_nuova_chiave", { p_pin: pin, p_id: id }); },
+    eliminaAgente: function (pin, id) { return rpc("pr_elimina_agente", { p_pin: pin, p_id: id }); },
     pagamento: function (pin, agenteId, importo, nota) {
       return rpc("pr_pagamento", { p_pin: pin, p_agente: agenteId, p_importo: String(importo), p_nota: nota || "" });
     },

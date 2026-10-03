@@ -469,7 +469,9 @@
         return '<li><div class="cresce">' + d.toLocaleDateString("it-IT", { day: "numeric", month: "short", year: "numeric" }) +
           (p.nota ? '<div class="dim">' + C.esc(p.nota) + "</div>" : "") + "</div>" +
           '<span class="euro">' + C.euro(p.importo) + "</span></li>";
-      }).join("") : '<li class="vuoto">Nessun pagamento registrato.</li>') + "</ul></div>"
+      }).join("") : '<li class="vuoto">Nessun pagamento registrato.</li>') + "</ul></div>" +
+
+      '<button class="btn vuoto pieno" id="ag-elimina" style="color:var(--danger);border-color:rgba(255,107,94,.45)">🗑 Elimina agente</button>'
     );
     legaFasce($("#ag-fasce"));
 
@@ -496,6 +498,23 @@
     $("#ag-copia").addEventListener("click", async function () {
       const url = C.urlAgente(a.chiave);
       try { await navigator.clipboard.writeText(url); C.toast("Link copiato"); } catch (e) { prompt("Link dell'agente:", url); }
+    });
+    $("#ag-elimina").addEventListener("click", async function () {
+      const tavoli = a.serate.reduce(function (s, x) { return s + x.tavoli; }, 0);
+      const storico = tavoli > 0 || a.pagamenti.length > 0;
+      const domanda = storico
+        ? "Elimino " + a.nome + " e TUTTO il suo storico?\n\nSi cancellano anche " + tavoli + (tavoli === 1 ? " tavolo, " : " tavoli, ") +
+          C.euro(a.maturato) + " di provvigioni e " + a.pagamenti.length + (a.pagamenti.length === 1 ? " pagamento registrato" : " pagamenti registrati") +
+          ". Non si può tornare indietro.\n\n" +
+          "Se vuoi solo fermarlo, premi Annulla e mettilo in pausa con l'interruttore."
+        : "Elimino " + a.nome + "? Il suo link e il suo QR smettono subito di funzionare.";
+      if (!confirm(domanda)) return;
+      try {
+        await conPin(function (p) { return S.eliminaAgente(p, id); });
+        chiudiFoglio();
+        C.toast(a.nome + " eliminato");
+        caricaAgenti();
+      } catch (e) { errore(e); }
     });
     $("#ag-chiave").addEventListener("click", async function () {
       if (!confirm("Creo un link nuovo per " + a.nome + "? Quello vecchio smette subito di funzionare (utile se ha perso il telefono).")) return;

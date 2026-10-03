@@ -476,6 +476,21 @@ begin
   return to_jsonb(a);
 end $$;
 
+-- elimina un agente con tutto il suo storico (buoni, pagamenti, notifiche): non si torna indietro
+create or replace function public.pr_elimina_agente(p_pin text, p_id uuid) returns jsonb
+language plpgsql volatile security definer set search_path = public as $$
+declare a public.pr_agenti; tavoli int;
+begin
+  perform public.pr_controlla_pin(p_pin);
+  select * into a from public.pr_agenti where id = p_id for update;
+  if not found then raise exception 'Agente non trovato' using hint = 'agente'; end if;
+  select count(*) into tavoli from public.pr_buoni where agente = a.id and stato = 'riscattato';
+  delete from public.pr_pagamenti where agente = a.id;
+  delete from public.pr_buoni where agente = a.id;
+  delete from public.pr_agenti where id = a.id;          -- pr_push se ne va da sola (on delete cascade)
+  return jsonb_build_object('nome', a.nome, 'tavoli', tavoli);
+end $$;
+
 -- nuovo link per l'agente (es. ha perso il telefono): il vecchio smette di funzionare
 create or replace function public.pr_nuova_chiave(p_pin text, p_id uuid) returns text
 language plpgsql volatile security definer set search_path = public as $$
@@ -574,7 +589,7 @@ grant execute on function
   public.pr_agente(text), public.pr_salva_push(text, jsonb),
   public.pr_entra(text), public.pr_leggi_buono(text, text), public.pr_riscatta(text, text, int),
   public.pr_annulla(text, text), public.pr_panoramica(text), public.pr_dettaglio_agente(text, uuid),
-  public.pr_salva_agente(text, jsonb), public.pr_nuova_chiave(text, uuid),
+  public.pr_salva_agente(text, jsonb), public.pr_nuova_chiave(text, uuid), public.pr_elimina_agente(text, uuid),
   public.pr_pagamento(text, uuid, text, text), public.pr_premi(text), public.pr_salva_premi(text, jsonb),
   public.pr_impostazioni(text), public.pr_salva_impostazioni(text, jsonb)
 to anon, authenticated;
