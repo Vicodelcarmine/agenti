@@ -8,8 +8,8 @@ self.addEventListener("push", function (e) {
   try { d = e.data ? e.data.json() : {}; } catch (er) { d = { body: e.data ? e.data.text() : "" }; }
   e.waitUntil(self.registration.showNotification(d.title || "Vico Agenti", {
     body: d.body || "",
-    icon: "../assets/img/logo.jpg",
-    badge: "../assets/img/logo.jpg",
+    icon: "../assets/img/icona-agente-192.png",
+    badge: "../assets/img/icona-agente-192.png",
     tag: d.tag || "vico-agenti",
     renotify: true,
     vibrate: [200, 100, 200, 100, 300],
