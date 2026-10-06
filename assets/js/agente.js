@@ -37,13 +37,14 @@
     st.textContent = d.attivo ? "QR attivo" : "In pausa";
     st.className = "pill " + (d.attivo ? "ok" : "no");
     $("#in-pausa").hidden = d.attivo;
+    $("#servizio-pausa").hidden = !d.pausa || !d.attivo;
 
     if (primaVolta) {
       const url = C.urlGioca(d.codice);
       $("#mio-qr").innerHTML = C.disegnaQR(url);
       $("#qr-grande").innerHTML = C.disegnaQR(url);
     }
-    $("#mio-qr").style.opacity = d.attivo ? 1 : .25;
+    $("#mio-qr").style.opacity = d.attivo && !d.pausa ? 1 : .25;
 
     $("#s-giocate").textContent = d.stasera.giocate;
     $("#s-persone").textContent = d.stasera.persone;
@@ -62,8 +63,19 @@
       $("#s-barra").hidden = true;
     }
 
-    $("#fasce").innerHTML = C.descriviFasce(d.fasce).map(function (f) {
-      return '<li><span class="cresce">' + C.esc(f.testo) + '</span><span class="euro">' + C.euro(f.euro) + "</span></li>";
+    // settimana di benvenuto: tariffe moltiplicate, con accanto quelle di sempre
+    if (d.bonusFino) {
+      const quanto = Number(d.bonusPer) === 2 ? "doppie" : "×" + String(d.bonusPer).replace(".", ",");
+      $("#bonus").innerHTML = "🔥 <b>Settimana di benvenuto:</b> tariffe " + quanto + " fino a " +
+        C.esc(C.dataBreve(d.bonusFino)) + " compreso";
+      $("#bonus").hidden = false;
+    } else {
+      $("#bonus").hidden = true;
+    }
+    $("#fasce").innerHTML = C.descriviFasce(d.fasce).map(function (f, i) {
+      const base = d.fasceBase && d.fasceBase[i] && Number(d.fasceBase[i].euro) !== Number(f.euro)
+        ? '<s class="dim">' + C.euro(d.fasceBase[i].euro) + "</s> " : "";
+      return '<li><span class="cresce">' + C.esc(f.testo) + "</span>" + base + '<span class="euro">' + C.euro(f.euro) + "</span></li>";
     }).join("");
 
     $("#m-titolo").textContent = "📅 " + d.mese.nome.charAt(0).toUpperCase() + d.mese.nome.slice(1);
@@ -131,6 +143,11 @@
     const testo = $("#avvisi-testo"), btn = $("#attiva-avvisi");
     $("#avvisi").classList.remove("attivi");
     btn.hidden = true;
+    if (C.VETRINA) {   // per le riprese: come appare a chi le ha già attivate
+      testo.textContent = "✅ Attive: ti arriva una notifica appena un tuo cliente si siede.";
+      $("#avvisi").classList.add("attivi");
+      return;
+    }
     if (Store.DEMO) {
       testo.textContent = "Nella demo le notifiche non partono, ma con l'app aperta vedi lo stesso la festa quando arriva un tavolo.";
       return;
@@ -214,9 +231,21 @@
     }
   });
 
-  $("#demo-bar").hidden = !Store.DEMO;
+  $("#demo-bar").hidden = !Store.DEMO || C.VETRINA;
   if ("serviceWorker" in navigator && !Store.DEMO) navigator.serviceWorker.register("sw.js").catch(function () {});
-  aggiorna().then(function () { if (dati) statoAvvisi(); });
+  aggiorna().then(function () {
+    if (dati) statoAvvisi();
+    // vetrina con &festa=1: dopo 3 secondi "arriva" un tavolo da 3, per riprendere la festa
+    if (dati && C.VETRINA && /[?&]festa=1/.test(location.search)) {
+      setTimeout(async function () {
+        try {
+          const b = await Store.gioca(dati.codice, "VETRINA-" + Date.now());
+          await Store.riscatta("1234", b.codice, 3);
+          aggiorna();
+        } catch (e) {}
+      }, 3000);
+    }
+  });
   setInterval(function () { if (!document.hidden) aggiorna(); }, 15000);
   document.addEventListener("visibilitychange", function () { if (!document.hidden) aggiorna(); });
 })();

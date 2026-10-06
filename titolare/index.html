@@ -23,8 +23,9 @@
 
 <!-- PIN -->
 <section id="login" class="accesso" hidden>
-  <img src="../assets/img/logo.jpg" alt="">
-  <h1>Vico Dashboard</h1>
+  <img class="marchio" src="../assets/img/logo.jpg" alt="">
+  <div class="emblema grande solo-vetrina" aria-hidden="true">🍕</div>
+  <h1><span class="marchio">Vico Dashboard</span><span class="solo-vetrina">Dashboard</span></h1>
   <p class="muted">Agenti e premi · solo per il titolare</p>
   <p class="dim" style="margin-top:6px">Usa il PIN da titolare del menu</p>
   <form id="f-login">
@@ -36,9 +37,10 @@
 
 <div id="app" hidden>
   <header class="top">
-    <img src="../assets/img/logo.jpg" alt="">
+    <img class="marchio" src="../assets/img/logo.jpg" alt="">
+    <div class="emblema solo-vetrina" aria-hidden="true">🍕</div>
     <div>
-      <div class="t1">Vico Dashboard</div>
+      <div class="t1"><span class="marchio">Vico Dashboard</span><span class="solo-vetrina">Dashboard</span></div>
       <div class="t2" id="sottotitolo">Agenti · premi · provvigioni</div>
     </div>
   </header>
@@ -99,6 +101,21 @@
           <input type="time" id="chiusura">
           <button class="btn oro fisso" id="salva-chiusura">Salva</button>
         </div>
+      </div>
+      <div class="card">
+        <h3>🔥 Settimana di benvenuto</h3>
+        <p class="dim">I primi giorni di ogni agente, a partire da quando lo crei, le sue tariffe vengono moltiplicate. 0 giorni = niente bonus.</p>
+        <div class="riga">
+          <label class="campo"><span>Giorni</span><input type="number" inputmode="numeric" id="bonus-giorni" min="0" max="60"></label>
+          <label class="campo"><span>Tariffe ×</span><input type="text" inputmode="decimal" id="bonus-per"></label>
+        </div>
+        <button class="btn oro pieno" id="salva-bonus">Salva</button>
+      </div>
+      <div class="card">
+        <h3>😊 Giorni di pausa</h3>
+        <p class="dim">Le sere in cui siamo già al completo: il gioco non dà buoni e gli agenti lo vedono nell'app.</p>
+        <div class="giorni" id="giorni-pausa"></div>
+        <button class="btn oro pieno" id="salva-pausa" style="margin-top:12px">Salva</button>
       </div>
       <div class="card">
         <h3>💶 Tariffe per i nuovi agenti</h3>

@@ -13,6 +13,11 @@ create table if not exists public.pr_impostazioni (
   fasce    jsonb not null default '[{"fino":10,"euro":2},{"fino":20,"euro":3},{"fino":null,"euro":4}]'
 );
 insert into public.pr_impostazioni (id) values (1) on conflict (id) do nothing;
+-- settimana di benvenuto: i primi giorni dell'agente le tariffe sono moltiplicate (0 giorni = niente bonus)
+alter table public.pr_impostazioni add column if not exists bonus_giorni int not null default 7;
+alter table public.pr_impostazioni add column if not exists bonus_per numeric(4,2) not null default 2;
+-- giorni di pausa del servizio (0 = domenica … 6 = sabato): quella sera il gioco non dà buoni
+alter table public.pr_impostazioni add column if not exists giorni_pausa int[] not null default '{6}';
 
 create table if not exists public.pr_agenti (
   id       uuid primary key default gen_random_uuid(),
@@ -135,6 +140,30 @@ language sql immutable set search_path = public as $$
   select coalesce(sum(public.pr_tariffa(fasce, k)), 0) from generate_series(gia + 1, gia + n) as k
 $$;
 
+-- ultima sera della settimana di benvenuto di un agente (null = niente bonus)
+create or replace function public.pr_bonus_ultima(a public.pr_agenti) returns date
+language sql stable set search_path = public as $$
+  select case when i.bonus_giorni > 0 and i.bonus_per > 1 then public.pr_sera(a.creato) + i.bonus_giorni - 1 end
+    from public.pr_impostazioni i where i.id = 1
+$$;
+
+-- tariffe che valgono per quell'agente in quella sera (in settimana di benvenuto: moltiplicate)
+create or replace function public.pr_fasce_sera(a public.pr_agenti, s date) returns jsonb
+language sql stable set search_path = public as $$
+  select case when s <= public.pr_bonus_ultima(a) then (
+           select jsonb_agg(jsonb_build_object('fino', x.f->'fino',
+                                               'euro', round((x.f->>'euro')::numeric * i.bonus_per, 2)) order by x.n)
+             from jsonb_array_elements(a.fasce) with ordinality as x(f, n), public.pr_impostazioni i
+            where i.id = 1)
+         else a.fasce end
+$$;
+
+-- quella sera il servizio è in pausa? (es. il sabato: siamo già al completo)
+create or replace function public.pr_in_pausa(s date) returns boolean
+language sql stable set search_path = public as $$
+  select extract(dow from s)::int = any(giorni_pausa) from public.pr_impostazioni where id = 1
+$$;
+
 create or replace function public.pr_casuale(n int) returns text
 language plpgsql volatile set search_path = public as $$
 declare
@@ -230,6 +259,8 @@ revoke execute on function public.pr_controlla_pin(text)   from public, anon, au
 revoke execute on function public.pr_casuale(int)          from public, anon, authenticated;
 revoke execute on function public.pr_vista(public.pr_buoni)            from public, anon, authenticated;
 revoke execute on function public.pr_ultimo_della_sera(public.pr_buoni) from public, anon, authenticated;
+revoke execute on function public.pr_bonus_ultima(public.pr_agenti)       from public, anon, authenticated;
+revoke execute on function public.pr_fasce_sera(public.pr_agenti, date)   from public, anon, authenticated;
 
 
 -- ================= CLIENTE (pagina del gioco) =================
@@ -240,7 +271,7 @@ declare a public.pr_agenti;
 begin
   select * into a from public.pr_agenti where codice = upper(p_codice);
   if not found then raise exception 'QR non valido' using hint = 'agente'; end if;
-  return jsonb_build_object('attivo', a.attivo);
+  return jsonb_build_object('attivo', a.attivo, 'pausa', public.pr_in_pausa(public.pr_sera(now())));
 end $$;
 
 -- gira la slot: il premio lo sceglie il server, il telefono non può barare
@@ -263,6 +294,7 @@ begin
   end if;
   select * into a from public.pr_agenti where codice = upper(p_codice);
   if not found or not a.attivo then raise exception 'QR non attivo' using hint = 'agente'; end if;
+  if public.pr_in_pausa(s) then raise exception 'Stasera siamo al completo' using hint = 'pausa'; end if;
   select * into imp from public.pr_impostazioni where id = 1;
   sc := public.pr_scadenza(s, imp.chiusura);
   if now() >= sc then raise exception 'Per stasera abbiamo chiuso' using hint = 'chiuso'; end if;
@@ -315,7 +347,11 @@ begin
   select * into a from public.pr_agenti where chiave = p_chiave;
   if not found then raise exception 'Link non valido' using hint = 'chiave'; end if;
   return jsonb_build_object(
-      'nome', a.nome, 'codice', a.codice, 'attivo', a.attivo, 'fasce', a.fasce,
+      'nome', a.nome, 'codice', a.codice, 'attivo', a.attivo,
+      'fasce', public.pr_fasce_sera(a, public.pr_sera(now())), 'fasceBase', a.fasce,
+      'bonusFino', case when public.pr_bonus_ultima(a) >= public.pr_sera(now()) then public.pr_bonus_ultima(a) end,
+      'bonusPer', (select bonus_per from public.pr_impostazioni where id = 1),
+      'pausa', public.pr_in_pausa(public.pr_sera(now())),
       'ultimi', coalesce((
         select jsonb_agg(to_jsonb(x) order by x.quando desc) from (
           select riscattato as quando, sera, persone, euro from public.pr_buoni
@@ -357,7 +393,8 @@ begin
    where agente = a.id and sera = b.sera and stato = 'riscattato' and codice <> b.codice;
   return public.pr_vista(b) || jsonb_build_object(
     'agente', jsonb_build_object('id', a.id, 'nome', a.nome, 'attivo', a.attivo),
-    'fasce', a.fasce, 'giaStasera', gia,
+    'fasce', public.pr_fasce_sera(a, b.sera), 'giaStasera', gia,
+    'bonus', coalesce(b.sera <= public.pr_bonus_ultima(a), false),
     'annullabile', b.stato = 'riscattato' and public.pr_ultimo_della_sera(b));
 end $$;
 
@@ -377,10 +414,10 @@ begin
   select * into a from public.pr_agenti where id = b.agente for update;
   select coalesce(sum(persone), 0) into gia from public.pr_buoni
    where agente = a.id and sera = b.sera and stato = 'riscattato';
-  e := public.pr_provvigione(a.fasce, gia, p_persone);
+  e := public.pr_provvigione(public.pr_fasce_sera(a, b.sera), gia, p_persone);
   update public.pr_buoni set stato = 'riscattato', riscattato = clock_timestamp(), persone = p_persone, euro = e
    where codice = b.codice;
-  return jsonb_build_object('euro', e, 'gia', gia, 'fasce', a.fasce, 'agente', a.nome, 'premio', b.premio);
+  return jsonb_build_object('euro', e, 'gia', gia, 'fasce', public.pr_fasce_sera(a, b.sera), 'agente', a.nome, 'premio', b.premio);
 end $$;
 
 create or replace function public.pr_annulla(p_pin text, p_codice text) returns boolean
@@ -406,7 +443,8 @@ begin
   return jsonb_build_object(
     'agenti', coalesce((
       select jsonb_agg(jsonb_build_object('id', a.id, 'nome', a.nome, 'telefono', a.telefono,
-                                          'attivo', a.attivo, 'codice', a.codice)
+                                          'attivo', a.attivo, 'codice', a.codice,
+                                          'bonusFino', case when public.pr_bonus_ultima(a) >= s then public.pr_bonus_ultima(a) end)
                        || public.pr_riepilogo(a.id) order by a.creato)
         from public.pr_agenti a), '[]'::jsonb),
     'tavoli', coalesce((
@@ -429,6 +467,8 @@ begin
   select * into a from public.pr_agenti where id = p_id;
   if not found then raise exception 'Agente non trovato' using hint = 'agente'; end if;
   return to_jsonb(a) || public.pr_riepilogo(a.id) || jsonb_build_object(
+    'bonusFino', case when public.pr_bonus_ultima(a) >= public.pr_sera(now()) then public.pr_bonus_ultima(a) end,
+    'bonusPer', (select bonus_per from public.pr_impostazioni where id = 1),
     'serate', coalesce((
       select jsonb_agg(to_jsonb(x) order by x.sera desc) from (
         select sera,
@@ -563,12 +603,14 @@ create or replace function public.pr_impostazioni(p_pin text) returns jsonb
 language plpgsql stable security definer set search_path = public as $$
 begin
   perform public.pr_controlla_pin(p_pin);
-  return (select jsonb_build_object('chiusura', chiusura, 'fasce', fasce) from public.pr_impostazioni where id = 1);
+  return (select jsonb_build_object('chiusura', chiusura, 'fasce', fasce, 'bonusGiorni', bonus_giorni,
+                                     'bonusPer', bonus_per, 'giorniPausa', to_jsonb(giorni_pausa))
+            from public.pr_impostazioni where id = 1);
 end $$;
 
 create or replace function public.pr_salva_impostazioni(p_pin text, p_dati jsonb) returns boolean
 language plpgsql volatile security definer set search_path = public as $$
-declare s date := public.pr_sera(now()); ch text := p_dati->>'chiusura';
+declare s date := public.pr_sera(now()); ch text := p_dati->>'chiusura'; v text;
 begin
   perform public.pr_controlla_pin(p_pin);
   if ch is not null then
@@ -579,6 +621,28 @@ begin
   end if;
   if p_dati ? 'fasce' then
     update public.pr_impostazioni set fasce = public.pr_valida_fasce(p_dati->'fasce') where id = 1;
+  end if;
+  if p_dati ? 'bonusGiorni' then
+    v := trim(p_dati->>'bonusGiorni');
+    if coalesce(v, '') !~ '^\d{1,2}$' or v::int > 60 then
+      raise exception 'Giorni di benvenuto non validi (da 0 a 60)' using hint = 'bonus';
+    end if;
+    update public.pr_impostazioni set bonus_giorni = v::int where id = 1;
+  end if;
+  if p_dati ? 'bonusPer' then
+    v := replace(trim(p_dati->>'bonusPer'), ',', '.');
+    if coalesce(v, '') !~ '^\d(\.\d{1,2})?$' or v::numeric < 1 or v::numeric > 5 then
+      raise exception 'Moltiplicatore non valido (da 1 a 5)' using hint = 'bonus';
+    end if;
+    update public.pr_impostazioni set bonus_per = v::numeric where id = 1;
+  end if;
+  if p_dati ? 'giorniPausa' then
+    if jsonb_typeof(p_dati->'giorniPausa') <> 'array' then raise exception 'Giorni di pausa non validi' using hint = 'pausa'; end if;
+    update public.pr_impostazioni
+       set giorni_pausa = coalesce((select array_agg(distinct g::int order by g::int)
+                                      from jsonb_array_elements_text(p_dati->'giorniPausa') g
+                                     where g ~ '^[0-6]$'), '{}')
+     where id = 1;
   end if;
   return true;
 end $$;

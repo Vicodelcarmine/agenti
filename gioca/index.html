@@ -20,9 +20,12 @@
   <nav class="lingue" id="lingue" aria-label="Lingua"></nav>
 
   <header class="testa">
-    <img src="../assets/img/logo.jpg" alt="Vico del Carmine" width="96" height="96">
-    <h1>VICO DEL CARMINE</h1>
-    <p>Osteria Pizzeria Napoletana · San Frediano, Firenze</p>
+    <img class="marchio" src="../assets/img/logo.jpg" alt="Vico del Carmine" width="96" height="96">
+    <div class="emblema grande solo-vetrina" aria-hidden="true">🍕</div>
+    <h1 class="marchio">VICO DEL CARMINE</h1>
+    <h1 class="solo-vetrina">OSTERIA · PIZZERIA</h1>
+    <p class="marchio">Osteria Pizzeria Napoletana · San Frediano, Firenze</p>
+    <p class="solo-vetrina">Firenze</p>
   </header>
 
   <section id="gioco" hidden>
@@ -44,13 +47,14 @@
 
   <section class="dove">
     <h3 data-t="dove"></h3>
-    <div class="mappa"><iframe id="mappa" title="Mappa" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div>
+    <div class="mappa marchio"><iframe id="mappa" title="Mappa" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div>
+    <div class="mappa mappa-finta solo-vetrina" aria-hidden="true"><span>📍</span><b>3 minuti a piedi</b></div>
     <a class="btn oro pieno" id="strada" target="_blank" rel="noopener" data-t="strada"></a>
-    <p class="indirizzo">📍 Via Pisana 40/r · San Frediano · Firenze</p>
+    <p class="indirizzo marchio">📍 Via Pisana 40/r · San Frediano · Firenze</p>
   </section>
 
-  <a class="btn vuoto pieno" id="menu" data-t="menu"></a>
-  <p class="center small prenota"><a id="prenota" target="_blank" rel="noopener" data-t="prenota"></a></p>
+  <a class="btn vuoto pieno marchio" id="menu" data-t="menu"></a>
+  <p class="center small prenota marchio"><a id="prenota" target="_blank" rel="noopener" data-t="prenota"></a></p>
 </div>
 
 <div class="coriandoli" id="coriandoli" aria-hidden="true"></div>

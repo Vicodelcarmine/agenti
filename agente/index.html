@@ -23,9 +23,10 @@
 
 <!-- senza link d'accesso -->
 <section id="fuori" class="accesso" hidden>
-  <img src="../assets/img/logo.jpg" alt="">
-  <h1>Vico Agenti</h1>
-  <p class="muted">Questa app si apre dal link personale che ti ha mandato il Vico del Carmine.</p>
+  <img class="marchio" src="../assets/img/logo.jpg" alt="">
+  <div class="emblema grande solo-vetrina" aria-hidden="true">🍕</div>
+  <h1><span class="marchio">Vico Agenti</span><span class="solo-vetrina">App agente</span></h1>
+  <p class="muted">Questa app si apre dal link personale che ti ha mandato <span class="marchio">il Vico del Carmine</span><span class="solo-vetrina">il ristorante</span>.</p>
   <div id="demo-scelta" hidden>
     <p class="dim" style="margin:22px 0 8px">Demo: entra come</p>
   </div>
@@ -34,10 +35,11 @@
 <!-- app -->
 <div id="app" hidden>
   <header class="top">
-    <img src="../assets/img/logo.jpg" alt="">
+    <img class="marchio" src="../assets/img/logo.jpg" alt="">
+    <div class="emblema solo-vetrina" aria-hidden="true">🍕</div>
     <div>
       <div class="t1" id="saluto">Ciao</div>
-      <div class="t2">Agente · Vico del Carmine</div>
+      <div class="t2"><span class="marchio">Agente · Vico del Carmine</span><span class="solo-vetrina">Agente</span></div>
     </div>
     <div class="spazio"></div>
     <span class="pill" id="stato"></span>
@@ -47,6 +49,11 @@
     <div class="card no center" id="in-pausa" hidden>
       <h3>⏸️ Il tuo QR è in pausa</h3>
       <p class="muted small">Chi lo inquadra non può giocare. Parlane con il ristorante.</p>
+    </div>
+
+    <div class="card no center" id="servizio-pausa" hidden>
+      <h3>😊 Stasera siamo al completo</h3>
+      <p class="muted small">Servizio in pausa: chi inquadra il tuo QR non riceve buoni. Si riparte domani!</p>
     </div>
 
     <section class="card oro center">
@@ -78,6 +85,7 @@
 
     <section class="card">
       <h3>💶 Le tue tariffe</h3>
+      <p class="bonus" id="bonus" hidden></p>
       <ul class="lista" id="fasce"></ul>
       <p class="dim">Ogni sera si riparte da zero.</p>
     </section>

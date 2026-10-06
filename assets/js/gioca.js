@@ -12,7 +12,7 @@
       dove: "Siamo a pochi passi da qui", strada: "📍 PORTAMI AL RISTORANTE", menu: "📋 SCOPRI IL NOSTRO MENU",
       prenota: "Prenota su WhatsApp", usato: "RITIRATO", buonAppetito: "Premio ritirato: buon appetito! 🍕",
       scaduto: "SCADUTO", scadutoTesto: "Questo premio è scaduto.",
-      chiuso: "Per stasera abbiamo chiuso: vieni a trovarci domani!", nonAttivo: "Questo QR non è attivo.",
+      chiuso: "Per stasera abbiamo chiuso: vieni a trovarci domani!", pausa: "Stasera siamo già al completo: il gioco riapre domani!", nonAttivo: "Questo QR non è attivo.",
       nienteQr: "Inquadra il QR di un nostro agente per giocare.", errore: "Connessione assente, riprova tra un attimo." },
     en: { bandiera: "🇬🇧", titolo: "🎰 Try Your Luck!", sotto: "Spin the slot and win a prize for your whole table!",
       gira: "🎰 SPIN!", girando: "🎰 SPINNING...", vinto: "🎉 YOU WON!", tuo: "🎁 Your prize for tonight",
@@ -21,7 +21,7 @@
       dove: "We're just a short walk away", strada: "📍 TAKE ME TO THE RESTAURANT", menu: "📋 SEE OUR MENU",
       prenota: "Book on WhatsApp", usato: "REDEEMED", buonAppetito: "Prize redeemed: enjoy your meal! 🍕",
       scaduto: "EXPIRED", scadutoTesto: "This prize has expired.",
-      chiuso: "We're closed for tonight: come and see us tomorrow!", nonAttivo: "This QR code is not active.",
+      chiuso: "We're closed for tonight: come and see us tomorrow!", pausa: "We're fully booked tonight: the game is back tomorrow!", nonAttivo: "This QR code is not active.",
       nienteQr: "Scan the QR code of one of our agents to play.", errore: "No connection, please try again in a moment." },
     de: { bandiera: "🇩🇪", titolo: "🎰 Versuchen Sie Ihr Glück!", sotto: "Drehen Sie den Slot und gewinnen Sie einen Preis für den ganzen Tisch!",
       gira: "🎰 DREHEN!", girando: "🎰 DREHT...", vinto: "🎉 GEWONNEN!", tuo: "🎁 Ihr Preis für heute Abend",
@@ -30,7 +30,7 @@
       dove: "Wir sind nur ein paar Schritte entfernt", strada: "📍 ZUM RESTAURANT", menu: "📋 SPEISEKARTE ANSEHEN",
       prenota: "Auf WhatsApp reservieren", usato: "EINGELÖST", buonAppetito: "Preis eingelöst: guten Appetit! 🍕",
       scaduto: "ABGELAUFEN", scadutoTesto: "Dieser Preis ist abgelaufen.",
-      chiuso: "Heute Abend haben wir geschlossen: besuchen Sie uns morgen!", nonAttivo: "Dieser QR-Code ist nicht aktiv.",
+      chiuso: "Heute Abend haben wir geschlossen: besuchen Sie uns morgen!", pausa: "Heute Abend sind wir ausgebucht: das Spiel ist morgen wieder da!", nonAttivo: "Dieser QR-Code ist nicht aktiv.",
       nienteQr: "Scannen Sie den QR-Code eines unserer Mitarbeiter, um zu spielen.", errore: "Keine Verbindung, bitte gleich noch einmal versuchen." },
     fr: { bandiera: "🇫🇷", titolo: "🎰 Tentez votre chance !", sotto: "Faites tourner la machine et gagnez un cadeau pour toute la table !",
       gira: "🎰 TOURNER !", girando: "🎰 ÇA TOURNE...", vinto: "🎉 GAGNÉ !", tuo: "🎁 Votre cadeau de ce soir",
@@ -39,7 +39,7 @@
       dove: "Nous sommes à quelques pas d'ici", strada: "📍 ALLER AU RESTAURANT", menu: "📋 VOIR NOTRE MENU",
       prenota: "Réserver sur WhatsApp", usato: "UTILISÉ", buonAppetito: "Cadeau utilisé : bon appétit ! 🍕",
       scaduto: "EXPIRÉ", scadutoTesto: "Ce cadeau a expiré.",
-      chiuso: "Nous sommes fermés pour ce soir : revenez demain !", nonAttivo: "Ce QR code n'est pas actif.",
+      chiuso: "Nous sommes fermés pour ce soir : revenez demain !", pausa: "Ce soir, nous sommes complets : le jeu revient demain !", nonAttivo: "Ce QR code n'est pas actif.",
       nienteQr: "Scannez le QR code de l'un de nos agents pour jouer.", errore: "Pas de connexion, réessayez dans un instant." },
     es: { bandiera: "🇪🇸", titolo: "🎰 ¡Prueba tu suerte!", sotto: "¡Gira la tragamonedas y gana un premio para toda la mesa!",
       gira: "🎰 ¡GIRAR!", girando: "🎰 GIRANDO...", vinto: "🎉 ¡HAS GANADO!", tuo: "🎁 Tu premio de esta noche",
@@ -48,7 +48,7 @@
       dove: "Estamos a pocos pasos de aquí", strada: "📍 LLÉVAME AL RESTAURANTE", menu: "📋 VER NUESTRO MENÚ",
       prenota: "Reservar por WhatsApp", usato: "CANJEADO", buonAppetito: "Premio canjeado: ¡buen provecho! 🍕",
       scaduto: "CADUCADO", scadutoTesto: "Este premio ha caducado.",
-      chiuso: "Esta noche ya hemos cerrado: ¡te esperamos mañana!", nonAttivo: "Este QR no está activo.",
+      chiuso: "Esta noche ya hemos cerrado: ¡te esperamos mañana!", pausa: "¡Esta noche estamos completos: el juego vuelve mañana!", nonAttivo: "Este QR no está activo.",
       nienteQr: "Escanea el QR de uno de nuestros agentes para jugar.", errore: "Sin conexión, inténtalo de nuevo en un momento." },
   };
   const EMOJI_RULLO = ["🍕", "🍝", "🍰", "🥂", "🍹", "🔥", "⭐", "🎰", "🧁", "🇮🇹"];
@@ -128,7 +128,8 @@
       '<div class="buono-emoji">' + p.emoji + p.emoji + p.emoji + "</div>" +
       '<div class="buono-nome">' + C.esc(testoPremio(p.nome)) + "</div>" +
       '<div class="buono-desc">' + C.esc(testoPremio(p.desc)) + "</div>" +
-      '<div class="qr buono-qr">' + C.disegnaQR(C.urlBuono(b.codice)) + timbro + "</div>" +
+      (C.VETRINA ? '<a href="' + C.urlBuono(b.codice) + '" class="qr buono-qr" style="display:block">' : '<div class="qr buono-qr">') +
+      C.disegnaQR(C.urlBuono(b.codice)) + timbro + (C.VETRINA ? "</a>" : "</div>") +
       '<div class="buono-codice">' + C.codiceBello(b.codice) + "</div>" +
       piede +
       "</div>";
@@ -173,6 +174,7 @@
       btn.disabled = false;
       btn.textContent = t.gira;
       if (e.codice === "chiuso") { $("#gioco").hidden = true; messaggio("🌙", "chiuso"); }
+      else if (e.codice === "pausa") { $("#gioco").hidden = true; messaggio("😊", "pausa"); }
       else if (e.codice === "agente") { $("#gioco").hidden = true; messaggio("🔒", "nonAttivo"); }
       else C.toast(t.errore, true);
       return;
@@ -196,7 +198,7 @@
   const codiceAgente = (new URLSearchParams(location.search).get("a") || "").toUpperCase();
 
   async function avvio() {
-    $("#demo-bar").hidden = !Store.DEMO;
+    $("#demo-bar").hidden = !Store.DEMO || C.VETRINA;
     $("#mappa").src = C.urlMappa;
     $("#strada").href = C.urlStrada;
     $("#menu").href = C.RISTORANTE.menu;
@@ -216,6 +218,7 @@
     try {
       const a = await Store.agentePubblico(codiceAgente);
       if (!a.attivo) { messaggio("🔒", "nonAttivo"); return; }
+      if (a.pausa) { messaggio("😊", "pausa"); return; }
       $("#gioco").hidden = false;
     } catch (e) {
       if (e.codice === "agente") messaggio("🔒", "nonAttivo");

@@ -168,6 +168,7 @@
         const pr = C.provvigione(b.fasce, b.giaStasera, n);
         $("#anteprima").innerHTML = "A " + C.esc(b.agente.nome) + ": <b>" + C.euro(pr.euro) + "</b>" +
           '<div class="dim">' + C.spiegaRighe(pr.righe) + "</div>" +
+          (b.bonus ? '<div class="dim">🔥 Settimana di benvenuto: tariffe maggiorate</div>' : "") +
           '<div class="dim">Stasera finora: ' + b.giaStasera + (b.giaStasera === 1 ? " persona" : " persone") + "</div>";
       };
       aggiornaAnteprima();
@@ -348,7 +349,8 @@
       box.innerHTML = p.agenti.map(function (a) {
         return '<div class="card" data-agente="' + a.id + '" style="cursor:pointer">' +
           '<div class="riga"><div><h3 style="margin:0">' + C.esc(a.nome) + "</h3>" +
-          '<span class="pill ' + (a.attivo ? "ok" : "no") + '">' + (a.attivo ? "attivo" : "in pausa") + "</span></div>" +
+          '<span class="pill ' + (a.attivo ? "ok" : "no") + '">' + (a.attivo ? "attivo" : "in pausa") + "</span>" +
+          (a.bonusFino ? ' <span class="pill oro">🔥 benvenuto fino a ' + C.esc(C.dataBreve(a.bonusFino)) + "</span>" : "") + "</div>" +
           '<label class="switch fisso" onclick="event.stopPropagation()"><input type="checkbox" data-attiva="' + a.id + '"' +
           (a.attivo ? " checked" : "") + "><i></i></label></div>" +
           '<div class="kpi" style="margin-top:12px">' +
@@ -432,6 +434,9 @@
     catch (e) { errore(e); return; }
     apriFoglio(
       "<h2>" + C.esc(a.nome) + "</h2>" +
+      (a.bonusFino ? '<p class="bonus" style="margin-top:8px">🔥 <b>Settimana di benvenuto:</b> tariffe ' +
+        (Number(a.bonusPer) === 2 ? "doppie" : "×" + String(a.bonusPer).replace(".", ",")) + " fino a " +
+        C.esc(C.dataBreve(a.bonusFino)) + " compreso. Qui sotto vedi le tariffe normali.</p>" : "") +
       '<div class="kpi" style="margin-top:12px">' +
       "<div><b>" + C.euro(a.maturato) + "</b><span>guadagnati</span></div>" +
       "<div><b>" + C.euro(a.pagato) + "</b><span>pagati</span></div>" +
@@ -602,6 +607,9 @@
     try {
       const imp = await conPin(S.impostazioni);
       $("#chiusura").value = imp.chiusura;
+      $("#bonus-giorni").value = imp.bonusGiorni;
+      $("#bonus-per").value = String(imp.bonusPer).replace(".", ",");
+      disegnaGiorni(imp.giorniPausa || []);
       $("#fasce-standard").innerHTML = editorFasce(imp.fasce);
       const p = await conPin(S.panoramica);
       const primo = p.agenti.find(function (a) { return a.attivo; }) || p.agenti[0];
@@ -610,6 +618,32 @@
     } catch (e) { errore(e); }
   }
   legaFasce($("#fasce-standard"));
+
+  // giorni della settimana da lunedì a domenica (0 = domenica)
+  function disegnaGiorni(pausa) {
+    $("#giorni-pausa").innerHTML = [1, 2, 3, 4, 5, 6, 0].map(function (g) {
+      return '<button type="button" data-g="' + g + '" class="' + (pausa.indexOf(g) >= 0 ? "on" : "") + '">' +
+        C.NOMI_GIORNI[g].slice(0, 3) + "</button>";
+    }).join("");
+  }
+  $("#giorni-pausa").addEventListener("click", function (e) {
+    if (e.target.dataset.g != null) e.target.classList.toggle("on");
+  });
+  $("#salva-pausa").addEventListener("click", async function () {
+    const giorni = $$("#giorni-pausa button.on").map(function (b) { return Number(b.dataset.g); });
+    try {
+      await conPin(function (p) { return S.salvaImpostazioni(p, { giorniPausa: giorni }); });
+      C.toast(giorni.length ? "Pausa: " + giorni.map(function (g) { return C.NOMI_GIORNI[g]; }).join(", ") : "Nessun giorno di pausa");
+    } catch (e) { errore(e); }
+  });
+  $("#salva-bonus").addEventListener("click", async function () {
+    try {
+      await conPin(function (p) {
+        return S.salvaImpostazioni(p, { bonusGiorni: $("#bonus-giorni").value, bonusPer: $("#bonus-per").value });
+      });
+      C.toast("Settimana di benvenuto salvata");
+    } catch (e) { errore(e); }
+  });
   $("#salva-chiusura").addEventListener("click", async function () {
     try { await conPin(function (p) { return S.salvaImpostazioni(p, { chiusura: $("#chiusura").value }); }); C.toast("Orario salvato"); }
     catch (e) { errore(e); }
@@ -632,7 +666,8 @@
   });
 
   /* ---------- avvio ---------- */
-  $("#demo-bar").hidden = !S.DEMO;
+  $("#demo-bar").hidden = !S.DEMO || C.VETRINA;
+  if (C.VETRINA && !pinSalvato()) ricordaPin("1234", false);   // in vetrina si entra senza PIN (dati finti)
   (async function () {
     const p = pinSalvato();
     if (!p) return mostraLogin();

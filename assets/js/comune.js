@@ -5,6 +5,26 @@ const Comune = (function () {
   // cartella principale del sito (quella che contiene gioca/, agente/, titolare/)
   const RADICE = new URL("../../", document.currentScript.src).href;
 
+  // VETRINA (?vetrina=1, per le riprese del video): dati finti e nessun marchio del ristorante.
+  // Vale per tutta la scheda del browser; ?vetrina=0 o ?demo=0 per uscire.
+  const VETRINA = (function () {
+    try {
+      if (/[?&]vetrina=1/.test(location.search)) {
+        sessionStorage.setItem("vdcpr_vetrina", "1");
+        sessionStorage.setItem("vdcpr_demo", "1");
+      }
+      if (/[?&](vetrina|demo)=0/.test(location.search)) {
+        sessionStorage.removeItem("vdcpr_vetrina");
+        sessionStorage.removeItem("vdcpr_demo");
+      }
+      return sessionStorage.getItem("vdcpr_vetrina") === "1";
+    } catch (e) { return false; }
+  })();
+  if (VETRINA) {
+    document.documentElement.classList.add("vetrina");
+    document.title = document.title.replace(/\s*·\s*Vico del Carmine/, "").replace(/^Vico /, "");
+  }
+
   const RISTORANTE = {
     nome: "Vico del Carmine",
     indirizzo: "Via Pisana 40/r · San Frediano · Firenze",
@@ -51,14 +71,28 @@ const Comune = (function () {
     return daRoma(giorno.getUTCFullYear(), giorno.getUTCMonth() + 1, giorno.getUTCDate(), h, min);
   }
   function ora(d) { const p = romaParti(new Date(d)); return due(p.h) + ":" + due(p.min); }
+  // "2026-10-06" + 3 giorni → "2026-10-09"
+  function piuGiorni(laSera, n) {
+    const [y, m, g] = laSera.split("-").map(Number);
+    const d = new Date(Date.UTC(y, m - 1, g + n));
+    return d.getUTCFullYear() + "-" + due(d.getUTCMonth() + 1) + "-" + due(d.getUTCDate());
+  }
+  // 0 = domenica … 6 = sabato
+  function giornoSettimana(laSera) {
+    const [y, m, g] = laSera.split("-").map(Number);
+    return new Date(Date.UTC(y, m - 1, g)).getUTCDay();
+  }
   const GIORNI = ["dom", "lun", "mar", "mer", "gio", "ven", "sab"];
   const MESI = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"];
   function nomeSera(laSera) {
-    const [y, m, g] = laSera.split("-").map(Number);
-    const d = new Date(Date.UTC(y, m - 1, g));
     if (laSera === sera()) return "Stasera";
-    return GIORNI[d.getUTCDay()] + " " + g + " " + MESI[m - 1];
+    return dataBreve(laSera);
   }
+  function dataBreve(laSera) {
+    const [, m, g] = laSera.split("-").map(Number);
+    return GIORNI[giornoSettimana(laSera)] + " " + g + " " + MESI[m - 1];
+  }
+  const NOMI_GIORNI = ["domenica", "lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato"];
   const NOMI_MESI = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio",
     "agosto", "settembre", "ottobre", "novembre", "dicembre"];
   function nomeMese(laSera) { return NOMI_MESI[+laSera.slice(5, 7) - 1]; }
@@ -182,8 +216,8 @@ const Comune = (function () {
   }
 
   return {
-    RADICE, RISTORANTE, FASCE_STANDARD,
-    sera, scadenza, ora, nomeSera, nomeMese,
+    RADICE, VETRINA, RISTORANTE, FASCE_STANDARD, NOMI_GIORNI,
+    sera, scadenza, ora, piuGiorni, giornoSettimana, nomeSera, dataBreve, nomeMese,
     tariffa, provvigione, spiegaRighe, prossimaFascia, descriviFasce,
     euro, esc, disegnaQR, codiceBello, pulisciCodice, casuale, dispositivo,
     urlGioca, urlBuono, urlAgente, urlStrada, urlMappa, toast, coriandoli,

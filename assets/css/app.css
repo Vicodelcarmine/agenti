@@ -126,3 +126,17 @@ body.con-tab { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
 .festa h2 { margin: 6px 0 8px; }
 .festa .soldi { font-size: 2.6rem; font-weight: 700; color: var(--gold); margin: 6px 0 16px; }
 #avvisi.attivi { border-color: rgba(134,182,74,.5); }
+.bonus {
+  background: linear-gradient(135deg, rgba(200,16,46,.22), rgba(230,178,74,.18));
+  border: 1px solid rgba(230,178,74,.45); border-radius: 12px;
+  padding: 10px 12px; margin-bottom: 6px; font-size: .9rem;
+}
+.lista s { margin-right: 6px; }
+
+/* giorni di pausa */
+.giorni { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 10px; }
+.giorni button {
+  min-height: 42px; border-radius: 10px; border: 1px solid var(--line); cursor: pointer;
+  background: rgba(0,0,0,.25); color: var(--muted); font-weight: 600; font-size: .78rem; text-transform: capitalize;
+}
+.giorni button.on { background: var(--brick); border-color: var(--flame); color: #fff; }

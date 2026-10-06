@@ -6,18 +6,20 @@
 
    DEMO: aggiungendo ?demo=1 all'indirizzo (vale per tutta la scheda del browser,
    ?demo=0 per uscire) si usa un server finto nella memoria del browser, con dati
-   di prova. Utile per far vedere il sistema senza toccare i dati veri. */
+   di prova. Utile per far vedere il sistema senza toccare i dati veri.
+   VETRINA (?vetrina=1): come la demo, ma con dati "belli" e senza marchio, per le
+   riprese del video; lì orari di chiusura e pause non bloccano mai il gioco. */
 
 const Store = (function () {
   const DEMO = (function () {
     try {
       if (/[?&]demo=1/.test(location.search)) sessionStorage.setItem("vdcpr_demo", "1");
       if (/[?&]demo=0/.test(location.search)) sessionStorage.removeItem("vdcpr_demo");
-      return sessionStorage.getItem("vdcpr_demo") === "1";
+      return sessionStorage.getItem("vdcpr_demo") === "1" || Comune.VETRINA;
     } catch (e) { return false; }
   })();
-  const CHIAVE = "vdcpr_demo_v1";
   const C = Comune;
+  const CHIAVE = C.VETRINA ? "vdcpr_vetrina_v1" : "vdcpr_demo_v1";
 
   // Progetto Supabase del Vico del Carmine (la chiave "publishable" è pubblica: va bene nel sito)
   const SUPABASE_URL = "https://agbvmhpktilpaoabjkre.supabase.co";
@@ -50,31 +52,28 @@ const Store = (function () {
     ];
   }
 
-  // qualche serata finta, così le pagine non sono vuote
-  function datiIniziali() {
-    const fasce = C.FASCE_STANDARD.map(function (f) { return Object.assign({}, f); });
+  function nuovoAgente(id, codice, chiave, nome, attivo, giorniFa) {
+    return { id: id, codice: codice, chiave: chiave || C.casuale(16), nome: nome, telefono: "", attivo: attivo,
+      fasce: C.FASCE_STANDARD.map(function (f) { return Object.assign({}, f); }), creato: Date.now() - giorniFa * 864e5 };
+  }
+
+  // qualche serata finta, così le pagine non sono vuote.
+  // storia: [giorni fa, agente, tavoli (persone) arrivati, giocate senza arrivo]
+  function costruisci(agenti, storia, pagamenti) {
     const db = {
-      impostazioni: { chiusura: "23:30", pin: "1234", fasce: fasce },
-      agenti: [
-        { id: "a1", codice: "MRC7K", chiave: C.casuale(16), nome: "Marco (prova)", telefono: "",
-          attivo: true, fasce: fasce.map(function (f) { return Object.assign({}, f); }), creato: Date.now() - 20 * 864e5 },
-        { id: "a2", codice: "LCA3P", chiave: C.casuale(16), nome: "Luca (prova)", telefono: "",
-          attivo: false, fasce: fasce.map(function (f) { return Object.assign({}, f); }), creato: Date.now() - 9 * 864e5 },
-      ],
+      impostazioni: { chiusura: "23:30", pin: "1234", fasce: C.FASCE_STANDARD.map(function (f) { return Object.assign({}, f); }),
+        bonusGiorni: 7, bonusPer: 2, giorniPausa: [6] },
+      agenti: agenti,
       premi: premiIniziali(),
       buoni: [],
       pagamenti: [],
     };
     const adesso = Date.now();
-    // [giorni fa, agente, tavoli (persone) arrivati, giocate senza arrivo]
-    const storia = [
-      [12, "a1", [4, 2, 6, 3], 5], [9, "a1", [2, 2, 5], 4], [8, "a2", [3, 2], 3],
-      [5, "a1", [6, 4, 3, 2, 5], 6], [3, "a1", [2, 3], 2], [2, "a2", [4], 2], [0, "a1", [4, 3], 3],
-    ];
     storia.forEach(function (r) {
       const oggi = r[0] === 0;
       const laSera = C.sera(adesso - r[0] * 864e5);
       const ag = db.agenti.find(function (a) { return a.id === r[1]; });
+      const fasce = fasceSera(db, ag, laSera);
       let gia = 0, minuti = 0;
       const crea = function (persone) {
         const p = db.premi[Math.floor(Math.random() * db.premi.length)];
@@ -85,7 +84,7 @@ const Store = (function () {
           scade: C.scadenza(laSera, db.impostazioni.chiusura).getTime(), dispositivo: C.casuale(12), stato: "attivo",
         };
         if (persone) {
-          const pr = C.provvigione(ag.fasce, gia, persone);
+          const pr = C.provvigione(fasce, gia, persone);
           gia += persone;
           const riscattato = oggi ? Math.min(creato + 25 * 60e3, adesso - 60e3) : creato + 25 * 60e3;
           Object.assign(b, { stato: "riscattato", riscattato: riscattato, persone: persone, euro: pr.euro });
@@ -95,8 +94,54 @@ const Store = (function () {
       r[2].forEach(crea);
       for (let i = 0; i < r[3]; i++) crea(0);
     });
-    db.pagamenti.push({ id: C.casuale(8), agente: "a1", importo: 40, data: adesso - 6 * 864e5, nota: "contanti" });
+    pagamenti.forEach(function (p) {
+      db.pagamenti.push({ id: C.casuale(8), agente: p[0], importo: p[1], data: adesso - p[2] * 864e5, nota: p[3] });
+    });
     return db;
+  }
+
+  function datiIniziali() {
+    if (C.VETRINA) {
+      // per le riprese: Marco è nella sua settimana di benvenuto (tariffe doppie)
+      return costruisci(
+        [nuovoAgente("a1", "MRC7K", "VETRINAMARCO", "Marco", true, 3),
+         nuovoAgente("a2", "GLA4R", "VETRINAGIULIA", "Giulia", true, 24),
+         nuovoAgente("a3", "LCA3P", "VETRINALUCA", "Luca", false, 15)],
+        [[2, "a1", [4, 2, 5], 4], [1, "a1", [3, 6, 2, 4], 5], [0, "a1", [4, 3], 3],
+         [9, "a2", [6, 4, 2, 3], 6], [6, "a2", [5, 3, 4, 2, 6], 7], [3, "a2", [2, 4, 3], 3], [0, "a2", [5, 2], 2],
+         [12, "a3", [3, 2], 3]],
+        [["a2", 80, 5, "contanti"], ["a3", 10, 10, "contanti"]]);
+    }
+    return costruisci(
+      [nuovoAgente("a1", "MRC7K", null, "Marco (prova)", true, 20),
+       nuovoAgente("a2", "LCA3P", null, "Luca (prova)", false, 9)],
+      [[12, "a1", [4, 2, 6, 3], 5], [9, "a1", [2, 2, 5], 4], [8, "a2", [3, 2], 3],
+       [5, "a1", [6, 4, 3, 2, 5], 6], [3, "a1", [2, 3], 2], [2, "a2", [4], 2], [0, "a1", [4, 3], 3]],
+      [["a1", 40, 6, "contanti"]]);
+  }
+
+  /* ---------- settimana di benvenuto e giorni di pausa ---------- */
+  function impostazioniDi(db) {
+    return Object.assign({ bonusGiorni: 7, bonusPer: 2, giorniPausa: [6] }, db.impostazioni);
+  }
+  // ultima sera con le tariffe moltiplicate (null = niente bonus)
+  function bonusUltima(db, a) {
+    const i = impostazioniDi(db);
+    if (!(i.bonusGiorni > 0 && i.bonusPer > 1)) return null;
+    return C.piuGiorni(C.sera(a.creato), i.bonusGiorni - 1);
+  }
+  function bonusFino(db, a) {
+    const u = bonusUltima(db, a);
+    return u && u >= C.sera() ? u : null;
+  }
+  function fasceSera(db, a, laSera) {
+    const u = bonusUltima(db, a);
+    if (!u || laSera > u) return a.fasce;
+    const k = impostazioniDi(db).bonusPer;
+    return a.fasce.map(function (f) { return { fino: f.fino, euro: Math.round(f.euro * k * 100) / 100 }; });
+  }
+  function inPausa(db, laSera) {
+    return !C.VETRINA && impostazioniDi(db).giorniPausa.indexOf(C.giornoSettimana(laSera)) >= 0;
   }
 
   function istantanea(p) {
@@ -153,7 +198,7 @@ const Store = (function () {
   }
   function vistaBuono(db, b) {
     let stato = b.stato;
-    if (stato === "attivo" && Date.now() >= b.scade) stato = "scaduto";
+    if (stato === "attivo" && Date.now() >= b.scade && !C.VETRINA) stato = "scaduto";
     return { codice: b.codice, premio: b.premio, creato: b.creato, scade: b.scade, stato: stato,
       persone: b.persone, euro: b.euro, riscattato: b.riscattato };
   }
@@ -165,7 +210,7 @@ const Store = (function () {
       const db = leggi();
       const a = db.agenti.find(function (x) { return x.codice === codice; });
       if (!a) throw errore("agente", "QR non valido");
-      return { attivo: a.attivo };
+      return { attivo: a.attivo, pausa: inPausa(db, C.sera()) };
     });
   }
 
@@ -176,8 +221,9 @@ const Store = (function () {
       const a = db.agenti.find(function (x) { return x.codice === codiceAgente; });
       if (!a || !a.attivo) throw errore("agente", "QR non attivo");
       const adesso = Date.now(), laSera = C.sera(adesso);
+      if (inPausa(db, laSera)) throw errore("pausa", "Stasera siamo al completo");
       const scade = C.scadenza(laSera, db.impostazioni.chiusura).getTime();
-      if (adesso >= scade) throw errore("chiuso", "Per stasera abbiamo chiuso");
+      if (adesso >= scade && !C.VETRINA) throw errore("chiuso", "Per stasera abbiamo chiuso");
       const gia = db.buoni.find(function (b) { return b.dispositivo === dispositivo && b.sera === laSera; });
       if (gia) return Object.assign(vistaBuono(db, gia), { gia: true });
       const premi = db.premi.filter(function (p) { return p.attivo && p.peso > 0; });
@@ -214,7 +260,9 @@ const Store = (function () {
       const ultimi = db.buoni.filter(function (b) { return b.agente === a.id && b.stato === "riscattato"; })
         .sort(function (x, y) { return y.riscattato - x.riscattato; }).slice(0, 12)
         .map(function (b) { return { quando: b.riscattato, sera: b.sera, persone: b.persone, euro: b.euro }; });
-      return Object.assign({ nome: a.nome, codice: a.codice, attivo: a.attivo, fasce: a.fasce,
+      return Object.assign({ nome: a.nome, codice: a.codice, attivo: a.attivo,
+        fasce: fasceSera(db, a, C.sera()), fasceBase: a.fasce, bonusFino: bonusFino(db, a),
+        bonusPer: impostazioniDi(db).bonusPer, pausa: inPausa(db, C.sera()),
         ultimi: ultimi }, riepilogo(db, a.id));
     });
   }
@@ -234,7 +282,8 @@ const Store = (function () {
         return x.agente === a.id && x.sera === b.sera && x.stato === "riscattato" && x.codice !== b.codice;
       }).reduce(function (s, x) { return s + x.persone; }, 0);
       return Object.assign(vistaBuono(db, b), {
-        agente: { id: a.id, nome: a.nome, attivo: a.attivo }, fasce: a.fasce, giaStasera: giaStasera,
+        agente: { id: a.id, nome: a.nome, attivo: a.attivo }, fasce: fasceSera(db, a, b.sera), giaStasera: giaStasera,
+        bonus: !!(bonusUltima(db, a) && b.sera <= bonusUltima(db, a)),
         annullabile: b.stato === "riscattato" && ultimoDellaSera(db, b),
       });
     });
@@ -255,12 +304,13 @@ const Store = (function () {
       const b = db.buoni.find(function (x) { return x.codice === codice; });
       if (!b) throw errore("buono", "Nessun buono con questo codice");
       if (b.stato === "riscattato") throw errore("usato", "Buono già usato");
-      if (Date.now() >= b.scade) throw errore("scaduto", "Buono scaduto");
+      if (Date.now() >= b.scade && !C.VETRINA) throw errore("scaduto", "Buono scaduto");
       const a = agenteDa(db, b.agente);
       const gia = db.buoni.filter(function (x) {
         return x.agente === a.id && x.sera === b.sera && x.stato === "riscattato";
       }).reduce(function (s, x) { return s + x.persone; }, 0);
-      const pr = C.provvigione(a.fasce, gia, persone);
+      const fasce = fasceSera(db, a, b.sera);
+      const pr = C.provvigione(fasce, gia, persone);
       Object.assign(b, { stato: "riscattato", riscattato: Date.now(), persone: persone, euro: pr.euro });
       scrivi(db);
       return { euro: pr.euro, righe: pr.righe, agente: a.nome, premio: b.premio };
@@ -288,7 +338,8 @@ const Store = (function () {
       controllaPin(db, pin);
       const stasera = C.sera();
       const agenti = db.agenti.map(function (a) {
-        return Object.assign({ id: a.id, nome: a.nome, telefono: a.telefono, attivo: a.attivo, codice: a.codice }, riepilogo(db, a.id));
+        return Object.assign({ id: a.id, nome: a.nome, telefono: a.telefono, attivo: a.attivo, codice: a.codice,
+          bonusFino: bonusFino(db, a) }, riepilogo(db, a.id));
       });
       const nome = {};
       db.agenti.forEach(function (a) { nome[a.id] = a.nome; });
@@ -313,6 +364,7 @@ const Store = (function () {
       controllaPin(db, pin);
       const a = agenteDa(db, id);
       return Object.assign({}, a, riepilogo(db, id), {
+        bonusFino: bonusFino(db, a), bonusPer: impostazioniDi(db).bonusPer,
         serate: serate(db, id),
         pagamenti: db.pagamenti.filter(function (p) { return p.agente === id; })
           .sort(function (x, y) { return y.data - x.data; }),
@@ -416,7 +468,8 @@ const Store = (function () {
     return rete(function () {
       const db = leggi();
       controllaPin(db, pin);
-      return { chiusura: db.impostazioni.chiusura, fasce: db.impostazioni.fasce };
+      const i = impostazioniDi(db);
+      return { chiusura: i.chiusura, fasce: i.fasce, bonusGiorni: i.bonusGiorni, bonusPer: i.bonusPer, giorniPausa: i.giorniPausa };
     });
   }
   function salvaImpostazioni(pin, dati) {
@@ -433,9 +486,19 @@ const Store = (function () {
         });
       }
       if (dati.fasce) db.impostazioni.fasce = controllaFasce(dati.fasce);
-      if (dati.nuovoPin) {
-        if (!/^\d{4,8}$/.test(dati.nuovoPin)) throw errore("pin", "Il PIN deve avere da 4 a 8 cifre");
-        db.impostazioni.pin = dati.nuovoPin;
+      if (dati.bonusGiorni != null) {
+        const g = String(dati.bonusGiorni).trim();
+        if (!/^\d{1,2}$/.test(g) || +g > 60) throw errore("bonus", "Giorni di benvenuto non validi (da 0 a 60)");
+        db.impostazioni.bonusGiorni = +g;
+      }
+      if (dati.bonusPer != null) {
+        const k = String(dati.bonusPer).trim().replace(",", ".");
+        if (!/^\d(\.\d{1,2})?$/.test(k) || +k < 1 || +k > 5) throw errore("bonus", "Moltiplicatore non valido (da 1 a 5)");
+        db.impostazioni.bonusPer = +k;
+      }
+      if (dati.giorniPausa) {
+        db.impostazioni.giorniPausa = dati.giorniPausa.map(Number).filter(function (g) { return g >= 0 && g <= 6; })
+          .filter(function (g, i, l) { return l.indexOf(g) === i; }).sort();
       }
       scrivi(db);
       return true;
