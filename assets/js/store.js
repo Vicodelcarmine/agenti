@@ -124,11 +124,15 @@ const Store = (function () {
   function impostazioniDi(db) {
     return Object.assign({ bonusGiorni: 7, bonusPer: 2, giorniPausa: [6] }, db.impostazioni);
   }
-  // ultima sera con le tariffe moltiplicate (null = niente bonus)
-  function bonusUltima(db, a) {
+  // ultima sera della settimana di benvenuto, contata da quando l'agente è stato creato
+  function bonusPeriodo(db, a) {
     const i = impostazioniDi(db);
     if (!(i.bonusGiorni > 0 && i.bonusPer > 1)) return null;
     return C.piuGiorni(C.sera(a.creato), i.bonusGiorni - 1);
+  }
+  // come sopra, ma solo se per quell'agente il bonus è acceso (null = niente bonus)
+  function bonusUltima(db, a) {
+    return a.bonus === false ? null : bonusPeriodo(db, a);
   }
   function bonusFino(db, a) {
     const u = bonusUltima(db, a);
@@ -363,8 +367,10 @@ const Store = (function () {
       const db = leggi();
       controllaPin(db, pin);
       const a = agenteDa(db, id);
+      const periodo = bonusPeriodo(db, a);
       return Object.assign({}, a, riepilogo(db, id), {
-        bonusFino: bonusFino(db, a), bonusPer: impostazioniDi(db).bonusPer,
+        bonus: a.bonus !== false, bonusFino: bonusFino(db, a), bonusPer: impostazioniDi(db).bonusPer,
+        bonusPeriodo: periodo && periodo >= C.sera() ? periodo : null,
         serate: serate(db, id),
         pagamenti: db.pagamenti.filter(function (p) { return p.agente === id; })
           .sort(function (x, y) { return y.data - x.data; }),
@@ -388,6 +394,7 @@ const Store = (function () {
       if (dati.nome != null) a.nome = String(dati.nome).trim() || "Agente";
       if (dati.telefono != null) a.telefono = String(dati.telefono).trim();
       if (dati.attivo != null) a.attivo = !!dati.attivo;
+      if (dati.bonus != null) a.bonus = !!dati.bonus;
       if (dati.fasce) a.fasce = controllaFasce(dati.fasce);
       scrivi(db);
       return a;

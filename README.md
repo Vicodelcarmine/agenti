@@ -20,6 +20,7 @@ Ogni agente può avere tariffe sue: si cambiano dalla dashboard.
 
 **Settimana di benvenuto:** i primi 7 giorni da quando l'agente è stato creato, le sue tariffe raddoppiano da sole (4, 6, 8 €).
 Giorni e moltiplicatore si cambiano in Dashboard → Altro.
+Si può spegnere agente per agente, dalla sua scheda o già quando lo crei: per esempio per chi lavorava già prima (Leonardo).
 
 **Giorni di pausa:** di base il sabato, perché siamo già al completo. Quella sera il gioco non dà buoni e l'agente lo vede nell'app.
 I giorni si scelgono in Dashboard → Altro.
@@ -30,6 +31,7 @@ I giorni si scelgono in Dashboard → Altro.
 
 - `supabase/01-agenti.sql`: tabelle e funzioni, sempre aggiornato. Si può rieseguire e non cancella niente.
 - `supabase/02-bonus-pausa.sql`: la sola modifica del 06/10/2026 (settimana di benvenuto e pausa), già compresa nel file 01.
+- `supabase/03-bonus-per-agente.sql`: la modifica successiva (bonus accendibile per agente; Leonardo senza bonus), già compresa nel file 01.
 - `supabase/functions/pr-notifica`: invia le notifiche (Verify JWT: OFF). Le chiavi delle notifiche le crea da sola nella tabella `pr_config`.
 - **PIN della dashboard**: è il PIN da titolare del menu (`app_secrets.pw_titolare`).
 - **Demo**: con `?demo=1` nell'indirizzo si usano dati finti salvati nel browser (PIN demo `1234`); `?demo=0` per tornare ai dati veri.

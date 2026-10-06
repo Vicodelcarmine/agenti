@@ -29,6 +29,8 @@ create table if not exists public.pr_agenti (
   fasce    jsonb not null,
   creato   timestamptz not null default now()
 );
+-- false = per questo agente la settimana di benvenuto non vale (es. lavorava già prima)
+alter table public.pr_agenti add column if not exists bonus boolean not null default true;
 
 create table if not exists public.pr_premi (
   id     text primary key,
@@ -140,11 +142,17 @@ language sql immutable set search_path = public as $$
   select coalesce(sum(public.pr_tariffa(fasce, k)), 0) from generate_series(gia + 1, gia + n) as k
 $$;
 
--- ultima sera della settimana di benvenuto di un agente (null = niente bonus)
-create or replace function public.pr_bonus_ultima(a public.pr_agenti) returns date
+-- ultima sera della settimana di benvenuto, contata da quando l'agente è stato creato (null = niente bonus)
+create or replace function public.pr_bonus_periodo(a public.pr_agenti) returns date
 language sql stable set search_path = public as $$
   select case when i.bonus_giorni > 0 and i.bonus_per > 1 then public.pr_sera(a.creato) + i.bonus_giorni - 1 end
     from public.pr_impostazioni i where i.id = 1
+$$;
+
+-- come sopra, ma solo se per quell'agente il bonus è acceso
+create or replace function public.pr_bonus_ultima(a public.pr_agenti) returns date
+language sql stable set search_path = public as $$
+  select case when a.bonus then public.pr_bonus_periodo(a) end
 $$;
 
 -- tariffe che valgono per quell'agente in quella sera (in settimana di benvenuto: moltiplicate)
@@ -259,6 +267,7 @@ revoke execute on function public.pr_controlla_pin(text)   from public, anon, au
 revoke execute on function public.pr_casuale(int)          from public, anon, authenticated;
 revoke execute on function public.pr_vista(public.pr_buoni)            from public, anon, authenticated;
 revoke execute on function public.pr_ultimo_della_sera(public.pr_buoni) from public, anon, authenticated;
+revoke execute on function public.pr_bonus_periodo(public.pr_agenti)      from public, anon, authenticated;
 revoke execute on function public.pr_bonus_ultima(public.pr_agenti)       from public, anon, authenticated;
 revoke execute on function public.pr_fasce_sera(public.pr_agenti, date)   from public, anon, authenticated;
 
@@ -468,6 +477,7 @@ begin
   if not found then raise exception 'Agente non trovato' using hint = 'agente'; end if;
   return to_jsonb(a) || public.pr_riepilogo(a.id) || jsonb_build_object(
     'bonusFino', case when public.pr_bonus_ultima(a) >= public.pr_sera(now()) then public.pr_bonus_ultima(a) end,
+    'bonusPeriodo', case when public.pr_bonus_periodo(a) >= public.pr_sera(now()) then public.pr_bonus_periodo(a) end,
     'bonusPer', (select bonus_per from public.pr_impostazioni where id = 1),
     'serate', coalesce((
       select jsonb_agg(to_jsonb(x) order by x.sera desc) from (
@@ -508,6 +518,9 @@ begin
   end if;
   if p_dati ? 'attivo' then
     update public.pr_agenti set attivo = (p_dati->>'attivo')::boolean where id = a.id;
+  end if;
+  if p_dati ? 'bonus' then
+    update public.pr_agenti set bonus = (p_dati->>'bonus')::boolean where id = a.id;
   end if;
   if p_dati ? 'fasce' then
     update public.pr_agenti set fasce = public.pr_valida_fasce(p_dati->'fasce') where id = a.id;

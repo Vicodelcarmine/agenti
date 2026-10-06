@@ -406,13 +406,18 @@
       '<label class="campo"><span>Nome</span><input type="text" id="na-nome" autocomplete="off"></label>' +
       '<label class="campo"><span>Telefono (per mandargli il link su WhatsApp)</span><input type="tel" id="na-tel" placeholder="es. 333 1234567"></label>' +
       '<p class="dim">Parte con le tariffe standard (2 € · 3 € · 4 €): puoi cambiarle dopo.</p>' +
+      '<label class="riga" style="margin-top:12px;gap:12px"><span class="cresce">🔥 Settimana di benvenuto' +
+      '<span class="dim" style="display:block">Tariffe maggiorate per i primi giorni. Spegnila per chi lavorava già con te.</span></span>' +
+      '<span class="switch fisso"><input type="checkbox" id="na-bonus" checked><i></i></span></label>' +
       '<button class="btn rosso pieno" id="na-crea" style="margin-top:14px">Crea agente</button>');
     $("#na-nome").focus();
     $("#na-crea").addEventListener("click", async function () {
       const nome = $("#na-nome").value.trim();
       if (!nome) { C.toast("Scrivi il nome", true); return; }
       try {
-        const a = await conPin(function (p) { return S.salvaAgente(p, { nome: nome, telefono: $("#na-tel").value }); });
+        const a = await conPin(function (p) {
+          return S.salvaAgente(p, { nome: nome, telefono: $("#na-tel").value, bonus: $("#na-bonus").checked });
+        });
         C.toast("Agente creato");
         caricaAgenti();
         apriAgente(a.id);
@@ -434,9 +439,12 @@
     catch (e) { errore(e); return; }
     apriFoglio(
       "<h2>" + C.esc(a.nome) + "</h2>" +
-      (a.bonusFino ? '<p class="bonus" style="margin-top:8px">🔥 <b>Settimana di benvenuto:</b> tariffe ' +
-        (Number(a.bonusPer) === 2 ? "doppie" : "×" + String(a.bonusPer).replace(".", ",")) + " fino a " +
-        C.esc(C.dataBreve(a.bonusFino)) + " compreso. Qui sotto vedi le tariffe normali.</p>" : "") +
+      (a.bonusPeriodo ? '<label class="riga bonus" style="margin-top:8px;gap:12px"><span class="cresce">🔥 <b>Settimana di benvenuto</b>' +
+        '<span class="dim" style="display:block">' + (a.bonus !== false
+          ? "Tariffe " + (Number(a.bonusPer) === 2 ? "doppie" : "×" + String(a.bonusPer).replace(".", ",")) +
+            " fino a " + C.esc(C.dataBreve(a.bonusPeriodo)) + " compreso. Qui sotto vedi le tariffe normali."
+          : "Spenta: per questo agente valgono le tariffe normali.") + "</span></span>" +
+        '<span class="switch fisso"><input type="checkbox" id="ag-bonus"' + (a.bonus !== false ? " checked" : "") + "><i></i></span></label>" : "") +
       '<div class="kpi" style="margin-top:12px">' +
       "<div><b>" + C.euro(a.maturato) + "</b><span>guadagnati</span></div>" +
       "<div><b>" + C.euro(a.pagato) + "</b><span>pagati</span></div>" +
@@ -479,6 +487,15 @@
       '<button class="btn vuoto pieno" id="ag-elimina" style="color:var(--danger);border-color:rgba(255,107,94,.45)">🗑 Elimina agente</button>'
     );
     legaFasce($("#ag-fasce"));
+    if ($("#ag-bonus")) $("#ag-bonus").addEventListener("change", async function () {
+      const acceso = this.checked;
+      try {
+        await conPin(function (p) { return S.salvaAgente(p, { id: id, bonus: acceso }); });
+        C.toast(acceso ? "Settimana di benvenuto accesa" : "Settimana di benvenuto spenta per " + a.nome);
+        caricaAgenti();
+        apriAgente(id);
+      } catch (e) { this.checked = !acceso; errore(e); }
+    });
 
     $("#ag-salva").addEventListener("click", async function () {
       try {
