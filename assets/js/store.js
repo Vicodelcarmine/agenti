@@ -54,6 +54,7 @@ const Store = (function () {
 
   function nuovoAgente(id, codice, chiave, nome, attivo, giorniFa) {
     return { id: id, codice: codice, chiave: chiave || C.casuale(16), nome: nome, telefono: "", attivo: attivo,
+      bonus: true, validita: 1,
       fasce: C.FASCE_STANDARD.map(function (f) { return Object.assign({}, f); }), creato: Date.now() - giorniFa * 864e5 };
   }
 
@@ -87,7 +88,7 @@ const Store = (function () {
           const pr = C.provvigione(fasce, gia, persone);
           gia += persone;
           const riscattato = oggi ? Math.min(creato + 25 * 60e3, adesso - 60e3) : creato + 25 * 60e3;
-          Object.assign(b, { stato: "riscattato", riscattato: riscattato, persone: persone, euro: pr.euro });
+          Object.assign(b, { stato: "riscattato", riscattato: riscattato, seraRiscatto: laSera, persone: persone, euro: pr.euro });
         }
         db.buoni.push(b);
       };
@@ -174,13 +175,15 @@ const Store = (function () {
   }
 
   /* ---------- numeri ---------- */
+  // la sera in cui il tavolo si è seduto: conta per scaglioni e guadagni (può essere dopo quella del gioco)
+  function seraRiscatto(b) { return b.seraRiscatto || b.sera; }
   function riepilogo(db, agenteId) {
     const stasera = C.sera(), mese = stasera.slice(0, 7);
     const suoi = db.buoni.filter(function (b) { return b.agente === agenteId; });
     const ok = suoi.filter(function (b) { return b.stato === "riscattato"; });
     const somma = function (l, k) { return l.reduce(function (s, b) { return s + (b[k] || 0); }, 0); };
-    const dis = ok.filter(function (b) { return b.sera === stasera; });
-    const delMese = ok.filter(function (b) { return b.sera.slice(0, 7) === mese; });
+    const dis = ok.filter(function (b) { return seraRiscatto(b) === stasera; });
+    const delMese = ok.filter(function (b) { return seraRiscatto(b).slice(0, 7) === mese; });
     const pagato = db.pagamenti.filter(function (p) { return p.agente === agenteId; })
       .reduce(function (s, p) { return s + p.importo; }, 0);
     const maturato = somma(ok, "euro");
@@ -193,10 +196,13 @@ const Store = (function () {
   }
   function serate(db, agenteId) {
     const per = {};
+    const di = function (sera) { return per[sera] || (per[sera] = { sera: sera, giocate: 0, tavoli: 0, persone: 0, euro: 0 }); };
     db.buoni.filter(function (b) { return b.agente === agenteId; }).forEach(function (b) {
-      const s = per[b.sera] || (per[b.sera] = { sera: b.sera, giocate: 0, tavoli: 0, persone: 0, euro: 0 });
-      s.giocate++;
-      if (b.stato === "riscattato") { s.tavoli++; s.persone += b.persone; s.euro += b.euro; }
+      di(b.sera).giocate++;
+      if (b.stato === "riscattato") {
+        const r = di(seraRiscatto(b));
+        r.tavoli++; r.persone += b.persone; r.euro += b.euro;
+      }
     });
     return Object.values(per).sort(function (a, b) { return a.sera < b.sera ? 1 : -1; });
   }
@@ -226,9 +232,12 @@ const Store = (function () {
       if (!a || !a.attivo) throw errore("agente", "QR non attivo");
       const adesso = Date.now(), laSera = C.sera(adesso);
       if (inPausa(db, laSera)) throw errore("pausa", "Stasera siamo al completo");
-      const scade = C.scadenza(laSera, db.impostazioni.chiusura).getTime();
+      // il buono vale fino alla chiusura dell'ultima sera di validità di quell'agente
+      const scade = C.scadenza(C.piuGiorni(laSera, (a.validita || 1) - 1), db.impostazioni.chiusura).getTime();
       if (adesso >= scade && !C.VETRINA) throw errore("chiuso", "Per stasera abbiamo chiuso");
-      const gia = db.buoni.find(function (b) { return b.dispositivo === dispositivo && b.sera === laSera; });
+      const gia = db.buoni.filter(function (b) {
+        return b.dispositivo === dispositivo && (b.sera === laSera || (b.stato === "attivo" && b.scade > adesso));
+      }).sort(function (x, y) { return y.creato - x.creato; })[0];
       if (gia) return Object.assign(vistaBuono(db, gia), { gia: true });
       const premi = db.premi.filter(function (p) { return p.attivo && p.peso > 0; });
       if (!premi.length) throw errore("premi", "Nessun premio disponibile");
@@ -263,10 +272,10 @@ const Store = (function () {
       if (!a) throw errore("chiave", "Link non valido");
       const ultimi = db.buoni.filter(function (b) { return b.agente === a.id && b.stato === "riscattato"; })
         .sort(function (x, y) { return y.riscattato - x.riscattato; }).slice(0, 12)
-        .map(function (b) { return { quando: b.riscattato, sera: b.sera, persone: b.persone, euro: b.euro }; });
+        .map(function (b) { return { quando: b.riscattato, sera: seraRiscatto(b), persone: b.persone, euro: b.euro }; });
       return Object.assign({ nome: a.nome, codice: a.codice, attivo: a.attivo,
         fasce: fasceSera(db, a, C.sera()), fasceBase: a.fasce, bonusFino: bonusFino(db, a),
-        bonusPer: impostazioniDi(db).bonusPer, pausa: inPausa(db, C.sera()),
+        bonusPer: impostazioniDi(db).bonusPer, pausa: inPausa(db, C.sera()), validita: a.validita || 1,
         ultimi: ultimi }, riepilogo(db, a.id));
     });
   }
@@ -282,19 +291,20 @@ const Store = (function () {
       const b = db.buoni.find(function (x) { return x.codice === codice; });
       if (!b) throw errore("buono", "Nessun buono con questo codice");
       const a = agenteDa(db, b.agente);
+      const stasera = C.sera();
       const giaStasera = db.buoni.filter(function (x) {
-        return x.agente === a.id && x.sera === b.sera && x.stato === "riscattato" && x.codice !== b.codice;
+        return x.agente === a.id && seraRiscatto(x) === stasera && x.stato === "riscattato" && x.codice !== b.codice;
       }).reduce(function (s, x) { return s + x.persone; }, 0);
       return Object.assign(vistaBuono(db, b), {
-        agente: { id: a.id, nome: a.nome, attivo: a.attivo }, fasce: fasceSera(db, a, b.sera), giaStasera: giaStasera,
-        bonus: !!(bonusUltima(db, a) && b.sera <= bonusUltima(db, a)),
+        agente: { id: a.id, nome: a.nome, attivo: a.attivo }, fasce: fasceSera(db, a, stasera), giaStasera: giaStasera,
+        bonus: !!(bonusUltima(db, a) && stasera <= bonusUltima(db, a)), seraGioco: b.sera,
         annullabile: b.stato === "riscattato" && ultimoDellaSera(db, b),
       });
     });
   }
   function ultimoDellaSera(db, b) {
     const dopo = db.buoni.some(function (x) {
-      return x.agente === b.agente && x.sera === b.sera && x.stato === "riscattato" && x.riscattato > b.riscattato;
+      return x.agente === b.agente && seraRiscatto(x) === seraRiscatto(b) && x.stato === "riscattato" && x.riscattato > b.riscattato;
     });
     return !dopo;
   }
@@ -310,12 +320,13 @@ const Store = (function () {
       if (b.stato === "riscattato") throw errore("usato", "Buono già usato");
       if (Date.now() >= b.scade && !C.VETRINA) throw errore("scaduto", "Buono scaduto");
       const a = agenteDa(db, b.agente);
+      const stasera = C.sera();
       const gia = db.buoni.filter(function (x) {
-        return x.agente === a.id && x.sera === b.sera && x.stato === "riscattato";
+        return x.agente === a.id && seraRiscatto(x) === stasera && x.stato === "riscattato";
       }).reduce(function (s, x) { return s + x.persone; }, 0);
-      const fasce = fasceSera(db, a, b.sera);
+      const fasce = fasceSera(db, a, stasera);
       const pr = C.provvigione(fasce, gia, persone);
-      Object.assign(b, { stato: "riscattato", riscattato: Date.now(), persone: persone, euro: pr.euro });
+      Object.assign(b, { stato: "riscattato", riscattato: Date.now(), seraRiscatto: stasera, persone: persone, euro: pr.euro });
       scrivi(db);
       return { euro: pr.euro, righe: pr.righe, agente: a.nome, premio: b.premio };
     });
@@ -330,7 +341,7 @@ const Store = (function () {
       if (!b || b.stato !== "riscattato") throw errore("buono", "Niente da annullare");
       if (!ultimoDellaSera(db, b)) throw errore("ordine", "Si può annullare solo l'ultimo tavolo di quell'agente");
       b.stato = "attivo";
-      delete b.riscattato; delete b.persone; delete b.euro;
+      delete b.riscattato; delete b.seraRiscatto; delete b.persone; delete b.euro;
       scrivi(db);
       return true;
     });
@@ -343,19 +354,17 @@ const Store = (function () {
       const stasera = C.sera();
       const agenti = db.agenti.map(function (a) {
         return Object.assign({ id: a.id, nome: a.nome, telefono: a.telefono, attivo: a.attivo, codice: a.codice,
-          bonusFino: bonusFino(db, a) }, riepilogo(db, a.id));
+          validita: a.validita || 1, bonusFino: bonusFino(db, a) }, riepilogo(db, a.id));
       });
       const nome = {};
       db.agenti.forEach(function (a) { nome[a.id] = a.nome; });
-      const tavoli = db.buoni.filter(function (b) { return b.sera === stasera && b.stato === "riscattato"; })
+      const tavoli = db.buoni.filter(function (b) { return seraRiscatto(b) === stasera && b.stato === "riscattato"; })
         .sort(function (x, y) { return y.riscattato - x.riscattato; })
         .map(function (b) {
           return { codice: b.codice, agente: nome[b.agente], quando: b.riscattato, persone: b.persone,
             euro: b.euro, premio: b.premio, annullabile: ultimoDellaSera(db, b) };
         });
-      const inAttesa = db.buoni.filter(function (b) {
-        return b.sera === stasera && b.stato === "attivo" && Date.now() < b.scade;
-      }).length;
+      const inAttesa = db.buoni.filter(function (b) { return b.stato === "attivo" && Date.now() < b.scade; }).length;
       return { agenti: agenti, tavoli: tavoli, inAttesa: inAttesa,
         giocate: db.buoni.filter(function (b) { return b.sera === stasera; }).length,
         chiusura: db.impostazioni.chiusura };
@@ -369,7 +378,7 @@ const Store = (function () {
       const a = agenteDa(db, id);
       const periodo = bonusPeriodo(db, a);
       return Object.assign({}, a, riepilogo(db, id), {
-        bonus: a.bonus !== false, bonusFino: bonusFino(db, a), bonusPer: impostazioniDi(db).bonusPer,
+        bonus: a.bonus !== false, validita: a.validita || 1, bonusFino: bonusFino(db, a), bonusPer: impostazioniDi(db).bonusPer,
         bonusPeriodo: periodo && periodo >= C.sera() ? periodo : null,
         serate: serate(db, id),
         pagamenti: db.pagamenti.filter(function (p) { return p.agente === id; })
@@ -395,6 +404,11 @@ const Store = (function () {
       if (dati.telefono != null) a.telefono = String(dati.telefono).trim();
       if (dati.attivo != null) a.attivo = !!dati.attivo;
       if (dati.bonus != null) a.bonus = !!dati.bonus;
+      if (dati.validita != null) {
+        const v = String(dati.validita);
+        if (!/^[1-7]$/.test(v)) throw errore("validita", "Validità non valida (da 1 a 7 giorni)");
+        a.validita = +v;
+      }
       if (dati.fasce) a.fasce = controllaFasce(dati.fasce);
       scrivi(db);
       return a;
@@ -486,10 +500,10 @@ const Store = (function () {
       if (dati.chiusura) {
         if (!/^\d{2}:\d{2}$/.test(dati.chiusura)) throw errore("ora", "Orario non valido");
         db.impostazioni.chiusura = dati.chiusura;
-        // i buoni di stasera ancora da usare seguono il nuovo orario
-        const s = C.sera();
+        // i buoni ancora da usare seguono il nuovo orario (ognuno nella sua ultima sera di validità)
+        const adesso = Date.now();
         db.buoni.forEach(function (b) {
-          if (b.sera === s && b.stato === "attivo") b.scade = C.scadenza(s, dati.chiusura).getTime();
+          if (b.stato === "attivo" && b.scade > adesso) b.scade = C.scadenza(C.sera(b.scade), dati.chiusura).getTime();
         });
       }
       if (dati.fasce) db.impostazioni.fasce = controllaFasce(dati.fasce);

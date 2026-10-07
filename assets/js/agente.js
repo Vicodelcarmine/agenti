@@ -78,6 +78,11 @@
       return '<li><span class="cresce">' + C.esc(f.testo) + "</span>" + base + '<span class="euro">' + C.euro(f.euro) + "</span></li>";
     }).join("");
 
+    const v = d.validita || 1;
+    $("#validita").hidden = v <= 1;
+    $("#validita").textContent = "🎟️ I buoni dei tuoi clienti valgono " + v + " giorni: possono venire anche " +
+      (v === 2 ? "domani sera" : "nelle " + (v - 1) + " sere dopo") + ", e il tavolo conta nella sera in cui si siedono.";
+
     $("#m-titolo").textContent = "📅 " + d.mese.nome.charAt(0).toUpperCase() + d.mese.nome.slice(1);
     $("#m-tavoli").textContent = d.mese.tavoli;
     $("#m-persone").textContent = d.mese.persone;

@@ -69,11 +69,12 @@ Deno.serve(async (req) => {
     const { data: b } = await db.from("pr_buoni")
       .update({ notificato: true })
       .eq("codice", codice).eq("stato", "riscattato").eq("notificato", false)
-      .select("codice, agente, sera, persone, euro").maybeSingle();
+      .select("codice, agente, sera_riscatto, persone, euro").maybeSingle();
     if (!b) return risposta({ inviate: 0 });
 
+    // totale della serata in cui il tavolo si è seduto
     const { data: sera } = await db.from("pr_buoni").select("persone, euro")
-      .eq("agente", b.agente).eq("sera", b.sera).eq("stato", "riscattato");
+      .eq("agente", b.agente).eq("sera_riscatto", b.sera_riscatto).eq("stato", "riscattato");
     const persone = (sera || []).reduce((s: number, x: any) => s + (x.persone || 0), 0);
     const totale = (sera || []).reduce((s: number, x: any) => s + Number(x.euro || 0), 0);
 

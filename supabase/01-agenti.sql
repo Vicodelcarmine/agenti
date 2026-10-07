@@ -31,6 +31,8 @@ create table if not exists public.pr_agenti (
 );
 -- false = per questo agente la settimana di benvenuto non vale (es. lavorava già prima)
 alter table public.pr_agenti add column if not exists bonus boolean not null default true;
+-- per quante sere vale il buono dei suoi clienti: 1 = solo la sera stessa, 3 = stasera e le due dopo
+alter table public.pr_agenti add column if not exists validita int not null default 1 check (validita between 1 and 7);
 
 create table if not exists public.pr_premi (
   id     text primary key,
@@ -59,6 +61,12 @@ create table if not exists public.pr_buoni (
 create index if not exists pr_buoni_agente_sera on public.pr_buoni (agente, sera);
 create index if not exists pr_buoni_disp_sera   on public.pr_buoni (dispositivo, sera);
 create index if not exists pr_buoni_sera        on public.pr_buoni (sera);
+-- la sera in cui il tavolo si è seduto (può essere dopo quella del gioco, se il buono vale più giorni):
+-- è quella che conta per gli scaglioni e per i guadagni della serata
+alter table public.pr_buoni add column if not exists sera_riscatto date;
+update public.pr_buoni set sera_riscatto = ((riscattato at time zone 'Europe/Rome') - interval '6 hours')::date
+ where stato = 'riscattato' and sera_riscatto is null;
+create index if not exists pr_buoni_agente_riscatto on public.pr_buoni (agente, sera_riscatto);
 
 create table if not exists public.pr_pagamenti (
   id      uuid primary key default gen_random_uuid(),
@@ -199,7 +207,7 @@ create or replace function public.pr_ultimo_della_sera(b public.pr_buoni) return
 language sql stable set search_path = public as $$
   select not exists (
     select 1 from public.pr_buoni x
-     where x.agente = b.agente and x.sera = b.sera and x.stato = 'riscattato' and x.riscattato > b.riscattato)
+     where x.agente = b.agente and x.sera_riscatto = b.sera_riscatto and x.stato = 'riscattato' and x.riscattato > b.riscattato)
 $$;
 
 create or replace function public.pr_riepilogo(p_agente uuid) returns jsonb
@@ -211,15 +219,15 @@ language sql stable set search_path = public as $$
   select jsonb_build_object(
     'stasera', jsonb_build_object(
       'giocate', (select count(*) from b, s where b.sera = s.oggi),
-      'tavoli',  (select count(*) from ok, s where ok.sera = s.oggi),
-      'persone', (select coalesce(sum(persone), 0) from ok, s where ok.sera = s.oggi),
-      'euro',    (select coalesce(sum(euro), 0) from ok, s where ok.sera = s.oggi)),
+      'tavoli',  (select count(*) from ok, s where ok.sera_riscatto = s.oggi),
+      'persone', (select coalesce(sum(persone), 0) from ok, s where ok.sera_riscatto = s.oggi),
+      'euro',    (select coalesce(sum(euro), 0) from ok, s where ok.sera_riscatto = s.oggi)),
     'mese', jsonb_build_object(
       'nome', (select (array['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto',
                              'settembre','ottobre','novembre','dicembre'])[extract(month from oggi)::int] from s),
-      'tavoli',  (select count(*) from ok, s where date_trunc('month', ok.sera) = date_trunc('month', s.oggi)),
-      'persone', (select coalesce(sum(persone), 0) from ok, s where date_trunc('month', ok.sera) = date_trunc('month', s.oggi)),
-      'euro',    (select coalesce(sum(euro), 0) from ok, s where date_trunc('month', ok.sera) = date_trunc('month', s.oggi))),
+      'tavoli',  (select count(*) from ok, s where date_trunc('month', ok.sera_riscatto) = date_trunc('month', s.oggi)),
+      'persone', (select coalesce(sum(persone), 0) from ok, s where date_trunc('month', ok.sera_riscatto) = date_trunc('month', s.oggi)),
+      'euro',    (select coalesce(sum(euro), 0) from ok, s where date_trunc('month', ok.sera_riscatto) = date_trunc('month', s.oggi))),
     'maturato', (select coalesce(sum(euro), 0) from ok),
     'pagato',   (select tot from pag),
     'daPagare', (select coalesce(sum(euro), 0) from ok) - (select tot from pag))
@@ -305,11 +313,14 @@ begin
   if not found or not a.attivo then raise exception 'QR non attivo' using hint = 'agente'; end if;
   if public.pr_in_pausa(s) then raise exception 'Stasera siamo al completo' using hint = 'pausa'; end if;
   select * into imp from public.pr_impostazioni where id = 1;
-  sc := public.pr_scadenza(s, imp.chiusura);
+  -- il buono vale fino alla chiusura dell'ultima sera di validità di quell'agente
+  sc := public.pr_scadenza(s + a.validita - 1, imp.chiusura);
   if now() >= sc then raise exception 'Per stasera abbiamo chiuso' using hint = 'chiuso'; end if;
 
-  -- già giocato stasera da questo telefono: gli ridò il suo buono
-  select * into b from public.pr_buoni where dispositivo = p_dispositivo and sera = s order by creato limit 1;
+  -- questo telefono ha già un buono di stasera o ancora valido: gli ridò quello
+  select * into b from public.pr_buoni
+   where dispositivo = p_dispositivo and (sera = s or (stato = 'attivo' and scade > now()))
+   order by creato desc limit 1;
   if found then return public.pr_vista(b) || jsonb_build_object('gia', true); end if;
 
   if (select count(*) from public.pr_buoni where agente = a.id and sera = s) >= 500 then
@@ -361,9 +372,10 @@ begin
       'bonusFino', case when public.pr_bonus_ultima(a) >= public.pr_sera(now()) then public.pr_bonus_ultima(a) end,
       'bonusPer', (select bonus_per from public.pr_impostazioni where id = 1),
       'pausa', public.pr_in_pausa(public.pr_sera(now())),
+      'validita', a.validita,
       'ultimi', coalesce((
         select jsonb_agg(to_jsonb(x) order by x.quando desc) from (
-          select riscattato as quando, sera, persone, euro from public.pr_buoni
+          select riscattato as quando, sera_riscatto as sera, persone, euro from public.pr_buoni
            where agente = a.id and stato = 'riscattato' order by riscattato desc limit 12) x), '[]'::jsonb))
     || public.pr_riepilogo(a.id);
 end $$;
@@ -392,24 +404,26 @@ end $$;
 
 create or replace function public.pr_leggi_buono(p_pin text, p_codice text) returns jsonb
 language plpgsql stable security definer set search_path = public as $$
-declare b public.pr_buoni; a public.pr_agenti; gia int;
+declare b public.pr_buoni; a public.pr_agenti; gia int; s date := public.pr_sera(now());
 begin
   perform public.pr_controlla_pin(p_pin);
   select * into b from public.pr_buoni where codice = upper(p_codice);
   if not found then raise exception 'Nessun buono con questo codice' using hint = 'buono'; end if;
   select * into a from public.pr_agenti where id = b.agente;
+  -- il tavolo conta nella sera in cui si siede (stasera), non in quella in cui ha giocato
   select coalesce(sum(persone), 0) into gia from public.pr_buoni
-   where agente = a.id and sera = b.sera and stato = 'riscattato' and codice <> b.codice;
+   where agente = a.id and sera_riscatto = s and stato = 'riscattato' and codice <> b.codice;
   return public.pr_vista(b) || jsonb_build_object(
     'agente', jsonb_build_object('id', a.id, 'nome', a.nome, 'attivo', a.attivo),
-    'fasce', public.pr_fasce_sera(a, b.sera), 'giaStasera', gia,
-    'bonus', coalesce(b.sera <= public.pr_bonus_ultima(a), false),
+    'fasce', public.pr_fasce_sera(a, s), 'giaStasera', gia,
+    'bonus', coalesce(s <= public.pr_bonus_ultima(a), false),
+    'seraGioco', b.sera,
     'annullabile', b.stato = 'riscattato' and public.pr_ultimo_della_sera(b));
 end $$;
 
 create or replace function public.pr_riscatta(p_pin text, p_codice text, p_persone int) returns jsonb
 language plpgsql volatile security definer set search_path = public as $$
-declare b public.pr_buoni; a public.pr_agenti; gia int; e numeric;
+declare b public.pr_buoni; a public.pr_agenti; gia int; e numeric; s date := public.pr_sera(now());
 begin
   perform public.pr_controlla_pin(p_pin);
   if p_persone is null or p_persone < 1 or p_persone > 60 then
@@ -422,11 +436,12 @@ begin
   -- blocco l'agente: due riscatti insieme non sbagliano lo scaglione
   select * into a from public.pr_agenti where id = b.agente for update;
   select coalesce(sum(persone), 0) into gia from public.pr_buoni
-   where agente = a.id and sera = b.sera and stato = 'riscattato';
-  e := public.pr_provvigione(public.pr_fasce_sera(a, b.sera), gia, p_persone);
-  update public.pr_buoni set stato = 'riscattato', riscattato = clock_timestamp(), persone = p_persone, euro = e
+   where agente = a.id and sera_riscatto = s and stato = 'riscattato';
+  e := public.pr_provvigione(public.pr_fasce_sera(a, s), gia, p_persone);
+  update public.pr_buoni set stato = 'riscattato', riscattato = clock_timestamp(), sera_riscatto = s,
+                             persone = p_persone, euro = e
    where codice = b.codice;
-  return jsonb_build_object('euro', e, 'gia', gia, 'fasce', public.pr_fasce_sera(a, b.sera), 'agente', a.nome, 'premio', b.premio);
+  return jsonb_build_object('euro', e, 'gia', gia, 'fasce', public.pr_fasce_sera(a, s), 'agente', a.nome, 'premio', b.premio);
 end $$;
 
 create or replace function public.pr_annulla(p_pin text, p_codice text) returns boolean
@@ -439,7 +454,8 @@ begin
   if not public.pr_ultimo_della_sera(b) then
     raise exception 'Si può annullare solo l''ultimo tavolo di quell''agente' using hint = 'ordine';
   end if;
-  update public.pr_buoni set stato = 'attivo', riscattato = null, persone = null, euro = null, notificato = false
+  update public.pr_buoni set stato = 'attivo', riscattato = null, sera_riscatto = null, persone = null, euro = null,
+                             notificato = false
    where codice = b.codice;
   return true;
 end $$;
@@ -452,7 +468,7 @@ begin
   return jsonb_build_object(
     'agenti', coalesce((
       select jsonb_agg(jsonb_build_object('id', a.id, 'nome', a.nome, 'telefono', a.telefono,
-                                          'attivo', a.attivo, 'codice', a.codice,
+                                          'attivo', a.attivo, 'codice', a.codice, 'validita', a.validita,
                                           'bonusFino', case when public.pr_bonus_ultima(a) >= s then public.pr_bonus_ultima(a) end)
                        || public.pr_riepilogo(a.id) order by a.creato)
         from public.pr_agenti a), '[]'::jsonb),
@@ -462,8 +478,8 @@ begin
                                           'annullabile', public.pr_ultimo_della_sera(b))
                        order by b.riscattato desc)
         from public.pr_buoni b join public.pr_agenti a on a.id = b.agente
-       where b.sera = s and b.stato = 'riscattato'), '[]'::jsonb),
-    'inAttesa', (select count(*) from public.pr_buoni where sera = s and stato = 'attivo' and now() < scade),
+       where b.sera_riscatto = s and b.stato = 'riscattato'), '[]'::jsonb),
+    'inAttesa', (select count(*) from public.pr_buoni where stato = 'attivo' and now() < scade),
     'giocate',  (select count(*) from public.pr_buoni where sera = s),
     'chiusura', (select chiusura from public.pr_impostazioni where id = 1));
 end $$;
@@ -481,12 +497,16 @@ begin
     'bonusPer', (select bonus_per from public.pr_impostazioni where id = 1),
     'serate', coalesce((
       select jsonb_agg(to_jsonb(x) order by x.sera desc) from (
-        select sera,
-               count(*) as giocate,
-               count(*) filter (where stato = 'riscattato') as tavoli,
-               coalesce(sum(persone) filter (where stato = 'riscattato'), 0) as persone,
-               coalesce(sum(euro) filter (where stato = 'riscattato'), 0) as euro
-          from public.pr_buoni where agente = a.id group by sera) x), '[]'::jsonb),
+        select d.sera, coalesce(g.giocate, 0) as giocate, coalesce(r.tavoli, 0) as tavoli,
+               coalesce(r.persone, 0) as persone, coalesce(r.euro, 0) as euro
+          from (select sera from public.pr_buoni where agente = a.id
+                union
+                select sera_riscatto from public.pr_buoni where agente = a.id and stato = 'riscattato') d
+          left join (select sera, count(*) as giocate from public.pr_buoni where agente = a.id group by sera) g
+                 on g.sera = d.sera
+          left join (select sera_riscatto, count(*) as tavoli, sum(persone) as persone, sum(euro) as euro
+                       from public.pr_buoni where agente = a.id and stato = 'riscattato' group by sera_riscatto) r
+                 on r.sera_riscatto = d.sera) x), '[]'::jsonb),
     'pagamenti', coalesce((
       select jsonb_agg(jsonb_build_object('id', p.id, 'importo', p.importo, 'data', p.data, 'nota', p.nota)
                        order by p.data desc)
@@ -521,6 +541,12 @@ begin
   end if;
   if p_dati ? 'bonus' then
     update public.pr_agenti set bonus = (p_dati->>'bonus')::boolean where id = a.id;
+  end if;
+  if p_dati ? 'validita' then
+    if coalesce(p_dati->>'validita', '') !~ '^[1-7]$' then
+      raise exception 'Validità non valida (da 1 a 7 giorni)' using hint = 'validita';
+    end if;
+    update public.pr_agenti set validita = (p_dati->>'validita')::int where id = a.id;
   end if;
   if p_dati ? 'fasce' then
     update public.pr_agenti set fasce = public.pr_valida_fasce(p_dati->'fasce') where id = a.id;
@@ -629,8 +655,9 @@ begin
   if ch is not null then
     if ch !~ '^([01]\d|2[0-3]):[0-5]\d$' then raise exception 'Orario non valido' using hint = 'ora'; end if;
     update public.pr_impostazioni set chiusura = ch where id = 1;
-    -- i buoni di stasera ancora da usare seguono il nuovo orario
-    update public.pr_buoni set scade = public.pr_scadenza(s, ch) where sera = s and stato = 'attivo';
+    -- i buoni ancora da usare seguono il nuovo orario (ognuno nella sua ultima sera di validità)
+    update public.pr_buoni set scade = public.pr_scadenza(public.pr_sera(scade), ch)
+     where stato = 'attivo' and scade > now();
   end if;
   if p_dati ? 'fasce' then
     update public.pr_impostazioni set fasce = public.pr_valida_fasce(p_dati->'fasce') where id = 1;

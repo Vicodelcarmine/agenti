@@ -131,13 +131,19 @@
     }
   }
 
+  // "alle 22:10" se è stasera, "lun 5 ott alle 22:10" se è un'altra sera
+  function quando(t) {
+    return (C.sera(t) === C.sera() ? "" : C.dataBreve(C.sera(t)) + " ") + "alle " + C.ora(t);
+  }
+
   function intestazioneBuono(b) {
     return '<div class="emoji">' + b.premio.emoji + "</div>" +
       '<div class="nome">' + C.esc(b.premio.nome.it) + "</div>" +
       '<div class="muted small">' + C.esc(b.premio.desc.it) + "</div>" +
       '<p style="margin-top:10px">Mandato da <b>' + C.esc(b.agente.nome) + "</b>" +
       (b.agente.attivo ? "" : ' <span class="pill no">in pausa</span>') + "</p>" +
-      '<p class="dim">Codice ' + C.codiceBello(b.codice) + " · giocato alle " + C.ora(b.creato) + "</p>";
+      '<p class="dim">Codice ' + C.codiceBello(b.codice) + " · giocato " + quando(b.creato) +
+      (C.sera(b.scade) !== C.sera(b.creato) ? " · valido fino a " + C.dataBreve(C.sera(b.scade)) : "") + "</p>";
   }
 
   function mostraEsito(b) {
@@ -148,7 +154,7 @@
         (b.persone === 1 ? " persona" : " persone") + " · " + C.euro(b.euro) + " all'agente</div>" +
         (b.annullabile ? '<button class="btn vuoto pieno" data-azione="annulla">Annulla questo riscatto</button>' : "");
     } else if (b.stato === "scaduto") {
-      corpo = '<div class="avviso no">⛔ Scaduto alle ' + C.ora(b.scade) + ". Valeva solo quella sera.</div>";
+      corpo = '<div class="avviso no">⛔ Scaduto: valeva fino a ' + quando(b.scade) + ".</div>";
     } else {
       corpo =
         '<p style="margin-top:14px;font-weight:600">Quante persone al tavolo?</p>' +
@@ -350,7 +356,8 @@
         return '<div class="card" data-agente="' + a.id + '" style="cursor:pointer">' +
           '<div class="riga"><div><h3 style="margin:0">' + C.esc(a.nome) + "</h3>" +
           '<span class="pill ' + (a.attivo ? "ok" : "no") + '">' + (a.attivo ? "attivo" : "in pausa") + "</span>" +
-          (a.bonusFino ? ' <span class="pill oro">🔥 benvenuto fino a ' + C.esc(C.dataBreve(a.bonusFino)) + "</span>" : "") + "</div>" +
+          (a.bonusFino ? ' <span class="pill oro">🔥 benvenuto fino a ' + C.esc(C.dataBreve(a.bonusFino)) + "</span>" : "") +
+          (a.validita > 1 ? ' <span class="pill oro">🎟️ buoni ' + a.validita + " giorni</span>" : "") + "</div>" +
           '<label class="switch fisso" onclick="event.stopPropagation()"><input type="checkbox" data-attiva="' + a.id + '"' +
           (a.attivo ? " checked" : "") + "><i></i></label></div>" +
           '<div class="kpi" style="margin-top:12px">' +
@@ -465,6 +472,11 @@
       '<div class="card"><h3>✏️ Dati e tariffe</h3>' +
       '<label class="campo"><span>Nome</span><input type="text" id="ag-nome" value="' + C.esc(a.nome) + '"></label>' +
       '<label class="campo"><span>Telefono</span><input type="tel" id="ag-tel" value="' + C.esc(a.telefono) + '"></label>' +
+      '<label class="campo"><span>🎟️ I buoni dei suoi clienti valgono</span><select id="ag-validita">' +
+      [1, 2, 3, 4, 5, 6, 7].map(function (n) {
+        return '<option value="' + n + '"' + ((a.validita || 1) === n ? " selected" : "") + ">" +
+          (n === 1 ? "solo la sera stessa" : n + " giorni (stasera e " + (n === 2 ? "domani" : "le " + (n - 1) + " sere dopo") + ")") + "</option>";
+      }).join("") + "</select></label>" +
       '<p class="muted small" style="margin-top:12px">Euro a persona, si riparte da zero ogni sera:</p>' +
       '<div id="ag-fasce">' + editorFasce(a.fasce) + "</div>" +
       '<button class="btn rosso pieno" id="ag-salva" style="margin-top:8px">Salva</button></div>' +
@@ -500,7 +512,8 @@
     $("#ag-salva").addEventListener("click", async function () {
       try {
         await conPin(function (p) {
-          return S.salvaAgente(p, { id: id, nome: $("#ag-nome").value, telefono: $("#ag-tel").value, fasce: leggiFasce($("#ag-fasce")) });
+          return S.salvaAgente(p, { id: id, nome: $("#ag-nome").value, telefono: $("#ag-tel").value,
+            validita: $("#ag-validita").value, fasce: leggiFasce($("#ag-fasce")) });
         });
         C.toast("Salvato");
         caricaAgenti();

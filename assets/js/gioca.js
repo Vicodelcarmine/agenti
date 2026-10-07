@@ -5,45 +5,45 @@
   const C = Comune;
 
   const TESTI = {
-    it: { bandiera: "🇮🇹", titolo: "🎰 Tenta la Fortuna!", sotto: "Gira la slot e vinci un premio per tutto il tavolo!",
+    it: { bandiera: "🇮🇹", titolo: "🎰 Tenta la Fortuna!", sotto: "La slot gira da sola: c'è un premio per tutto il tavolo!",
       gira: "🎰 GIRA!", girando: "🎰 GIRANDO...", vinto: "🎉 HAI VINTO!", tuo: "🎁 Il tuo premio di stasera",
-      tavolo: "👥 Un premio per tutto il tavolo", valido: "⏰ Valido solo stasera fino alle {ora}",
+      tavolo: "👥 Un premio per tutto il tavolo", valido: "⏰ Valido solo stasera fino alle {ora}", validoFino: "⏰ Valido fino a {giorno}, alle {ora}",
       mostra: "Mostra questo QR quando arrivi al ristorante", nota: "Valido con consumazione al ristorante.",
       dove: "Siamo a pochi passi da qui", strada: "📍 PORTAMI AL RISTORANTE", menu: "📋 SCOPRI IL NOSTRO MENU",
       prenota: "Prenota su WhatsApp", usato: "RITIRATO", buonAppetito: "Premio ritirato: buon appetito! 🍕",
       scaduto: "SCADUTO", scadutoTesto: "Questo premio è scaduto.",
       chiuso: "Per stasera abbiamo chiuso: vieni a trovarci domani!", pausa: "Stasera siamo già al completo: il gioco riapre domani!", nonAttivo: "Questo QR non è attivo.",
       nienteQr: "Inquadra il QR di un nostro agente per giocare.", errore: "Connessione assente, riprova tra un attimo." },
-    en: { bandiera: "🇬🇧", titolo: "🎰 Try Your Luck!", sotto: "Spin the slot and win a prize for your whole table!",
+    en: { bandiera: "🇬🇧", titolo: "🎰 Try Your Luck!", sotto: "The slot spins on its own: there's a prize for your whole table!",
       gira: "🎰 SPIN!", girando: "🎰 SPINNING...", vinto: "🎉 YOU WON!", tuo: "🎁 Your prize for tonight",
-      tavolo: "👥 One prize for the whole table", valido: "⏰ Valid tonight only, until {ora}",
+      tavolo: "👥 One prize for the whole table", valido: "⏰ Valid tonight only, until {ora}", validoFino: "⏰ Valid until {giorno}, {ora}",
       mostra: "Show this QR code when you arrive at the restaurant", nota: "Valid with a meal at the restaurant.",
       dove: "We're just a short walk away", strada: "📍 TAKE ME TO THE RESTAURANT", menu: "📋 SEE OUR MENU",
       prenota: "Book on WhatsApp", usato: "REDEEMED", buonAppetito: "Prize redeemed: enjoy your meal! 🍕",
       scaduto: "EXPIRED", scadutoTesto: "This prize has expired.",
       chiuso: "We're closed for tonight: come and see us tomorrow!", pausa: "We're fully booked tonight: the game is back tomorrow!", nonAttivo: "This QR code is not active.",
       nienteQr: "Scan the QR code of one of our agents to play.", errore: "No connection, please try again in a moment." },
-    de: { bandiera: "🇩🇪", titolo: "🎰 Versuchen Sie Ihr Glück!", sotto: "Drehen Sie den Slot und gewinnen Sie einen Preis für den ganzen Tisch!",
+    de: { bandiera: "🇩🇪", titolo: "🎰 Versuchen Sie Ihr Glück!", sotto: "Der Slot dreht sich von selbst: ein Preis für den ganzen Tisch!",
       gira: "🎰 DREHEN!", girando: "🎰 DREHT...", vinto: "🎉 GEWONNEN!", tuo: "🎁 Ihr Preis für heute Abend",
-      tavolo: "👥 Ein Preis für den ganzen Tisch", valido: "⏰ Nur heute Abend gültig, bis {ora} Uhr",
+      tavolo: "👥 Ein Preis für den ganzen Tisch", valido: "⏰ Nur heute Abend gültig, bis {ora} Uhr", validoFino: "⏰ Gültig bis {giorno}, {ora} Uhr",
       mostra: "Zeigen Sie diesen QR-Code bei Ihrer Ankunft im Restaurant", nota: "Gültig bei Verzehr im Restaurant.",
       dove: "Wir sind nur ein paar Schritte entfernt", strada: "📍 ZUM RESTAURANT", menu: "📋 SPEISEKARTE ANSEHEN",
       prenota: "Auf WhatsApp reservieren", usato: "EINGELÖST", buonAppetito: "Preis eingelöst: guten Appetit! 🍕",
       scaduto: "ABGELAUFEN", scadutoTesto: "Dieser Preis ist abgelaufen.",
       chiuso: "Heute Abend haben wir geschlossen: besuchen Sie uns morgen!", pausa: "Heute Abend sind wir ausgebucht: das Spiel ist morgen wieder da!", nonAttivo: "Dieser QR-Code ist nicht aktiv.",
       nienteQr: "Scannen Sie den QR-Code eines unserer Mitarbeiter, um zu spielen.", errore: "Keine Verbindung, bitte gleich noch einmal versuchen." },
-    fr: { bandiera: "🇫🇷", titolo: "🎰 Tentez votre chance !", sotto: "Faites tourner la machine et gagnez un cadeau pour toute la table !",
+    fr: { bandiera: "🇫🇷", titolo: "🎰 Tentez votre chance !", sotto: "La machine tourne toute seule : un cadeau pour toute la table !",
       gira: "🎰 TOURNER !", girando: "🎰 ÇA TOURNE...", vinto: "🎉 GAGNÉ !", tuo: "🎁 Votre cadeau de ce soir",
-      tavolo: "👥 Un cadeau pour toute la table", valido: "⏰ Valable ce soir seulement, jusqu'à {ora}",
+      tavolo: "👥 Un cadeau pour toute la table", valido: "⏰ Valable ce soir seulement, jusqu'à {ora}", validoFino: "⏰ Valable jusqu'au {giorno}, {ora}",
       mostra: "Montrez ce QR code à votre arrivée au restaurant", nota: "Valable avec un repas au restaurant.",
       dove: "Nous sommes à quelques pas d'ici", strada: "📍 ALLER AU RESTAURANT", menu: "📋 VOIR NOTRE MENU",
       prenota: "Réserver sur WhatsApp", usato: "UTILISÉ", buonAppetito: "Cadeau utilisé : bon appétit ! 🍕",
       scaduto: "EXPIRÉ", scadutoTesto: "Ce cadeau a expiré.",
       chiuso: "Nous sommes fermés pour ce soir : revenez demain !", pausa: "Ce soir, nous sommes complets : le jeu revient demain !", nonAttivo: "Ce QR code n'est pas actif.",
       nienteQr: "Scannez le QR code de l'un de nos agents pour jouer.", errore: "Pas de connexion, réessayez dans un instant." },
-    es: { bandiera: "🇪🇸", titolo: "🎰 ¡Prueba tu suerte!", sotto: "¡Gira la tragamonedas y gana un premio para toda la mesa!",
+    es: { bandiera: "🇪🇸", titolo: "🎰 ¡Prueba tu suerte!", sotto: "¡La tragamonedas gira sola: hay un premio para toda la mesa!",
       gira: "🎰 ¡GIRAR!", girando: "🎰 GIRANDO...", vinto: "🎉 ¡HAS GANADO!", tuo: "🎁 Tu premio de esta noche",
-      tavolo: "👥 Un premio para toda la mesa", valido: "⏰ Válido solo esta noche, hasta las {ora}",
+      tavolo: "👥 Un premio para toda la mesa", valido: "⏰ Válido solo esta noche, hasta las {ora}", validoFino: "⏰ Válido hasta el {giorno}, a las {ora}",
       mostra: "Muestra este QR al llegar al restaurante", nota: "Válido con consumición en el restaurante.",
       dove: "Estamos a pocos pasos de aquí", strada: "📍 LLÉVAME AL RESTAURANTE", menu: "📋 VER NUESTRO MENÚ",
       prenota: "Reservar por WhatsApp", usato: "CANJEADO", buonAppetito: "Premio canjeado: ¡buen provecho! 🍕",
@@ -105,6 +105,15 @@
   }
 
   /* ---------- il buono ---------- */
+  const LOCALE = { it: "it-IT", en: "en-GB", de: "de-DE", fr: "fr-FR", es: "es-ES" };
+  function scadenza(quando) {
+    const ultimaSera = C.sera(quando);              // la sera in cui scade (anche se chiude dopo mezzanotte)
+    if (ultimaSera === C.sera()) return t.valido.replace("{ora}", C.ora(quando));
+    const [y, m, g] = ultimaSera.split("-").map(Number);
+    const giorno = new Intl.DateTimeFormat(LOCALE[lingua], { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })
+      .format(new Date(Date.UTC(y, m - 1, g, 12)));
+    return t.validoFino.replace("{giorno}", giorno).replace("{ora}", C.ora(quando));
+  }
   function mostraBuono(b, nuovo) {
     buonoCorrente = b;
     $("#gioco").hidden = true;
@@ -119,7 +128,7 @@
     else if (b.stato === "scaduto") piede = '<p class="buono-mostra">' + C.esc(t.scadutoTesto) + "</p>";
     else piede =
       '<div class="buono-tavolo">' + C.esc(t.tavolo) + "</div>" +
-      '<div class="buono-valido">' + C.esc(t.valido.replace("{ora}", C.ora(b.scade))) + "</div>" +
+      '<div class="buono-valido">' + C.esc(scadenza(b.scade)) + "</div>" +
       '<p class="buono-mostra">' + C.esc(t.mostra) + "</p>" +
       '<p class="dim">' + C.esc(t.nota) + "</p>";
     v.innerHTML =
@@ -154,6 +163,7 @@
   /* ---------- la slot ---------- */
   async function gira() {
     const btn = $("#gira");
+    if (btn.disabled) return;   // sta già girando
     btn.disabled = true;
     btn.textContent = t.girando;
     const slot = $$(".slot");
@@ -188,7 +198,7 @@
     }
     clearInterval(rullo);
     await new Promise(function (ok) { setTimeout(ok, 450); });
-    try { localStorage.setItem(SALVATO, JSON.stringify({ codice: b.codice, sera: C.sera() })); } catch (e) {}
+    try { localStorage.setItem(SALVATO, JSON.stringify({ codice: b.codice, sera: C.sera(), scade: b.scade })); } catch (e) {}
     if (!b.gia) C.coriandoli();
     mostraBuono(b, !b.gia);
     $("#vincita").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -210,7 +220,7 @@
     // ha già giocato stasera da questo telefono? gli rimostro il suo buono
     let salvato = null;
     try { salvato = JSON.parse(localStorage.getItem(SALVATO)); } catch (e) {}
-    if (salvato && salvato.sera === C.sera()) {
+    if (salvato && (salvato.sera === C.sera() || (salvato.scade && Date.now() < new Date(salvato.scade).getTime()))) {
       try { mostraBuono(await Store.buono(salvato.codice), false); return; } catch (e) {}
     }
 
@@ -220,6 +230,7 @@
       if (!a.attivo) { messaggio("🔒", "nonAttivo"); return; }
       if (a.pausa) { messaggio("😊", "pausa"); return; }
       $("#gioco").hidden = false;
+      setTimeout(gira, 700);
     } catch (e) {
       if (e.codice === "agente") messaggio("🔒", "nonAttivo");
       else messaggio("📶", "errore");
