@@ -81,7 +81,7 @@
     const v = d.validita || 1;
     $("#validita").hidden = v <= 1;
     $("#validita").textContent = "🎟️ I buoni dei tuoi clienti valgono " + v + " giorni: possono venire anche " +
-      (v === 2 ? "domani sera" : "nelle " + (v - 1) + " sere dopo") + ", e il tavolo conta nella sera in cui si siedono.";
+      (v === 2 ? "la sera dopo" : "nelle " + (v - 1) + " sere dopo") + " (il sabato non conta), e il tavolo conta nella sera in cui si siedono.";
 
     $("#m-titolo").textContent = "📅 " + d.mese.nome.charAt(0).toUpperCase() + d.mese.nome.slice(1);
     $("#m-tavoli").textContent = d.mese.tavoli;

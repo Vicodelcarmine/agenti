@@ -475,8 +475,9 @@
       '<label class="campo"><span>🎟️ I buoni dei suoi clienti valgono</span><select id="ag-validita">' +
       [1, 2, 3, 4, 5, 6, 7].map(function (n) {
         return '<option value="' + n + '"' + ((a.validita || 1) === n ? " selected" : "") + ">" +
-          (n === 1 ? "solo la sera stessa" : n + " giorni (stasera e " + (n === 2 ? "domani" : "le " + (n - 1) + " sere dopo") + ")") + "</option>";
+          (n === 1 ? "solo la sera stessa" : n + " giorni (stasera e " + (n === 2 ? "la sera dopo" : "le " + (n - 1) + " sere dopo") + ")") + "</option>";
       }).join("") + "</select></label>" +
+      '<p class="dim" style="margin-top:-4px">Il sabato (e ogni giorno di pausa) non si conta.</p>' +
       '<p class="muted small" style="margin-top:12px">Euro a persona, si riparte da zero ogni sera:</p>' +
       '<div id="ag-fasce">' + editorFasce(a.fasce) + "</div>" +
       '<button class="btn rosso pieno" id="ag-salva" style="margin-top:8px">Salva</button></div>' +

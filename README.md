@@ -22,7 +22,7 @@ Ogni agente può avere tariffe sue: si cambiano dalla dashboard.
 Giorni e moltiplicatore si cambiano in Dashboard → Altro.
 Si può spegnere agente per agente, dalla sua scheda o già quando lo crei: per esempio per chi lavorava già prima (Leonardo).
 
-**Validità dei buoni:** si sceglie agente per agente, dalla sua scheda. Di base è "solo la sera stessa"; per Leonardo è 3 giorni (stasera e le due sere dopo). Il tavolo conta nella sera in cui si siede, non in quella in cui ha giocato.
+**Validità dei buoni:** si sceglie agente per agente, dalla sua scheda. Di base è "solo la sera stessa"; per Leonardo è 3 giorni (stasera e le due sere dopo). **Il sabato (e ogni giorno di pausa) non si conta mai**: né qui né nella settimana di benvenuto. Il tavolo conta nella sera in cui si siede, non in quella in cui ha giocato.
 
 **Giorni di pausa:** di base il sabato, perché siamo già al completo. Quella sera il gioco non dà buoni e l'agente lo vede nell'app.
 I giorni si scelgono in Dashboard → Altro.
@@ -34,6 +34,7 @@ I giorni si scelgono in Dashboard → Altro.
 - `supabase/01-agenti.sql`: tabelle e funzioni, sempre aggiornato. Si può rieseguire e non cancella niente.
 - `supabase/02-bonus-pausa.sql`: la sola modifica del 06/10/2026 (settimana di benvenuto e pausa), già compresa nel file 01.
 - `supabase/03-bonus-per-agente.sql`: la modifica successiva (bonus accendibile per agente; Leonardo senza bonus), già compresa nel file 01.
+- `supabase/05-sabato-non-conta.sql`: il sabato non si conta nella validità dei buoni né nella settimana di benvenuto (funzione `pr_piu_sere`), già compresa nel file 01.
 - `supabase/04-validita-buoni.sql`: validità dei buoni per agente (Leonardo 3 giorni) e provvigione contata nella sera in cui il tavolo si siede, già compresa nel file 01. Va insieme alla funzione `pr-notifica` aggiornata.
 - `supabase/functions/pr-notifica`: invia le notifiche (Verify JWT: OFF). Le chiavi delle notifiche le crea da sola nella tabella `pr_config`.
 - **PIN della dashboard**: è il PIN da titolare del menu (`app_secrets.pw_titolare`).

@@ -125,11 +125,21 @@ const Store = (function () {
   function impostazioniDi(db) {
     return Object.assign({ bonusGiorni: 7, bonusPer: 2, giorniPausa: [6] }, db.impostazioni);
   }
+  // la n-esima sera di servizio a partire da laSera compresa, SALTANDO i giorni di pausa (il sabato non si conta mai)
+  function piuSere(db, laSera, n) {
+    const pausa = impostazioniDi(db).giorniPausa;
+    let d = laSera, contate = 0;
+    for (let i = 0; i < n + 60; i++) {
+      if (pausa.indexOf(C.giornoSettimana(d)) < 0 && ++contate === n) return d;
+      d = C.piuGiorni(d, 1);
+    }
+    return C.piuGiorni(laSera, n - 1);
+  }
   // ultima sera della settimana di benvenuto, contata da quando l'agente è stato creato
   function bonusPeriodo(db, a) {
     const i = impostazioniDi(db);
     if (!(i.bonusGiorni > 0 && i.bonusPer > 1)) return null;
-    return C.piuGiorni(C.sera(a.creato), i.bonusGiorni - 1);
+    return piuSere(db, C.sera(a.creato), i.bonusGiorni);
   }
   // come sopra, ma solo se per quell'agente il bonus è acceso (null = niente bonus)
   function bonusUltima(db, a) {
@@ -232,8 +242,8 @@ const Store = (function () {
       if (!a || !a.attivo) throw errore("agente", "QR non attivo");
       const adesso = Date.now(), laSera = C.sera(adesso);
       if (inPausa(db, laSera)) throw errore("pausa", "Stasera siamo al completo");
-      // il buono vale fino alla chiusura dell'ultima sera di validità di quell'agente
-      const scade = C.scadenza(C.piuGiorni(laSera, (a.validita || 1) - 1), db.impostazioni.chiusura).getTime();
+      // il buono vale fino alla chiusura dell'ultima sera di validità di quell'agente (il sabato non si conta)
+      const scade = C.scadenza(piuSere(db, laSera, a.validita || 1), db.impostazioni.chiusura).getTime();
       if (adesso >= scade && !C.VETRINA) throw errore("chiuso", "Per stasera abbiamo chiuso");
       const gia = db.buoni.filter(function (b) {
         return b.dispositivo === dispositivo && (b.sera === laSera || (b.stato === "attivo" && b.scade > adesso));

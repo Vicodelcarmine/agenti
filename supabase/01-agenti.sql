@@ -153,7 +153,7 @@ $$;
 -- ultima sera della settimana di benvenuto, contata da quando l'agente è stato creato (null = niente bonus)
 create or replace function public.pr_bonus_periodo(a public.pr_agenti) returns date
 language sql stable set search_path = public as $$
-  select case when i.bonus_giorni > 0 and i.bonus_per > 1 then public.pr_sera(a.creato) + i.bonus_giorni - 1 end
+  select case when i.bonus_giorni > 0 and i.bonus_per > 1 then public.pr_piu_sere(public.pr_sera(a.creato), i.bonus_giorni) end
     from public.pr_impostazioni i where i.id = 1
 $$;
 
@@ -179,6 +179,22 @@ create or replace function public.pr_in_pausa(s date) returns boolean
 language sql stable set search_path = public as $$
   select extract(dow from s)::int = any(giorni_pausa) from public.pr_impostazioni where id = 1
 $$;
+
+-- la n-esima sera di servizio a partire da s compresa, SALTANDO i giorni di pausa (il sabato non si conta mai)
+create or replace function public.pr_piu_sere(s date, n int) returns date
+language plpgsql stable set search_path = public as $$
+declare d date := s; contate int := 0;
+begin
+  if n < 1 then return s; end if;
+  for i in 1 .. n + 60 loop
+    if not public.pr_in_pausa(d) then
+      contate := contate + 1;
+      if contate = n then return d; end if;
+    end if;
+    d := d + 1;
+  end loop;
+  return s + n - 1;   -- tutti i giorni in pausa: conto normale
+end $$;
 
 create or replace function public.pr_casuale(n int) returns text
 language plpgsql volatile set search_path = public as $$
@@ -313,8 +329,8 @@ begin
   if not found or not a.attivo then raise exception 'QR non attivo' using hint = 'agente'; end if;
   if public.pr_in_pausa(s) then raise exception 'Stasera siamo al completo' using hint = 'pausa'; end if;
   select * into imp from public.pr_impostazioni where id = 1;
-  -- il buono vale fino alla chiusura dell'ultima sera di validità di quell'agente
-  sc := public.pr_scadenza(s + a.validita - 1, imp.chiusura);
+  -- il buono vale fino alla chiusura dell'ultima sera di validità di quell'agente (il sabato non si conta)
+  sc := public.pr_scadenza(public.pr_piu_sere(s, a.validita), imp.chiusura);
   if now() >= sc then raise exception 'Per stasera abbiamo chiuso' using hint = 'chiuso'; end if;
 
   -- questo telefono ha già un buono di stasera o ancora valido: gli ridò quello
