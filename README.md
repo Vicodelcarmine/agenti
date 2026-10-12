@@ -7,7 +7,7 @@ Sistema per i PR ("agenti") del Vico del Carmine.
 3. **Il titolare** inquadra il buono (anche con la fotocamera normale del telefono, che apre `titolare/?b=CODICE`), scrive quante persone ci sono al tavolo e lo riscatta. La provvigione si calcola da sola.
 0. **Chi vuole diventare agente** ha due pagine, con lo stesso modulo (nome e numero WhatsApp):
    - `guide/` per le **guide turistiche**, con il loro video;
-   - `diventa/` per **chi cerca lavoro come PR**: il posto per il loro video è pronto (`diventa/video.mp4` + `copertina.jpg`, poi togliere `hidden` da `#video-pr`).
+   - `diventa/` per **chi cerca lavoro come PR**, con il loro video "Tra amici" (`diventa/video.mp4` + `copertina.jpg`): consigli il posto ad amici, colleghi o a chi incontri, puoi andarci con loro oppure no.
    Le richieste arrivano in Dashboard → Agenti (numerino rosso sull'icona), con scritto se è una guida o un PR. "Approva" crea l'agente (stesse condizioni per tutti) e apre la sua scheda per mandargli il link; "Scarta" cancella i dati. I link delle due pagine sono in Dashboard → Altro.
 4. **L'agente** riceve una notifica, "È arrivato un tuo tavolo: +9 €", anche ad app chiusa se ha attivato le notifiche. Con l'app aperta vede anche la festa a schermo.
 
