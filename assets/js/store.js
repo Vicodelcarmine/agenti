@@ -377,7 +377,7 @@ const Store = (function () {
       const inAttesa = db.buoni.filter(function (b) { return b.stato === "attivo" && Date.now() < b.scade; }).length;
       return { agenti: agenti, tavoli: tavoli, inAttesa: inAttesa,
         giocate: db.buoni.filter(function (b) { return b.sera === stasera; }).length,
-        chiusura: db.impostazioni.chiusura };
+        chiusura: db.impostazioni.chiusura, richieste: (db.candidature || []).length };
     });
   }
 
@@ -536,6 +536,49 @@ const Store = (function () {
     });
   }
 
+  /* ================= DIVENTA AGENTE ================= */
+
+  function candidatura(nome, telefono, ruolo, note) {
+    return rete(function () {
+      const db = leggi();
+      nome = String(nome || "").trim().slice(0, 80);
+      const tel = String(telefono || "").replace(/[^0-9+]/g, "");
+      if (nome.length < 2) throw errore("nome", "Scrivi il tuo nome");
+      if (tel.replace(/\D/g, "").length < 8 || tel.length > 16) throw errore("telefono", "Numero di telefono non valido");
+      db.candidature = db.candidature || [];
+      db.candidature.push({ id: C.casuale(10), creato: Date.now(), nome: nome, telefono: tel,
+        ruolo: String(ruolo || "").slice(0, 40), note: String(note || "").trim().slice(0, 500) });
+      scrivi(db);
+      return true;
+    });
+  }
+  function candidature(pin) {
+    return rete(function () {
+      const db = leggi();
+      controllaPin(db, pin);
+      return (db.candidature || []).slice().sort(function (x, y) { return y.creato - x.creato; });
+    });
+  }
+  function scartaCandidatura(pin, id) {
+    return rete(function () {
+      const db = leggi();
+      controllaPin(db, pin);
+      const prima = (db.candidature || []).length;
+      db.candidature = (db.candidature || []).filter(function (c) { return c.id !== id; });
+      if (db.candidature.length === prima) throw errore("candidatura", "Richiesta non trovata");
+      scrivi(db);
+      return true;
+    });
+  }
+  async function approvaCandidatura(pin, id, bonus) {
+    const lista = await candidature(pin);
+    const c = lista.find(function (x) { return x.id === id; });
+    if (!c) throw errore("candidatura", "Richiesta non trovata");
+    const a = await salvaAgente(pin, { nome: c.nome, telefono: c.telefono, bonus: bonus !== false });
+    await scartaCandidatura(pin, id);
+    return a;
+  }
+
   /* solo per la demo */
   function demoAgenti() {
     return leggi().agenti.map(function (a) { return { nome: a.nome, chiave: a.chiave, codice: a.codice, attivo: a.attivo }; });
@@ -550,6 +593,7 @@ const Store = (function () {
     notifica: function () { return Promise.resolve({ inviate: 0 }); },
     entra, leggiBuono, riscatta, annulla, panoramica, dettaglioAgente, salvaAgente, nuovaChiave, eliminaAgente,
     pagamento, premi, salvaPremi, impostazioni, salvaImpostazioni,
+    candidatura, candidature, approvaCandidatura, scartaCandidatura,
     demoAgenti, demoAzzera,
   };
 
@@ -615,6 +659,15 @@ const Store = (function () {
     salvaPremi: function (pin, lista) { return rpc("pr_salva_premi", { p_pin: pin, p_lista: lista }); },
     impostazioni: function (pin) { return rpc("pr_impostazioni", { p_pin: pin }); },
     salvaImpostazioni: function (pin, dati) { return rpc("pr_salva_impostazioni", { p_pin: pin, p_dati: dati }); },
+
+    candidatura: function (nome, telefono, ruolo, note) {
+      return rpc("pr_candidatura", { p_nome: nome, p_telefono: telefono, p_ruolo: ruolo || "", p_note: note || "" });
+    },
+    candidature: function (pin) { return rpc("pr_candidature", { p_pin: pin }); },
+    approvaCandidatura: function (pin, id, bonus) {
+      return rpc("pr_approva_candidatura", { p_pin: pin, p_id: id, p_bonus: bonus !== false });
+    },
+    scartaCandidatura: function (pin, id) { return rpc("pr_scarta_candidatura", { p_pin: pin, p_id: id }); },
   };
 
   return Object.assign({ DEMO: DEMO }, DEMO ? demo : reale);

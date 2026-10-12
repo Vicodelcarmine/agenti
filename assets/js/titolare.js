@@ -91,6 +91,12 @@
   $("#chiudi-foglio").addEventListener("click", chiudiFoglio);
   $("#foglio").addEventListener("click", function (e) { if (e.target.id === "foglio") chiudiFoglio(); });
 
+  // numerino rosso sull'icona Agenti: richieste "Diventa agente" da vedere
+  function segnaRichieste(n) {
+    const b = $('.tabbar [data-vai="agenti"]');
+    if (n > 0) b.dataset.badge = n; else delete b.dataset.badge;
+  }
+
   /* ================= RISCATTA ================= */
 
   function caricaRiscatta() {
@@ -100,6 +106,7 @@
   async function riassuntoSera() {
     try {
       const p = await conPin(S.panoramica);
+      segnaRichieste(p.richieste || 0);
       const persone = p.tavoli.reduce(function (s, t) { return s + t.persone; }, 0);
       const euro = p.tavoli.reduce(function (s, t) { return s + t.euro; }, 0);
       $("#r-sera").innerHTML = "<h3>🌙 Stasera finora</h3>" +
@@ -347,7 +354,66 @@
 
   /* ================= AGENTI ================= */
 
+  function linkChat(telefono, testo) {
+    const num = String(telefono || "").replace(/\D/g, "");
+    const intl = num ? (num.length <= 10 ? "39" + num : num) : "";
+    return "https://wa.me/" + intl + (testo ? "?text=" + encodeURIComponent(testo) : "");
+  }
+
+  async function caricaRichieste() {
+    const box = $("#richieste");
+    let lista = [];
+    try { lista = await conPin(S.candidature); } catch (e) { errore(e); return; }
+    segnaRichieste(lista.length);
+    if (!lista.length) { box.innerHTML = ""; return; }
+    box.innerHTML = '<div class="sez-titolo"><h2>📝 Richieste</h2><span class="pill no">' + lista.length +
+      (lista.length === 1 ? " da vedere" : " da vedere") + "</span></div>" +
+      lista.map(function (c) {
+        return '<div class="card" data-richiesta="' + C.esc(c.id) + '">' +
+          '<div class="riga"><div class="cresce"><h3 style="margin:0">' + C.esc(c.nome) + "</h3>" +
+          (c.ruolo ? '<span class="pill oro">' + C.esc(c.ruolo) + "</span>" : "") + "</div>" +
+          '<span class="dim fisso">' + C.esc(C.dataBreve(C.sera(c.creato))) + "</span></div>" +
+          '<p class="small" style="margin-top:8px">📞 ' + C.esc(c.telefono) +
+          ' · <a target="_blank" rel="noopener" href="' + linkChat(c.telefono, "Ciao " + c.nome.split(/\s+/)[0] + "! Abbiamo visto la tua richiesta per fare il PR.") +
+          '">💬 Scrivigli</a></p>' +
+          (c.note ? '<p class="small muted" style="margin-top:6px">' + C.esc(c.note) + "</p>" : "") +
+          '<div class="riga" style="margin-top:12px"><button class="btn verde piccolo" data-approva>✅ Approva</button>' +
+          '<button class="btn vuoto piccolo" data-scarta>✕ Scarta</button></div></div>';
+      }).join("");
+    $$("[data-richiesta]", box).forEach(function (card) {
+      const c = lista.find(function (x) { return String(x.id) === card.dataset.richiesta; });
+      $("[data-approva]", card).addEventListener("click", function () { approvaRichiesta(c); });
+      $("[data-scarta]", card).addEventListener("click", async function () {
+        if (!confirm("Scarto la richiesta di " + c.nome + "? I suoi dati vengono cancellati.")) return;
+        try {
+          await conPin(function (p) { return S.scartaCandidatura(p, c.id); });
+          C.toast("Richiesta scartata");
+          caricaRichieste();
+        } catch (e) { errore(e); }
+      });
+    });
+  }
+
+  function approvaRichiesta(c) {
+    apriFoglio("<h2>Approva " + C.esc(c.nome) + "</h2>" +
+      '<p class="muted small">Diventa agente con le tariffe standard. Subito dopo si apre la sua scheda: da lì gli mandi il link dell\'app su WhatsApp.</p>' +
+      '<label class="riga" style="margin-top:14px;gap:12px"><span class="cresce">🔥 Settimana di benvenuto' +
+      '<span class="dim" style="display:block">Tariffe maggiorate per le sue prime sere.</span></span>' +
+      '<span class="switch fisso"><input type="checkbox" id="ap-bonus" checked><i></i></span></label>' +
+      '<button class="btn rosso pieno" id="ap-crea" style="margin-top:16px">Crea agente</button>');
+    $("#ap-crea").addEventListener("click", async function () {
+      this.disabled = true;
+      try {
+        const a = await conPin(function (p) { return S.approvaCandidatura(p, c.id, $("#ap-bonus").checked); });
+        C.toast(c.nome + " è un agente: mandagli il link");
+        caricaAgenti();
+        apriAgente(a.id);
+      } catch (e) { this.disabled = false; errore(e); }
+    });
+  }
+
   async function caricaAgenti() {
+    caricaRichieste();
     try {
       const p = await conPin(S.panoramica);
       const box = $("#lista-agenti");
@@ -643,12 +709,18 @@
       disegnaGiorni(imp.giorniPausa || []);
       $("#fasce-standard").innerHTML = editorFasce(imp.fasce);
       const p = await conPin(S.panoramica);
+      $("#link-diventa").href = C.RADICE + "diventa/";
       const primo = p.agenti.find(function (a) { return a.attivo; }) || p.agenti[0];
       const lg = $("#link-gioco");
       if (primo) { lg.href = C.urlGioca(primo.codice); lg.hidden = false; } else lg.hidden = true;
     } catch (e) { errore(e); }
   }
   legaFasce($("#fasce-standard"));
+  $("#copia-diventa").addEventListener("click", async function () {
+    const url = C.RADICE + "diventa/";
+    try { await navigator.clipboard.writeText(url); C.toast("Link copiato: incollalo sotto il video"); }
+    catch (e) { prompt("Il link della pagina:", url); }
+  });
 
   // giorni della settimana da lunedì a domenica (0 = domenica)
   function disegnaGiorni(pausa) {

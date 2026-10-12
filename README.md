@@ -5,6 +5,7 @@ Sistema per i PR ("agenti") del Vico del Carmine.
 1. **L'agente** mostra il suo QR personale (`agente/`, si apre dal suo link `agente/?k=…`).
 2. **Il passante** lo inquadra e la slot **parte da sola**, senza bottoni (così nessuno pensa a una truffa). Vince un premio per tutto il tavolo e riceve un buono con QR, valido la sera stessa o per più giorni se l'agente ce l'ha, più la mappa per arrivare (`gioca/?a=CODICE`).
 3. **Il titolare** inquadra il buono (anche con la fotocamera normale del telefono, che apre `titolare/?b=CODICE`), scrive quante persone ci sono al tavolo e lo riscatta. La provvigione si calcola da sola.
+0. **Chi vuole diventare agente** apre `diventa/`: c'è il video per le guide turistiche, le regole in breve e un modulo con nome e numero WhatsApp. La richiesta arriva in Dashboard → Agenti (numerino rosso sull'icona). Con "Approva" diventa agente e si apre la sua scheda per mandargli il link; con "Scarta" i dati si cancellano. Il link della pagina da mettere sotto il video è in Dashboard → Altro.
 4. **L'agente** riceve una notifica, "È arrivato un tuo tavolo: +9 €", anche ad app chiusa se ha attivato le notifiche. Con l'app aperta vede anche la festa a schermo.
 
 ## Provvigioni
@@ -34,6 +35,7 @@ I giorni si scelgono in Dashboard → Altro.
 - `supabase/01-agenti.sql`: tabelle e funzioni, sempre aggiornato. Si può rieseguire e non cancella niente.
 - `supabase/02-bonus-pausa.sql`: la sola modifica del 06/10/2026 (settimana di benvenuto e pausa), già compresa nel file 01.
 - `supabase/03-bonus-per-agente.sql`: la modifica successiva (bonus accendibile per agente; Leonardo senza bonus), già compresa nel file 01.
+- `supabase/06-diventa-agente.sql`: richieste dalla pagina "Diventa agente" (tabella `pr_candidature`, massimo 3 al giorno per numero), già compresa nel file 01.
 - `supabase/05-sabato-non-conta.sql`: il sabato non si conta nella validità dei buoni né nella settimana di benvenuto (funzione `pr_piu_sere`), già compresa nel file 01.
 - `supabase/04-validita-buoni.sql`: validità dei buoni per agente (Leonardo 3 giorni) e provvigione contata nella sera in cui il tavolo si siede, già compresa nel file 01. Va insieme alla funzione `pr-notifica` aggiornata.
 - `supabase/functions/pr-notifica`: invia le notifiche (Verify JWT: OFF). Le chiavi delle notifiche le crea da sola nella tabella `pr_config`.

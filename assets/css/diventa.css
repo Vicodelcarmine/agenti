@@ -1,0 +1,26 @@
+/* Pagina "Diventa agente": video, regole in breve, modulo */
+
+.diventa .testa h1 { font-size: 1.7rem; color: var(--gold); margin-top: 4px; }
+.diventa .testa .emblema { display: flex; }
+
+.video {
+  margin: 20px auto 6px; max-width: 360px;
+  border-radius: 22px; overflow: hidden; border: 1px solid var(--line);
+  box-shadow: 0 18px 50px rgba(0,0,0,.45); background: #000;
+}
+.video video { display: block; width: 100%; aspect-ratio: 9 / 16; background: #000; }
+
+.passi { padding-left: 22px; }
+.passi li { margin: 10px 0; color: var(--muted); }
+.passi b { color: var(--cream); }
+
+.consenso { display: flex; gap: 10px; align-items: flex-start; margin: 14px 0 16px; font-size: .88rem; color: var(--muted); }
+.consenso input { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--gold); flex: 0 0 auto; }
+textarea { resize: vertical; }
+
+/* invisibile alle persone, visibile ai programmi che riempiono i moduli da soli */
+.trappola { position: absolute !important; left: -9999px !important; width: 1px !important; height: 1px !important; opacity: 0; }
+
+.privacy { margin: 18px 0 30px; color: var(--dim); font-size: .85rem; }
+.privacy summary { cursor: pointer; color: var(--muted); }
+.privacy p { margin-top: 8px; }
