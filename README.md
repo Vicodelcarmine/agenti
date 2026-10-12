@@ -5,7 +5,10 @@ Sistema per i PR ("agenti") del Vico del Carmine.
 1. **L'agente** mostra il suo QR personale (`agente/`, si apre dal suo link `agente/?k=…`).
 2. **Il passante** lo inquadra e la slot **parte da sola**, senza bottoni (così nessuno pensa a una truffa). Vince un premio per tutto il tavolo e riceve un buono con QR, valido la sera stessa o per più giorni se l'agente ce l'ha, più la mappa per arrivare (`gioca/?a=CODICE`).
 3. **Il titolare** inquadra il buono (anche con la fotocamera normale del telefono, che apre `titolare/?b=CODICE`), scrive quante persone ci sono al tavolo e lo riscatta. La provvigione si calcola da sola.
-0. **Chi vuole diventare agente** apre `diventa/`: c'è il video per le guide turistiche, le regole in breve e un modulo con nome e numero WhatsApp. La richiesta arriva in Dashboard → Agenti (numerino rosso sull'icona). Con "Approva" diventa agente e si apre la sua scheda per mandargli il link; con "Scarta" i dati si cancellano. Il link della pagina da mettere sotto il video è in Dashboard → Altro.
+0. **Chi vuole diventare agente** ha due pagine, con lo stesso modulo (nome e numero WhatsApp):
+   - `guide/` per le **guide turistiche**, con il loro video;
+   - `diventa/` per **chi cerca lavoro come PR**: il posto per il loro video è pronto (`diventa/video.mp4` + `copertina.jpg`, poi togliere `hidden` da `#video-pr`).
+   Le richieste arrivano in Dashboard → Agenti (numerino rosso sull'icona), con scritto se è una guida o un PR. "Approva" crea l'agente (stesse condizioni per tutti) e apre la sua scheda per mandargli il link; "Scarta" cancella i dati. I link delle due pagine sono in Dashboard → Altro.
 4. **L'agente** riceve una notifica, "È arrivato un tuo tavolo: +9 €", anche ad app chiusa se ha attivato le notifiche. Con l'app aperta vede anche la festa a schermo.
 
 ## Provvigioni

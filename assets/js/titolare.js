@@ -709,17 +709,19 @@
       disegnaGiorni(imp.giorniPausa || []);
       $("#fasce-standard").innerHTML = editorFasce(imp.fasce);
       const p = await conPin(S.panoramica);
-      $("#link-diventa").href = C.RADICE + "diventa/";
+      $$("[data-pagina]").forEach(function (a) { a.href = C.RADICE + a.dataset.pagina; });
       const primo = p.agenti.find(function (a) { return a.attivo; }) || p.agenti[0];
       const lg = $("#link-gioco");
       if (primo) { lg.href = C.urlGioca(primo.codice); lg.hidden = false; } else lg.hidden = true;
     } catch (e) { errore(e); }
   }
   legaFasce($("#fasce-standard"));
-  $("#copia-diventa").addEventListener("click", async function () {
-    const url = C.RADICE + "diventa/";
-    try { await navigator.clipboard.writeText(url); C.toast("Link copiato: incollalo sotto il video"); }
-    catch (e) { prompt("Il link della pagina:", url); }
+  $$("[data-copia]").forEach(function (b) {
+    b.addEventListener("click", async function () {
+      const url = C.RADICE + b.dataset.copia;
+      try { await navigator.clipboard.writeText(url); C.toast("Link copiato: incollalo sotto il video"); }
+      catch (e) { prompt("Il link della pagina:", url); }
+    });
   });
 
   // giorni della settimana da lunedì a domenica (0 = domenica)

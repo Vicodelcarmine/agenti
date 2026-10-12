@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1a1210">
+<title>Guide turistiche a Firenze</title>
+<meta name="description" content="A fine tour ti chiedono dove mangiare: consiglia noi e guadagna per ogni ospite che si siede. Ti mandiamo l'app su WhatsApp.">
+<meta property="og:title" content="Sei una guida turistica a Firenze?">
+<meta property="og:description" content="A fine tour ti chiedono dove mangiare: consiglia noi e guadagna per ogni ospite che si siede.">
+<meta property="og:image" content="https://vicodelcarmine.github.io/agenti/guide/copertina.jpg">
+<meta property="og:type" content="website">
+<link rel="icon" href="copertina.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/base.css">
+<link rel="stylesheet" href="../assets/css/app.css">
+<link rel="stylesheet" href="../assets/css/diventa.css">
+</head>
+<body>
+
+<div class="demo-bar" id="demo-bar" hidden>DEMO · le richieste restano solo in questo browser</div>
+
+<main class="wrap diventa">
+  <header class="testa center">
+    <div class="emblema grande" aria-hidden="true">🚩</div>
+    <h1>Sei una guida turistica a Firenze?</h1>
+    <p class="muted">A fine tour ti chiedono dove mangiare: consiglia noi e guadagna per ogni ospite che si siede.</p>
+    <a class="btn oro" href="#modulo" style="margin-top:14px">Lascia il tuo numero ↓</a>
+  </header>
+
+  <div class="video">
+    <video src="video.mp4" poster="copertina.jpg" controls playsinline preload="none"></video>
+  </div>
+
+  <section class="card">
+    <h2>Come funziona</h2>
+    <ol class="passi">
+      <li><b>Ti mandiamo l'app su WhatsApp,</b> con il tuo QR personale. Niente da scaricare dagli store.</li>
+      <li><b>A fine tour mostri il QR al capogruppo:</b> lo inquadra, il gioco parte da solo e il premio vale per tutto il gruppo.</li>
+      <li><b>Non devi accompagnarli:</b> sul telefono hanno il tasto "Portami al ristorante" con la strada a piedi.</li>
+      <li><b>Quando si siedono guadagni per ogni ospite,</b> e ti arriva subito la notifica sull'app.</li>
+    </ol>
+  </section>
+
+  <section class="card">
+    <h2>Quanto guadagni</h2>
+    <ul class="lista">
+      <li><span class="cresce">dalla 1ª alla 10ª persona</span><span class="euro">2 €</span></li>
+      <li><span class="cresce">dalla 11ª alla 20ª persona</span><span class="euro">3 €</span></li>
+      <li><span class="cresce">dalla 21ª persona in poi</span><span class="euro">4 €</span></li>
+    </ul>
+    <p class="dim">A persona, dal primo coperto. Ogni sera si riparte da zero. Un gruppo di 30 in una sera: 90 €.</p>
+    <p class="bonus" style="margin-top:10px">🔥 <b>Nella tua prima settimana tutto doppio:</b> 4, 6 e 8 €. Lo stesso gruppo di 30: 180 €.</p>
+    <p class="dim" style="margin-top:10px">Ogni tavolo resta registrato con ora e coperti. Soldi a fine serata, oppure bonifico a fine settimana.
+      Il sabato il servizio è in pausa, perché siamo già al completo, e non si conta nei giorni.</p>
+  </section>
+
+  <section class="card oro" id="modulo">
+    <h2>Lascia il tuo numero</h2>
+    <p class="muted">Ti scriviamo su WhatsApp e ti mandiamo l'app con il tuo QR.</p>
+    <form id="f" novalidate>
+      <label class="campo"><span>Nome e cognome</span>
+        <input type="text" id="nome" autocomplete="name" maxlength="80" required></label>
+      <label class="campo"><span>Numero WhatsApp</span>
+        <input type="tel" id="tel" autocomplete="tel" inputmode="tel" placeholder="es. 333 123 4567" maxlength="20" required></label>
+      <label class="campo"><span>Cosa fai?</span>
+        <select id="ruolo">
+          <option>Guida turistica</option>
+          <option>Accompagnatore turistico</option>
+          <option>Tour leader</option>
+          <option>Guida · altro</option>
+        </select></label>
+      <label class="campo"><span>Note (facoltativo)</span>
+        <textarea id="note" rows="3" maxlength="500" placeholder="Lingue, tipo di tour, quanti gruppi a settimana…"></textarea></label>
+      <!-- trappola per i programmi che riempiono i moduli da soli: le persone non la vedono -->
+      <input type="text" id="sito" tabindex="-1" autocomplete="off" class="trappola" aria-hidden="true">
+      <label class="consenso"><input type="checkbox" id="ok">
+        <span>Ho letto l'<a href="#privacy">informativa privacy</a> e accetto di essere ricontattato su WhatsApp.</span></label>
+      <button class="btn rosso pieno" id="invia">Invia la richiesta</button>
+    </form>
+    <div id="grazie" class="center" hidden>
+      <div style="font-size:3rem">✅</div>
+      <h2>Grazie, <span id="grazie-nome"></span>!</h2>
+      <p class="muted">Ti scriviamo su WhatsApp a breve con l'app e il tuo QR.</p>
+    </div>
+  </section>
+
+  <details class="privacy" id="privacy">
+    <summary>Informativa privacy</summary>
+    <p><b>Chi raccoglie i dati:</b> il ristorante Vico del Carmine, Via Pisana 40/r, Firenze (titolare del trattamento).</p>
+    <p><b>Quali dati:</b> nome, numero di telefono, ruolo e quello che scrivi nelle note.</p>
+    <p><b>Perché:</b> solo per ricontattarti su WhatsApp a proposito di questa collaborazione. Non li usiamo per pubblicità e non li cediamo a nessuno.</p>
+    <p><b>Per quanto:</b> se la richiesta non va avanti li cancelliamo subito; se diventi agente restano nella tua scheda finché collabori con noi.</p>
+    <p><b>I tuoi diritti:</b> puoi chiedere in qualsiasi momento di vedere, correggere o cancellare i tuoi dati scrivendoci su WhatsApp.</p>
+  </details>
+</main>
+
+<script src="../assets/js/comune.js"></script>
+<script src="../assets/js/store.js"></script>
+<script src="../assets/js/diventa.js"></script>
+</body>
+</html>

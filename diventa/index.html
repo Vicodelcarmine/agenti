@@ -4,13 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#1a1210">
-<title>Diventa PR a Firenze</title>
-<meta name="description" content="Porta persone a cena e guadagni per ognuna che si siede. Lascia il tuo numero: ti mandiamo l'app su WhatsApp.">
-<meta property="og:title" content="Diventa PR a Firenze">
+<title>Lavora come PR a Firenze</title>
+<meta name="description" content="Cerchi lavoro? Porta persone a cena e guadagni per ognuna che si siede. Lascia il tuo numero: ti mandiamo l'app su WhatsApp.">
+<meta property="og:title" content="Lavora come PR a Firenze">
 <meta property="og:description" content="Porta persone a cena e guadagni per ognuna che si siede. Ti mandiamo l'app su WhatsApp.">
-<meta property="og:image" content="https://vicodelcarmine.github.io/agenti/diventa/copertina.jpg">
 <meta property="og:type" content="website">
-<link rel="icon" href="copertina.jpg">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍕</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
@@ -25,21 +24,22 @@
 <main class="wrap diventa">
   <header class="testa center">
     <div class="emblema grande" aria-hidden="true">🍕</div>
-    <h1>Diventa PR a Firenze</h1>
-    <p class="muted">Porta persone a cena e guadagni per ognuna che si siede.</p>
+    <h1>Lavora come PR a Firenze</h1>
+    <p class="muted">Cerchi lavoro? Porta persone a cena e guadagni per ognuna che si siede.</p>
     <a class="btn oro" href="#modulo" style="margin-top:14px">Lascia il tuo numero ↓</a>
   </header>
 
-  <div class="video">
+  <!-- qui va il video per chi cerca lavoro come PR (video.mp4 + copertina.jpg): togliere "hidden" quando c'è -->
+  <div class="video" id="video-pr" hidden>
     <video src="video.mp4" poster="copertina.jpg" controls playsinline preload="none"></video>
   </div>
 
   <section class="card">
     <h2>Come funziona</h2>
     <ol class="passi">
-      <li><b>Ti mandiamo l'app su WhatsApp.</b> Niente da scaricare dagli store.</li>
-      <li><b>Fai inquadrare il tuo QR</b> al capogruppo: il gioco parte da solo e il premio vale per tutto il gruppo.</li>
-      <li><b>Loro vengono a cena, tu guadagni</b> per ogni persona che si siede, e ti arriva subito la notifica.</li>
+      <li><b>Ti mandiamo l'app su WhatsApp,</b> con il tuo QR personale. Niente da scaricare dagli store.</li>
+      <li><b>Fermi le persone per strada e fai inquadrare il QR:</b> il gioco parte da solo, vincono un premio per tutto il tavolo e trovano la strada per arrivare.</li>
+      <li><b>Quando si siedono guadagni per ogni persona,</b> e ti arriva subito la notifica sull'app.</li>
     </ol>
   </section>
 
@@ -50,29 +50,28 @@
       <li><span class="cresce">dalla 11ª alla 20ª persona</span><span class="euro">3 €</span></li>
       <li><span class="cresce">dalla 21ª persona in poi</span><span class="euro">4 €</span></li>
     </ul>
-    <p class="dim">A persona, e ogni sera si riparte da zero. Un gruppo di 30 in una sera: 90 €.</p>
-    <p class="bonus" style="margin-top:10px">🔥 <b>Nella tua prima settimana tutto doppio:</b> 4, 6 e 8 €. Lo stesso gruppo di 30: 180 €.</p>
-    <p class="dim" style="margin-top:10px">Soldi a fine serata, oppure bonifico a fine settimana.
+    <p class="dim">A persona, e ogni sera si riparte da zero. Venti persone in una sera: 50 €.</p>
+    <p class="bonus" style="margin-top:10px">🔥 <b>Nella tua prima settimana tutto doppio:</b> 4, 6 e 8 €. Le stesse venti persone: 100 €.</p>
+    <p class="dim" style="margin-top:10px">Vedi i tuoi guadagni in tempo reale. Soldi a fine serata, oppure bonifico a fine settimana.
       Il sabato il servizio è in pausa, perché siamo già al completo, e non si conta nei giorni.</p>
   </section>
 
   <section class="card oro" id="modulo">
     <h2>Lascia il tuo numero</h2>
-    <p class="muted">Ti scriviamo su WhatsApp e ti mandiamo l'app.</p>
+    <p class="muted">Ti scriviamo su WhatsApp e ti mandiamo l'app con il tuo QR.</p>
     <form id="f" novalidate>
       <label class="campo"><span>Nome e cognome</span>
         <input type="text" id="nome" autocomplete="name" maxlength="80" required></label>
       <label class="campo"><span>Numero WhatsApp</span>
         <input type="tel" id="tel" autocomplete="tel" inputmode="tel" placeholder="es. 333 123 4567" maxlength="20" required></label>
-      <label class="campo"><span>Cosa fai?</span>
+      <label class="campo"><span>Hai già esperienza?</span>
         <select id="ruolo">
-          <option>Guida turistica</option>
-          <option>Accompagnatore di gruppi</option>
-          <option>PR / promoter</option>
-          <option>Altro</option>
+          <option value="PR · già esperienza">Sì, come PR o promoter</option>
+          <option value="PR · esperienza in sala/vendita">Sì, in sala, bar o vendita</option>
+          <option value="PR · prima volta">No, è la prima volta</option>
         </select></label>
       <label class="campo"><span>Note (facoltativo)</span>
-        <textarea id="note" rows="3" maxlength="500" placeholder="Lingue, zone, tour, quanti gruppi a settimana…"></textarea></label>
+        <textarea id="note" rows="3" maxlength="500" placeholder="Quando sei disponibile, che lingue parli…"></textarea></label>
       <!-- trappola per i programmi che riempiono i moduli da soli: le persone non la vedono -->
       <input type="text" id="sito" tabindex="-1" autocomplete="off" class="trappola" aria-hidden="true">
       <label class="consenso"><input type="checkbox" id="ok">
@@ -89,7 +88,7 @@
   <details class="privacy" id="privacy">
     <summary>Informativa privacy</summary>
     <p><b>Chi raccoglie i dati:</b> il ristorante Vico del Carmine, Via Pisana 40/r, Firenze (titolare del trattamento).</p>
-    <p><b>Quali dati:</b> nome, numero di telefono, ruolo e quello che scrivi nelle note.</p>
+    <p><b>Quali dati:</b> nome, numero di telefono, la tua esperienza e quello che scrivi nelle note.</p>
     <p><b>Perché:</b> solo per ricontattarti su WhatsApp a proposito di questa collaborazione. Non li usiamo per pubblicità e non li cediamo a nessuno.</p>
     <p><b>Per quanto:</b> se la richiesta non va avanti li cancelliamo subito; se diventi agente restano nella tua scheda finché collabori con noi.</p>
     <p><b>I tuoi diritti:</b> puoi chiedere in qualsiasi momento di vedere, correggere o cancellare i tuoi dati scrivendoci su WhatsApp.</p>
