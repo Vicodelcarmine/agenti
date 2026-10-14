@@ -585,7 +585,12 @@ const Store = (function () {
   const CLUB = "vdcclub_demo_v1";
   function clubImpostazioniBase() {
     return { emoji: "🍹", nome: { it: "Spritz o dolce offerto", en: "Free spritz or dessert" },
-      persone: 2, sere: 14, giorniNo: [6], giorniChiusura: [] };
+      persone: 2, sere: 14, giorniNo: [6], giorniChiusura: [],
+      compleannoPer: 2, compleannoGiorni: 3, offerteAttive: true, offerteSettimane: 3, offertePersone: 2,
+      offerteSere: 2, offertePausa: 15, emailAttive: false };
+  }
+  function clubOfferteBase() {
+    return [{ id: "DOLCE", emoji: "🍰", nome: { it: "Dolce offerto", en: "Free dessert" }, attivo: true }];
   }
   // la n-esima sera a partire da s compresa, saltando i giorni esclusi (il sabato non si conta mai)
   function clubPiuSere(s, n, giorni) {
@@ -619,12 +624,14 @@ const Store = (function () {
     // compleanno fra 3 giorni (stesso mese e giorno, anno di nascita 1994)
     const fra3 = C.piuGiorni(oggi, 3);
     const a = persona("Giulia Rossi", "giulia.rossi@example.com", "+393331112233", "1994" + fra3.slice(4), 5, true);
+    a.notifiche = 1;
     clubPremioNuovo(db, a.id, "benvenuto", C.piuGiorni(oggi, -4));
     const b = persona("Marco Bianchi", "marco.b@example.com", "+393474455667", "1988-03-12", 0, false);
     clubPremioNuovo(db, b.id, "benvenuto", C.piuGiorni(oggi, 1));
-    const c = persona("Sara Verdi", "sara.verdi@example.com", "+393201234567", "2000-11-02", 20, true);
-    const pc = clubPremioNuovo(db, c.id, "benvenuto", C.piuGiorni(oggi, -19));
-    pc.usato = Date.now() - 12 * 864e5; pc.seraUso = C.sera(pc.usato);
+    const c = persona("Sara Verdi", "sara.verdi@example.com", "+393201234567", "2000-11-02", 40, true);
+    c.notifiche = 1;
+    const pc = clubPremioNuovo(db, c.id, "benvenuto", C.piuGiorni(oggi, -39));
+    pc.usato = Date.now() - 25 * 864e5; pc.seraUso = C.sera(pc.usato);
     return db;
   }
   function clubLeggi() {
@@ -632,6 +639,8 @@ const Store = (function () {
     try { db = JSON.parse(localStorage.getItem(CLUB)); } catch (e) {}
     if (!db) { db = clubDatiIniziali(); clubScrivi(db); }
     db.impostazioni = Object.assign(clubImpostazioniBase(), db.impostazioni);
+    db.offerte = db.offerte || clubOfferteBase();
+    db.messaggi = db.messaggi || [];
     return db;
   }
   function clubScrivi(db) { try { localStorage.setItem(CLUB, JSON.stringify(db)); } catch (e) {} }
@@ -688,6 +697,8 @@ const Store = (function () {
         compleanni: db.iscritti.map(function (i) { return { id: i.id, nome: i.nome, telefono: i.telefono, nascita: i.nascita, giorno: prossimoCompleanno(i.nascita, s) }; })
           .filter(function (x) { return x.giorno <= C.piuGiorni(s, 7); })
           .sort(function (x, y) { return x.giorno < y.giorno ? -1 : x.giorno > y.giorno ? 1 : 0; }),
+        conNotifiche: db.iscritti.filter(function (i) { return i.notifiche > 0; }).length,
+        inCoda: 0, ultimoGiro: db.ultimoGiro || null, ultimoEsito: db.ultimoEsito || null,
       };
     });
   }
@@ -710,7 +721,8 @@ const Store = (function () {
       const db = clubLeggi();
       const i = db.iscritti.find(function (x) { return x.id === id; });
       if (!i) throw errore("iscritto", "Iscritto non trovato");
-      return Object.assign({}, i, { premi: db.premi.filter(function (p) { return p.iscritto === id; })
+      return Object.assign({}, i, { emailConfermata: false, notifiche: i.notifiche || 0, ultimoContatto: i.ultimoContatto || null,
+        premi: db.premi.filter(function (p) { return p.iscritto === id; })
         .sort(function (x, y) { return y.creato - x.creato; }).map(clubVista) });
     });
   }
@@ -774,10 +786,123 @@ const Store = (function () {
       if (dati.giorniNo) imp.giorniNo = giorni(dati.giorniNo);
       if (dati.giorniChiusura) imp.giorniChiusura = giorni(dati.giorniChiusura);
       if (giorni(imp.giorniNo.concat(imp.giorniChiusura)).length >= 7) throw errore("giorni", "Almeno una sera della settimana deve restare valida");
+      // compleanno e offerte: numero intero fra min e max
+      const intero = function (k, min, max, msg) {
+        if (dati[k] == null) return;
+        const n = String(dati[k]).trim();
+        if (!/^\d{1,2}$/.test(n) || +n < min || +n > max) throw errore(k, msg);
+        imp[k] = +n;
+      };
+      intero("compleannoPer", 1, 5, "Moltiplicatore non valido (da 1 a 5)");
+      intero("compleannoGiorni", 0, 7, "Giorni non validi (da 0 a 7)");
+      intero("offerteSettimane", 1, 12, "Settimane non valide (da 1 a 12)");
+      intero("offertePersone", 1, 20, "Persone non valide (da 1 a 20)");
+      intero("offerteSere", 1, 14, "Sere non valide (da 1 a 14)");
+      intero("offertePausa", 7, 90, "Giorni fra due offerte non validi (da 7 a 90)");
+      if (dati.offerteAttive != null) imp.offerteAttive = !!dati.offerteAttive;
+      if (dati.emailAttive != null) imp.emailAttive = !!dati.emailAttive;
       clubScrivi(db);
       return imp;
     });
   }
+  function clubOfferte(pin) {
+    return rete(function () { controllaPin(leggi(), pin); return clubLeggi().offerte; });
+  }
+  function clubSalvaOfferte(pin, lista) {
+    return rete(function () {
+      controllaPin(leggi(), pin);
+      if (lista.some(function (o) { return o.attivo && !String(o.nome.it || "").trim(); })) {
+        throw errore("offerte", "Ogni offerta attiva ha bisogno di un nome");
+      }
+      const db = clubLeggi();
+      db.offerte = lista.map(function (o) {
+        return { id: o.id || C.casuale(6), emoji: String(o.emoji || "").trim() || "🎁", attivo: o.attivo !== false,
+          nome: { it: String(o.nome.it || "").trim(), en: String(o.nome.en || "").trim() } };
+      });
+      clubScrivi(db);
+      return db.offerte;
+    });
+  }
+  function clubMessaggi(pin) {
+    return rete(function () {
+      controllaPin(leggi(), pin);
+      const db = clubLeggi();
+      const nome = {};
+      db.iscritti.forEach(function (i) { nome[i.id] = i.nome; });
+      return db.messaggi.slice().sort(function (x, y) { return y.creato - x.creato; }).slice(0, 40)
+        .map(function (m) { return Object.assign({ nome: nome[m.iscritto] || "?" }, m); });
+    });
+  }
+  // nella prova l'avviso "parte" subito: le notifiche vere le manda solo il server
+  function clubMessaggio(db, i, tipo, titolo, testo, premio) {
+    db.messaggi.push({ id: C.casuale(10), iscritto: i.id, tipo: tipo, titolo: titolo, testo: testo, premio: premio,
+      creato: Date.now(), inviato: Date.now(), esito: { push: i.notifiche || 0, email: db.impostazioni.emailAttive ? "ok" : "spente" } });
+  }
+  function clubPremioDemo(db, i, tipo, emoji, nome, persone, dal, al, giorniNo) {
+    let codice;
+    do { codice = C.casuale(7); } while (db.premi.some(function (p) { return p.codice === codice; }));
+    const p = { codice: codice, iscritto: i.id, tipo: tipo, emoji: emoji, nome: Object.assign({}, nome), persone: persone,
+      dal: dal, al: al, giorniNo: giorniNo, creato: Date.now(), usato: null, seraUso: null };
+    db.premi.push(p);
+    return p;
+  }
+  // lo stesso giro del database (club_giro in 08-club-avvisi.sql), nella memoria del browser
+  function clubGiroOra(pin) {
+    return rete(function () {
+      controllaPin(leggi(), pin);
+      const db = clubLeggi(), imp = db.impostazioni, s = C.sera();
+      let nc = 0, nof = 0;
+      db.iscritti.forEach(function (i) {
+        const g = imp.compleannoGiorni;
+        const b = prossimoCompleanno(i.nascita, C.piuGiorni(s, -g));
+        if (s < C.piuGiorni(b, -g) || s > C.piuGiorni(b, g)) return;
+        if (db.premi.some(function (p) { return p.iscritto === i.id && p.tipo === "compleanno" && p.creato > Date.now() - 300 * 864e5; })) return;
+        const p = clubPremioDemo(db, i, "compleanno", "🎂", imp.nome, imp.persone * imp.compleannoPer, s, C.piuGiorni(b, g), imp.giorniChiusura);
+        nc++;
+        if (i.promo) {
+          clubMessaggio(db, i, "compleanno", "🎂 Buon compleanno, " + i.nome.split(" ")[0] + "!",
+            "Per festeggiare ti offriamo " + imp.nome.it + " per " + p.persone + " persone.", p.codice);
+          i.ultimoContatto = Date.now();
+        }
+      });
+      const attive = db.offerte.filter(function (o) { return o.attivo; });
+      if (imp.offerteAttive && attive.length) {
+        const g = imp.giorniNo.concat(imp.giorniChiusura);
+        db.iscritti.forEach(function (i) {
+          const usati = db.premi.filter(function (p) { return p.iscritto === i.id && p.usato; }).map(function (p) { return p.usato; });
+          const ultimaVolta = Math.max.apply(null, [i.creato].concat(usati));
+          if (!i.promo || !(i.notifiche > 0)) return;
+          if ((i.ultimoContatto || 0) > Date.now() - imp.offertePausa * 864e5) return;
+          if (ultimaVolta > Date.now() - imp.offerteSettimane * 7 * 864e5) return;
+          if (db.premi.some(function (p) { return p.iscritto === i.id && clubAperto(p); })) return;
+          const giaAvute = db.premi.filter(function (p) { return p.iscritto === i.id && p.tipo === "promo"; }).length;
+          const o = attive[giaAvute % attive.length];
+          const d1 = clubPiuSere(s, 1, g);
+          const p = clubPremioDemo(db, i, "promo", o.emoji, o.nome, imp.offertePersone, d1, clubPiuSere(d1, imp.offerteSere, g), g);
+          clubMessaggio(db, i, "promo", "💌 Ci manchi, " + i.nome.split(" ")[0] + "!",
+            "Per te " + o.emoji + " " + o.nome.it + " per " + imp.offertePersone + " persone.", p.codice);
+          i.ultimoContatto = Date.now();
+          nof++;
+        });
+      }
+      db.ultimoGiro = Date.now();
+      db.ultimoEsito = { compleanni: nc, offerte: nof };
+      clubScrivi(db);
+      return db.ultimoEsito;
+    });
+  }
+  function clubProvaAvviso(pin, id) {
+    return rete(function () {
+      controllaPin(leggi(), pin);
+      const db = clubLeggi();
+      const i = db.iscritti.find(function (x) { return x.id === id; });
+      if (!i) throw errore("iscritto", "Iscritto non trovato");
+      clubMessaggio(db, i, "prova", "🔔 Prova del Club del Vico", "Se leggi questo messaggio, gli avvisi del Club arrivano su questo telefono.", null);
+      clubScrivi(db);
+      return { notifiche: i.notifiche || 0 };
+    });
+  }
+
   function clubElimina(pin, id) {
     return rete(function () {
       controllaPin(leggi(), pin);
@@ -807,6 +932,9 @@ const Store = (function () {
     candidatura, candidature, approvaCandidatura, scartaCandidatura,
     clubPanoramica, clubElenco, clubDettaglio, clubLeggiPremio, clubUsa, clubAnnulla,
     clubImpostazioni, clubSalvaImpostazioni, clubElimina,
+    clubOfferte, clubSalvaOfferte, clubMessaggi, clubGiroOra, clubProvaAvviso,
+    clubStatoInvii: function () { return Promise.resolve({ email: false }); },
+    clubInvia: function () { return Promise.resolve({ inviati: 0 }); },
     demoAgenti, demoAzzera,
   };
 
@@ -839,6 +967,21 @@ const Store = (function () {
     } catch (e) { throw errore("rete", "Connessione assente"); }
     const dati = await r.json().catch(function () { return {}; });
     if (!r.ok) throw errore("server", dati.errore || "Notifiche non disponibili");
+    return dati;
+  }
+
+  // la funzione che manda gli avvisi del Club (notifiche ed email)
+  async function funzioneClub(corpo) {
+    let r;
+    try {
+      r = await fetch(SUPABASE_URL + "/functions/v1/club-invia", {
+        method: "POST",
+        headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify(corpo),
+      });
+    } catch (e) { throw errore("rete", "Connessione assente"); }
+    const dati = await r.json().catch(function () { return {}; });
+    if (!r.ok) throw errore("server", dati.errore || "Avvisi non disponibili");
     return dati;
   }
 
@@ -892,6 +1035,14 @@ const Store = (function () {
     clubImpostazioni: function (pin) { return rpc("club_impostazioni", { p_pin: pin }); },
     clubSalvaImpostazioni: function (pin, dati) { return rpc("club_salva_impostazioni", { p_pin: pin, p_dati: dati }); },
     clubElimina: function (pin, id) { return rpc("club_elimina_iscritto", { p_pin: pin, p_id: id }); },
+    clubOfferte: function (pin) { return rpc("club_offerte", { p_pin: pin }); },
+    clubSalvaOfferte: function (pin, lista) { return rpc("club_salva_offerte", { p_pin: pin, p_lista: lista }); },
+    clubMessaggi: function (pin) { return rpc("club_messaggi", { p_pin: pin }); },
+    clubGiroOra: function (pin) { return rpc("club_giro_ora", { p_pin: pin }); },
+    clubProvaAvviso: function (pin, id) { return rpc("club_prova_avviso", { p_pin: pin, p_id: id }); },
+    clubStatoInvii: function () { return funzioneClub({ azione: "stato" }); },
+    // manda subito gli avvisi in coda (se non riesce, ci pensa il giro dei 10 minuti)
+    clubInvia: function () { return funzioneClub({ azione: "invia" }).catch(function () { return null; }); },
   };
 
   return Object.assign({ DEMO: DEMO }, DEMO ? demo : reale);

@@ -494,6 +494,149 @@
       $("#cl-sere").value = imp.sere;
       chipGiorni($("#cl-giorni-no"), imp.giorniNo || []);
       chipGiorni($("#cl-giorni-chiusura"), imp.giorniChiusura || []);
+      impClub = imp;
+      $("#cl-comp-per").value = imp.compleannoPer;
+      $("#cl-comp-giorni").value = imp.compleannoGiorni;
+      anteprimaCompleanno();
+      $("#cl-off-attive").checked = imp.offerteAttive;
+      $("#cl-off-settimane").value = imp.offerteSettimane;
+      $("#cl-off-pausa").value = imp.offertePausa;
+      $("#cl-off-persone").value = imp.offertePersone;
+      $("#cl-off-sere").value = imp.offerteSere;
+      $("#cl-av-notifiche").textContent = p.conNotifiche + (p.conNotifiche === 1 ? " iscritto le ha accese" : " iscritti le hanno accese") +
+        (p.inCoda ? " · " + p.inCoda + " avvisi in coda" : "");
+      $("#cl-av-giro").textContent = p.ultimoGiro
+        ? "Ultimo: " + C.nomeSera(C.sera(p.ultimoGiro)).toLowerCase() + " alle " + C.ora(p.ultimoGiro) +
+          (p.ultimoEsito ? " · " + esitoGiro(p.ultimoEsito) : "")
+        : "Ogni giorno verso le 11: compleanni e offerte";
+      statoEmail(imp);
+      caricaOfferte();
+      caricaMessaggi();
+    } catch (e) { errore(e); }
+  }
+
+  /* --- compleanno --- */
+  let impClub = null;
+  function anteprimaCompleanno() {
+    if (!impClub) return;
+    const per = parseInt($("#cl-comp-per").value, 10) || 1, g = parseInt($("#cl-comp-giorni").value, 10) || 0;
+    $("#cl-comp-anteprima").textContent = "= " + impClub.nome.it + " per " + persone(impClub.persone * per) +
+      ", da " + g + (g === 1 ? " giorno" : " giorni") + " prima a " + g + (g === 1 ? " giorno" : " giorni") + " dopo il compleanno.";
+  }
+  ["#cl-comp-per", "#cl-comp-giorni"].forEach(function (id) { $(id).addEventListener("input", anteprimaCompleanno); });
+  $("#cl-comp-salva").addEventListener("click", async function () {
+    try {
+      await conPin(function (p) {
+        return S.clubSalvaImpostazioni(p, { compleannoPer: $("#cl-comp-per").value, compleannoGiorni: $("#cl-comp-giorni").value });
+      });
+      C.toast("Regalo di compleanno salvato");
+      caricaClub();
+    } catch (e) { errore(e); }
+  });
+
+  /* --- offerte "ci manchi" --- */
+  let offerteBozza = [];
+  async function caricaOfferte() {
+    try {
+      offerteBozza = JSON.parse(JSON.stringify(await conPin(S.clubOfferte)));
+      disegnaOfferte();
+    } catch (e) { errore(e); }
+  }
+  function disegnaOfferte() {
+    $("#cl-offerte").innerHTML = offerteBozza.length ? offerteBozza.map(function (o, i) {
+      return '<div class="premio-ed' + (o.attivo ? "" : " spento") + '" data-i="' + i + '">' +
+        '<div class="testa"><input type="text" class="emo" data-k="emoji" value="' + C.esc(o.emoji) + '" aria-label="Emoji">' +
+        '<div class="cresce"><input type="text" data-k="nome.it" value="' + C.esc(o.nome.it) + '" placeholder="es. Dolce offerto"></div>' +
+        '<label class="switch"><input type="checkbox" data-k="attivo"' + (o.attivo ? " checked" : "") + "><i></i></label></div>" +
+        "<details><summary>Inglese e togli</summary>" +
+        '<label class="campo"><span>In inglese (per i turisti)</span><input type="text" data-k="nome.en" value="' + C.esc(o.nome.en || "") + '"></label>' +
+        '<button class="btn vuoto piccolo" data-togli>🗑 Togli questa offerta</button></details></div>';
+    }).join("") : '<div class="vuoto">Nessuna offerta: aggiungine una.</div>';
+  }
+  $("#cl-offerte").addEventListener("input", function (e) {
+    const k = e.target.dataset.k, riga = e.target.closest("[data-i]");
+    if (!k || !riga) return;
+    const o = offerteBozza[+riga.dataset.i];
+    const v = e.target.type === "checkbox" ? e.target.checked : e.target.value;
+    if (k.indexOf(".") > 0) { const kk = k.split("."); o[kk[0]][kk[1]] = v; } else o[k] = v;
+    riga.classList.toggle("spento", !o.attivo);
+  });
+  $("#cl-offerte").addEventListener("click", function (e) {
+    if (!e.target.hasAttribute("data-togli")) return;
+    offerteBozza.splice(+e.target.closest("[data-i]").dataset.i, 1);
+    disegnaOfferte();
+  });
+  $("#cl-off-nuova").addEventListener("click", function () {
+    offerteBozza.push({ id: null, emoji: "🎁", attivo: true, nome: { it: "", en: "" } });
+    disegnaOfferte();
+    const ultima = $$(".premio-ed", $("#cl-offerte")).pop();
+    $('[data-k="nome.it"]', ultima).focus();
+  });
+  $("#cl-off-salva").addEventListener("click", async function () {
+    try {
+      await conPin(function (p) {
+        return S.clubSalvaImpostazioni(p, {
+          offerteAttive: $("#cl-off-attive").checked, offerteSettimane: $("#cl-off-settimane").value,
+          offertePausa: $("#cl-off-pausa").value, offertePersone: $("#cl-off-persone").value, offerteSere: $("#cl-off-sere").value,
+        });
+      });
+      await conPin(function (p) { return S.clubSalvaOfferte(p, offerteBozza); });
+      C.toast("Offerte salvate");
+      caricaClub();
+    } catch (e) { errore(e); }
+  });
+
+  /* --- avvisi: email, giro, ultimi messaggi --- */
+  async function statoEmail(imp) {
+    const sw = $("#cl-av-email");
+    sw.checked = !!imp.emailAttive;
+    let collegate = false;
+    try { collegate = !!(await S.clubStatoInvii()).email; } catch (e) {}
+    sw.disabled = !collegate && !imp.emailAttive;
+    $("#cl-av-email-stato").textContent = collegate
+      ? (imp.emailAttive ? "Accese: partono da club@ai-io.it, le risposte arrivano a vicodelcarmine1@gmail.com" : "Collegate ma spente")
+      : "Da collegare (servizio Resend): per ora partono solo le notifiche";
+  }
+  $("#cl-av-email").addEventListener("change", async function () {
+    const acceso = this.checked;
+    try {
+      await conPin(function (p) { return S.clubSalvaImpostazioni(p, { emailAttive: acceso }); });
+      C.toast(acceso ? "Email del Club accese" : "Email del Club spente");
+      caricaClub();
+    } catch (e) { this.checked = !acceso; errore(e); }
+  });
+  $("#cl-giro").addEventListener("click", async function () {
+    if (!confirm("Controllo adesso compleanni e offerte e mando gli avvisi. Non manda niente due volte. Procedo?")) return;
+    this.disabled = true;
+    try {
+      const r = await conPin(S.clubGiroOra);
+      await S.clubInvia();
+      C.toast("Fatto: " + esitoGiro(r));
+      caricaClub();
+    } catch (e) { errore(e); }
+    this.disabled = false;
+  });
+  function esitoGiro(r) {
+    return r.compleanni + (r.compleanni === 1 ? " compleanno, " : " compleanni, ") + r.offerte + (r.offerte === 1 ? " offerta" : " offerte");
+  }
+  const ICONA_AVVISO = { compleanno: "🎂", promo: "💌", benvenuto: "👋", codice: "🔑", prova: "🔔" };
+  function esitoAvviso(m) {
+    if (!m.inviato) return "in coda";
+    if (!m.esito) return "in invio…";
+    const parti = [];
+    if (m.esito.push > 0) parti.push("🔔 arrivato su " + m.esito.push + (m.esito.push === 1 ? " telefono" : " telefoni"));
+    else if (m.tipo !== "codice" && m.tipo !== "benvenuto") parti.push("🔔 nessun telefono");
+    if (m.esito.email && m.esito.email !== "no") parti.push("📧 " + m.esito.email);
+    return parti.join(" · ");
+  }
+  async function caricaMessaggi() {
+    try {
+      const lista = await conPin(S.clubMessaggi);
+      $("#cl-messaggi").innerHTML = lista.length ? lista.map(function (m) {
+        return '<li><span style="font-size:1.3rem">' + (ICONA_AVVISO[m.tipo] || "📨") + "</span>" +
+          '<div class="cresce"><b>' + C.esc(m.nome) + '</b> <span class="muted small">' + C.esc(m.titolo) + "</span>" +
+          '<div class="dim">' + C.dataBreve(C.sera(m.creato)) + " alle " + C.ora(m.creato) + " · " + C.esc(esitoAvviso(m)) + "</div></div></li>";
+      }).join("") : '<li class="vuoto">Ancora nessun avviso.</li>';
     } catch (e) { errore(e); }
   }
 
@@ -537,7 +680,10 @@
       '<li><span class="cresce">✉️ <a href="mailto:' + C.esc(i.email) + '">' + C.esc(i.email) + "</a></span></li>" +
       '<li><span class="cresce">🎂 ' + C.esc(C.dataBreve(i.nascita).replace(/^\S+ /, "")) + " " + i.nascita.slice(0, 4) +
         " · " + eta(i.nascita, oggi) + " anni</span></li>" +
-      '<li><span class="cresce">📣 Offerte: ' + (i.promo ? "<b>sì</b>" : "no") + "</span></li></ul>" +
+      '<li><span class="cresce">📣 Offerte: ' + (i.promo ? "<b>sì</b>" : "no") + "</span></li>" +
+      '<li><span class="cresce">🔔 Avvisi: ' + (i.notifiche > 0 ? "<b>accesi</b> su " + i.notifiche + (i.notifiche === 1 ? " telefono" : " telefoni") : "spenti") +
+        (i.emailConfermata ? " · 📧 email confermata" : "") + "</span>" +
+        (i.notifiche > 0 ? '<button class="btn vuoto piccolo fisso" id="cl-prova">Prova</button>' : "") + "</li></ul>" +
 
       '<div class="card"><h3>🎁 Premi</h3><ul class="lista">' +
       (i.premi.length ? i.premi.map(function (p) {
@@ -556,6 +702,17 @@
     );
     $$("[data-premio]", $("#foglio-corpo")).forEach(function (li) {
       li.addEventListener("click", function () { chiudiFoglio(); vai("riscatta"); cercaClub(li.dataset.premio); });
+    });
+    const prova = $("#cl-prova");
+    if (prova) prova.addEventListener("click", async function () {
+      prova.disabled = true;
+      try {
+        await conPin(function (p) { return S.clubProvaAvviso(p, id); });
+        await S.clubInvia();
+        C.toast("Avviso di prova mandato a " + i.nome + ": guarda il suo telefono");
+        caricaMessaggi();
+      } catch (e) { errore(e); }
+      prova.disabled = false;
     });
     $("#cl-elimina").addEventListener("click", async function () {
       if (!confirm("Elimino " + i.nome + " dal Club? Si cancellano i suoi dati e i suoi premi. Non si può tornare indietro.")) return;

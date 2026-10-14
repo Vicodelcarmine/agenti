@@ -111,6 +111,44 @@
         <div class="giorni" id="cl-giorni-chiusura"></div>
         <button class="btn oro pieno" id="cl-salva" style="margin-top:14px">Salva</button>
       </div>
+      <div class="card">
+        <h3>🎂 Regalo di compleanno</h3>
+        <p class="dim">Esce da solo nei giorni intorno al compleanno di ogni iscritto e vale anche di sabato. L'avviso arriva solo a chi ha accettato le offerte; il regalo lo trovano tutti nella tessera.</p>
+        <div class="riga" style="margin-top:6px">
+          <label class="campo"><span>Premio di benvenuto ×</span><input type="number" inputmode="numeric" id="cl-comp-per" min="1" max="5"></label>
+          <label class="campo"><span>Giorni prima e dopo</span><input type="number" inputmode="numeric" id="cl-comp-giorni" min="0" max="7"></label>
+        </div>
+        <p class="muted small" id="cl-comp-anteprima"></p>
+        <button class="btn oro pieno" id="cl-comp-salva" style="margin-top:10px">Salva</button>
+      </div>
+      <div class="card">
+        <div class="riga"><h3 class="cresce" style="margin:0">💌 Offerte "ci manchi"</h3>
+          <label class="switch fisso"><input type="checkbox" id="cl-off-attive"><i></i></label></div>
+        <p class="dim" style="margin-top:6px">A chi ha accettato le offerte, ha gli avvisi accesi e non si vede da qualche settimana arriva un'offerta: una a giro fra quelle qui sotto. Il sabato non si conta.</p>
+        <div class="riga">
+          <label class="campo"><span>Dopo settimane senza vederli</span><input type="number" inputmode="numeric" id="cl-off-settimane" min="1" max="12"></label>
+          <label class="campo"><span>Giorni minimi fra due offerte</span><input type="number" inputmode="numeric" id="cl-off-pausa" min="7" max="90"></label>
+        </div>
+        <div class="riga">
+          <label class="campo"><span>Per quante persone</span><input type="number" inputmode="numeric" id="cl-off-persone" min="1" max="20"></label>
+          <label class="campo"><span>Vale per (sere)</span><input type="number" inputmode="numeric" id="cl-off-sere" min="1" max="14"></label>
+        </div>
+        <div id="cl-offerte"></div>
+        <button class="btn vuoto piccolo" id="cl-off-nuova">＋ Offerta</button>
+        <button class="btn oro pieno" id="cl-off-salva" style="margin-top:12px">Salva offerte</button>
+      </div>
+      <div class="card">
+        <h3>📨 Avvisi</h3>
+        <ul class="lista">
+          <li><span class="cresce">🔔 Notifiche sul telefono<span class="dim" style="display:block" id="cl-av-notifiche"></span></span><span class="pill ok fisso">accese</span></li>
+          <li><span class="cresce">📧 Email<span class="dim" style="display:block" id="cl-av-email-stato"></span></span>
+            <label class="switch fisso"><input type="checkbox" id="cl-av-email"><i></i></label></li>
+          <li><span class="cresce">🕚 Giro di ogni mattina<span class="dim" style="display:block" id="cl-av-giro"></span></span>
+            <button class="btn vuoto piccolo fisso" id="cl-giro">Fai ora</button></li>
+        </ul>
+        <h3 style="margin-top:14px">Ultimi avvisi</h3>
+        <ul class="lista" id="cl-messaggi"></ul>
+      </div>
     </section>
 
     <!-- AGENTI -->
