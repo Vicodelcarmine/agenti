@@ -579,11 +579,222 @@ const Store = (function () {
     return a;
   }
 
+  /* ================= CLUB DEL VICO (demo) =================
+     La stessa memoria la usa il menu in prova (menu/?demo=1): in anteprima
+     un cliente si iscrive nel menu e il suo premio si riscatta qui. */
+  const CLUB = "vdcclub_demo_v1";
+  function clubImpostazioniBase() {
+    return { emoji: "🍹", nome: { it: "Spritz o dolce offerto", en: "Free spritz or dessert" },
+      persone: 2, sere: 14, giorniNo: [6], giorniChiusura: [] };
+  }
+  // la n-esima sera a partire da s compresa, saltando i giorni esclusi (il sabato non si conta mai)
+  function clubPiuSere(s, n, giorni) {
+    let d = s, contate = 0;
+    for (let i = 0; i < n * 7 + 7; i++) {
+      if (giorni.indexOf(C.giornoSettimana(d)) < 0 && ++contate === n) return d;
+      d = C.piuGiorni(d, 1);
+    }
+    return C.piuGiorni(s, n - 1);
+  }
+  function clubPremioNuovo(db, iscritto, tipo, dal) {
+    const imp = db.impostazioni, g = imp.giorniNo.concat(imp.giorniChiusura);
+    const d1 = clubPiuSere(dal, 1, g);
+    let codice;
+    do { codice = C.casuale(7); } while (db.premi.some(function (p) { return p.codice === codice; }));
+    const p = { codice: codice, iscritto: iscritto, tipo: tipo, emoji: imp.emoji, nome: Object.assign({}, imp.nome),
+      persone: imp.persone, dal: d1, al: clubPiuSere(d1, imp.sere, g), giorniNo: g, creato: Date.now(), usato: null, seraUso: null };
+    db.premi.push(p);
+    return p;
+  }
+  function clubDatiIniziali() {
+    // qualche iscritto finto, così la scheda Club non è vuota
+    const db = { impostazioni: clubImpostazioniBase(), iscritti: [], premi: [] };
+    const oggi = C.sera();
+    const persona = function (nome, email, tel, nascita, giorniFa, promo) {
+      const i = { id: "c" + C.casuale(8), chiave: C.casuale(24), nome: nome, email: email, telefono: tel, nascita: nascita,
+        promo: promo, promoQuando: promo ? Date.now() - giorniFa * 864e5 : null, lingua: "it", creato: Date.now() - giorniFa * 864e5 };
+      db.iscritti.push(i);
+      return i;
+    };
+    // compleanno fra 3 giorni (stesso mese e giorno, anno di nascita 1994)
+    const fra3 = C.piuGiorni(oggi, 3);
+    const a = persona("Giulia Rossi", "giulia.rossi@example.com", "+393331112233", "1994" + fra3.slice(4), 5, true);
+    clubPremioNuovo(db, a.id, "benvenuto", C.piuGiorni(oggi, -4));
+    const b = persona("Marco Bianchi", "marco.b@example.com", "+393474455667", "1988-03-12", 0, false);
+    clubPremioNuovo(db, b.id, "benvenuto", C.piuGiorni(oggi, 1));
+    const c = persona("Sara Verdi", "sara.verdi@example.com", "+393201234567", "2000-11-02", 20, true);
+    const pc = clubPremioNuovo(db, c.id, "benvenuto", C.piuGiorni(oggi, -19));
+    pc.usato = Date.now() - 12 * 864e5; pc.seraUso = C.sera(pc.usato);
+    return db;
+  }
+  function clubLeggi() {
+    let db = null;
+    try { db = JSON.parse(localStorage.getItem(CLUB)); } catch (e) {}
+    if (!db) { db = clubDatiIniziali(); clubScrivi(db); }
+    db.impostazioni = Object.assign(clubImpostazioniBase(), db.impostazioni);
+    return db;
+  }
+  function clubScrivi(db) { try { localStorage.setItem(CLUB, JSON.stringify(db)); } catch (e) {} }
+  function clubScade(p) { return C.scadenza(p.al, leggi().impostazioni.chiusura).getTime(); }
+  function clubStato(p) {
+    const s = C.sera();
+    if (p.usato) return "usato";
+    if (Date.now() >= clubScade(p)) return "scaduto";
+    if (s < p.dal) return "presto";
+    if (p.giorniNo.indexOf(C.giornoSettimana(s)) >= 0) return "oggi_no";
+    return "valido";
+  }
+  function clubVista(p) {
+    return { codice: p.codice, tipo: p.tipo, emoji: p.emoji, nome: p.nome, persone: p.persone, dal: p.dal, al: p.al,
+      scade: clubScade(p), giorniNo: p.giorniNo, creato: p.creato, usato: p.usato, stato: clubStato(p) };
+  }
+  function clubAperto(p) { const st = clubStato(p); return st === "valido" || st === "presto" || st === "oggi_no"; }
+  function prossimoCompleanno(nascita, s) {
+    for (let k = 0; k <= 1; k++) {
+      const y = +s.slice(0, 4) + k;
+      let d = y + nascita.slice(4);
+      if (nascita.slice(5) === "02-29" && !(y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0))) d = y + "-02-28";
+      if (d >= s) return d;
+    }
+    return s;
+  }
+  function clubPremioDa(db, codice) {
+    const p = db.premi.find(function (x) { return x.codice === codice; });
+    if (!p) throw errore("premio", "Nessun premio del Club con questo codice");
+    return p;
+  }
+  function clubLettura(db, p) {
+    const i = db.iscritti.find(function (x) { return x.id === p.iscritto; }) || {};
+    return Object.assign(clubVista(p), {
+      iscritto: { id: i.id, nome: i.nome, telefono: i.telefono, nascita: i.nascita },
+      annullabile: !!p.usato && p.seraUso === C.sera() });
+  }
+
+  function clubPanoramica(pin) {
+    return rete(function () {
+      controllaPin(leggi(), pin);
+      const db = clubLeggi(), s = C.sera();
+      const nome = {};
+      db.iscritti.forEach(function (i) { nome[i.id] = i.nome; });
+      return {
+        iscritti: db.iscritti.length,
+        nuovi: db.iscritti.filter(function (i) { return i.creato > Date.now() - 7 * 864e5; }).length,
+        promo: db.iscritti.filter(function (i) { return i.promo; }).length,
+        attivi: db.premi.filter(clubAperto).length,
+        usatiMese: db.premi.filter(function (p) { return p.seraUso && p.seraUso.slice(0, 7) === s.slice(0, 7); }).length,
+        stasera: db.premi.filter(function (p) { return p.seraUso === s; })
+          .sort(function (x, y) { return y.usato - x.usato; })
+          .map(function (p) { return { codice: p.codice, nome: nome[p.iscritto], emoji: p.emoji, premio: p.nome, persone: p.persone, tipo: p.tipo, quando: p.usato }; }),
+        compleanni: db.iscritti.map(function (i) { return { id: i.id, nome: i.nome, telefono: i.telefono, nascita: i.nascita, giorno: prossimoCompleanno(i.nascita, s) }; })
+          .filter(function (x) { return x.giorno <= C.piuGiorni(s, 7); })
+          .sort(function (x, y) { return x.giorno < y.giorno ? -1 : x.giorno > y.giorno ? 1 : 0; }),
+      };
+    });
+  }
+  function clubElenco(pin, cerca) {
+    return rete(function () {
+      controllaPin(leggi(), pin);
+      const db = clubLeggi();
+      const q = String(cerca || "").trim().toLowerCase(), cifre = String(cerca || "").replace(/\D/g, "");
+      return db.iscritti.filter(function (i) {
+        return !q || i.nome.toLowerCase().indexOf(q) >= 0 || i.email.indexOf(q) >= 0 || (cifre.length >= 3 && i.telefono.indexOf(cifre) >= 0);
+      }).sort(function (x, y) { return y.creato - x.creato; }).map(function (i) {
+        return { id: i.id, nome: i.nome, telefono: i.telefono, email: i.email, nascita: i.nascita, creato: i.creato, promo: i.promo,
+          premi: db.premi.filter(function (p) { return p.iscritto === i.id && clubAperto(p); }).length };
+      });
+    });
+  }
+  function clubDettaglio(pin, id) {
+    return rete(function () {
+      controllaPin(leggi(), pin);
+      const db = clubLeggi();
+      const i = db.iscritti.find(function (x) { return x.id === id; });
+      if (!i) throw errore("iscritto", "Iscritto non trovato");
+      return Object.assign({}, i, { premi: db.premi.filter(function (p) { return p.iscritto === id; })
+        .sort(function (x, y) { return y.creato - x.creato; }).map(clubVista) });
+    });
+  }
+  function clubLeggiPremio(pin, codice) {
+    return rete(function () {
+      controllaPin(leggi(), pin);
+      const db = clubLeggi();
+      return clubLettura(db, clubPremioDa(db, codice));
+    });
+  }
+  function clubUsa(pin, codice, forza) {
+    return rete(function () {
+      controllaPin(leggi(), pin);
+      const db = clubLeggi();
+      const p = clubPremioDa(db, codice);
+      const st = clubStato(p);
+      if (st === "usato") throw errore("usato", "Premio già usato");
+      if (st !== "valido" && !forza) throw errore(st, "Stasera questo premio non vale");
+      p.usato = Date.now(); p.seraUso = C.sera();
+      clubScrivi(db);
+      return clubLettura(db, p);
+    });
+  }
+  function clubAnnulla(pin, codice) {
+    return rete(function () {
+      controllaPin(leggi(), pin);
+      const db = clubLeggi();
+      const p = clubPremioDa(db, codice);
+      if (!p.usato) throw errore("premio", "Niente da annullare");
+      if (p.seraUso !== C.sera()) throw errore("tardi", "Si può annullare solo la sera stessa");
+      p.usato = null; p.seraUso = null;
+      clubScrivi(db);
+      return true;
+    });
+  }
+  function clubImpostazioni(pin) {
+    return rete(function () { controllaPin(leggi(), pin); return clubLeggi().impostazioni; });
+  }
+  function clubSalvaImpostazioni(pin, dati) {
+    return rete(function () {
+      controllaPin(leggi(), pin);
+      const db = clubLeggi(), imp = db.impostazioni;
+      const giorni = function (l) {
+        return (l || []).map(Number).filter(function (g, i, a) { return g >= 0 && g <= 6 && a.indexOf(g) === i; }).sort();
+      };
+      if (dati.emoji != null) imp.emoji = String(dati.emoji).trim() || "🎁";
+      if (dati.nome) {
+        if (!String(dati.nome.it || "").trim()) throw errore("nome", "Scrivi il nome del premio");
+        imp.nome = { it: String(dati.nome.it).trim(), en: String(dati.nome.en || "").trim() };
+      }
+      if (dati.persone != null) {
+        const n = String(dati.persone).trim();
+        if (!/^\d{1,2}$/.test(n) || +n < 1 || +n > 20) throw errore("persone", "Persone non valide (da 1 a 20)");
+        imp.persone = +n;
+      }
+      if (dati.sere != null) {
+        const n = String(dati.sere).trim();
+        if (!/^\d{1,2}$/.test(n) || +n < 1 || +n > 90) throw errore("sere", "Durata non valida (da 1 a 90 sere)");
+        imp.sere = +n;
+      }
+      if (dati.giorniNo) imp.giorniNo = giorni(dati.giorniNo);
+      if (dati.giorniChiusura) imp.giorniChiusura = giorni(dati.giorniChiusura);
+      if (giorni(imp.giorniNo.concat(imp.giorniChiusura)).length >= 7) throw errore("giorni", "Almeno una sera della settimana deve restare valida");
+      clubScrivi(db);
+      return imp;
+    });
+  }
+  function clubElimina(pin, id) {
+    return rete(function () {
+      controllaPin(leggi(), pin);
+      const db = clubLeggi();
+      if (!db.iscritti.some(function (i) { return i.id === id; })) throw errore("iscritto", "Iscritto non trovato");
+      db.iscritti = db.iscritti.filter(function (i) { return i.id !== id; });
+      db.premi = db.premi.filter(function (p) { return p.iscritto !== id; });
+      clubScrivi(db);
+      return true;
+    });
+  }
+
   /* solo per la demo */
   function demoAgenti() {
     return leggi().agenti.map(function (a) { return { nome: a.nome, chiave: a.chiave, codice: a.codice, attivo: a.attivo }; });
   }
-  function demoAzzera() { scrivi(datiIniziali()); }
+  function demoAzzera() { scrivi(datiIniziali()); clubScrivi(clubDatiIniziali()); }
 
   const demo = {
     agentePubblico, gioca, buono,
@@ -594,6 +805,8 @@ const Store = (function () {
     entra, leggiBuono, riscatta, annulla, panoramica, dettaglioAgente, salvaAgente, nuovaChiave, eliminaAgente,
     pagamento, premi, salvaPremi, impostazioni, salvaImpostazioni,
     candidatura, candidature, approvaCandidatura, scartaCandidatura,
+    clubPanoramica, clubElenco, clubDettaglio, clubLeggiPremio, clubUsa, clubAnnulla,
+    clubImpostazioni, clubSalvaImpostazioni, clubElimina,
     demoAgenti, demoAzzera,
   };
 
@@ -668,6 +881,17 @@ const Store = (function () {
       return rpc("pr_approva_candidatura", { p_pin: pin, p_id: id, p_bonus: bonus !== false });
     },
     scartaCandidatura: function (pin, id) { return rpc("pr_scarta_candidatura", { p_pin: pin, p_id: id }); },
+
+    // Club del Vico (funzioni SQL: supabase/07-club.sql)
+    clubPanoramica: function (pin) { return rpc("club_panoramica", { p_pin: pin }); },
+    clubElenco: function (pin, cerca) { return rpc("club_elenco", { p_pin: pin, p_cerca: cerca || "" }); },
+    clubDettaglio: function (pin, id) { return rpc("club_dettaglio", { p_pin: pin, p_id: id }); },
+    clubLeggiPremio: function (pin, codice) { return rpc("club_leggi_premio", { p_pin: pin, p_codice: codice }); },
+    clubUsa: function (pin, codice, forza) { return rpc("club_usa", { p_pin: pin, p_codice: codice, p_forza: !!forza }); },
+    clubAnnulla: function (pin, codice) { return rpc("club_annulla", { p_pin: pin, p_codice: codice }); },
+    clubImpostazioni: function (pin) { return rpc("club_impostazioni", { p_pin: pin }); },
+    clubSalvaImpostazioni: function (pin, dati) { return rpc("club_salva_impostazioni", { p_pin: pin, p_dati: dati }); },
+    clubElimina: function (pin, id) { return rpc("club_elimina_iscritto", { p_pin: pin, p_id: id }); },
   };
 
   return Object.assign({ DEMO: DEMO }, DEMO ? demo : reale);

@@ -155,7 +155,8 @@ const Comune = (function () {
   function codiceBello(c) { return c.slice(0, 3) + " " + c.slice(3); }
   function pulisciCodice(testo) {
     testo = String(testo || "").trim();
-    try { const u = new URL(testo); if (u.searchParams.get("b")) testo = u.searchParams.get("b"); } catch (e) {}
+    // ?b= buono di un agente (6 caratteri) · ?c= premio del Club (7 caratteri)
+    try { const u = new URL(testo); testo = u.searchParams.get("b") || u.searchParams.get("c") || testo; } catch (e) {}
     return testo.toUpperCase().replace(/[^A-Z0-9]/g, "");
   }
   function casuale(n, alfabeto) {
@@ -179,6 +180,8 @@ const Comune = (function () {
   const urlGioca = function (codiceAgente) { return RADICE + "gioca/?a=" + codiceAgente; };
   const urlBuono = function (codice) { return RADICE + "titolare/?b=" + codice; };
   const urlAgente = function (chiave) { return RADICE + "agente/?k=" + chiave; };
+  // il menu sta accanto a questa app (…/menu/ e …/agenti/): ?club= riapre la tessera sul telefono del cliente
+  const urlMenuClub = function (chiave) { return new URL("../menu/?club=" + chiave, RADICE).href; };
   const urlStrada = "https://www.google.com/maps/dir/?api=1&travelmode=walking&destination=" +
     encodeURIComponent(RISTORANTE.mappa);
   const urlMappa = "https://www.google.com/maps?output=embed&q=" + encodeURIComponent(RISTORANTE.mappa);
@@ -220,7 +223,7 @@ const Comune = (function () {
     sera, scadenza, ora, piuGiorni, giornoSettimana, nomeSera, dataBreve, nomeMese,
     tariffa, provvigione, spiegaRighe, prossimaFascia, descriviFasce,
     euro, esc, disegnaQR, codiceBello, pulisciCodice, casuale, dispositivo,
-    urlGioca, urlBuono, urlAgente, urlStrada, urlMappa, toast, coriandoli,
+    urlGioca, urlBuono, urlAgente, urlMenuClub, urlStrada, urlMappa, toast, coriandoli,
   };
 })();
 

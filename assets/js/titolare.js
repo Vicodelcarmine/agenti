@@ -1,5 +1,6 @@
-/* Dashboard del titolare: riscatto dei buoni, serata, agenti, premi, impostazioni.
-   Si entra col PIN; un buono inquadrato con la fotocamera apre titolare/?b=CODICE. */
+/* Dashboard del titolare: riscatto dei buoni, serata, Club, agenti, premi, impostazioni.
+   Si entra col PIN; un buono inquadrato con la fotocamera apre titolare/?b=CODICE,
+   un premio del Club apre titolare/?c=CODICE. */
 
 (function () {
   const C = Comune;
@@ -47,11 +48,12 @@
     $("#login").hidden = true;
     $("#app").hidden = false;
     document.body.classList.add("con-tab");
-    const b = C.pulisciCodice(new URLSearchParams(location.search).get("b"));
-    if (b) {
+    const q = new URLSearchParams(location.search);
+    const b = C.pulisciCodice(q.get("b")), c = C.pulisciCodice(q.get("c"));
+    if (b || c) {
       history.replaceState(null, "", location.pathname);
       vai("riscatta");
-      cerca(b);
+      if (b) cerca(b); else cercaClub(c);
     } else {
       vai(schedaAttiva);
     }
@@ -73,7 +75,7 @@
     $$("[data-tab]").forEach(function (s) { s.hidden = s.dataset.tab !== nome; });
     $$(".tabbar button").forEach(function (b) { b.classList.toggle("on", b.dataset.vai === nome); });
     window.scrollTo(0, 0);
-    ({ riscatta: caricaRiscatta, stasera: caricaStasera, agenti: caricaAgenti, premi: caricaPremi, altro: caricaAltro })[nome]();
+    ({ riscatta: caricaRiscatta, stasera: caricaStasera, club: caricaClub, agenti: caricaAgenti, premi: caricaPremi, altro: caricaAltro })[nome]();
   }
   $$(".tabbar button").forEach(function (b) { b.addEventListener("click", function () { vai(b.dataset.vai); }); });
 
@@ -119,8 +121,9 @@
   $("#f-codice").addEventListener("submit", function (e) {
     e.preventDefault();
     const c = C.pulisciCodice($("#codice").value);
-    if (c.length !== 6) { C.toast("Il codice ha 6 caratteri", true); return; }
-    cerca(c);
+    if (c.length === 6) cerca(c);
+    else if (c.length === 7) cercaClub(c);
+    else C.toast("Il codice ha 6 caratteri (buono agente) o 7 (premio Club)", true);
   });
 
   async function cerca(codice) {
@@ -238,6 +241,101 @@
     });
   }
 
+  /* ---------- premio del Club (7 caratteri) ---------- */
+  const TIPO_CLUB = { benvenuto: "Premio di benvenuto", compleanno: "Regalo di compleanno", promo: "Offerta del Club" };
+  function codiceClub(c) { return c.slice(0, 3) + " " + c.slice(3); }
+  function giorniNoTesto(g) {
+    return g && g.length ? g.map(function (n) { return C.NOMI_GIORNI[n]; }).join(" e ") + " escluso" : "";
+  }
+  function persone(n) { return n + (n === 1 ? " persona" : " persone"); }
+
+  async function cercaClub(codice) {
+    $("#r-inizio").hidden = true;
+    $("#r-esito").innerHTML = '<div class="card center muted">Cerco il premio ' + codiceClub(codice) + "…</div>";
+    try {
+      const p = await conPin(function (pp) { return S.clubLeggiPremio(pp, codice); });
+      mostraPremioClub(p);
+    } catch (e) {
+      if (e.codice === "pin") return;
+      $("#r-esito").innerHTML = '<div class="card esito"><div class="emoji">🤔</div>' +
+        '<div class="avviso no">' + C.esc(e.message) + "<br><small>Codice: " + codiceClub(codice) + "</small></div>" +
+        '<button class="btn vuoto pieno" data-azione="altro">← Scansiona un altro</button></div>';
+      legaAltro();
+    }
+  }
+
+  function intestazionePremioClub(p) {
+    const no = giorniNoTesto(p.giorniNo);
+    return '<div class="emoji">' + C.esc(p.emoji) + "</div>" +
+      '<div class="nome">' + C.esc(p.nome.it) + "</div>" +
+      '<div class="muted small">per ' + persone(p.persone) + "</div>" +
+      '<p style="margin-top:10px">' + (TIPO_CLUB[p.tipo] || "Premio del Club") + " di <b>" + C.esc(p.iscritto.nome) + "</b></p>" +
+      '<p class="dim">Codice ' + codiceClub(p.codice) + " · vale da " + C.dataBreve(p.dal) + " a " + C.dataBreve(p.al) +
+      (no ? " · " + no : "") + "</p>";
+  }
+
+  function mostraPremioClub(p) {
+    const box = $("#r-esito");
+    const forza = '<button class="btn vuoto pieno" style="margin-top:4px" data-azione="forza">Dallo lo stesso</button>';
+    let corpo;
+    if (p.stato === "usato") {
+      corpo = '<div class="avviso no">⚠️ Già usato ' + quando(p.usato) + "</div>" +
+        (p.annullabile ? '<button class="btn vuoto pieno" data-azione="annulla-club">Annulla (torna da usare)</button>' : "");
+    } else if (p.stato === "presto") {
+      corpo = '<div class="avviso no">⏳ Non ancora: vale da ' + (p.dal === C.piuGiorni(C.sera(), 1) ? "domani, " : "") +
+        C.dataBreve(p.dal) + ". È un premio per la prossima visita.</div>" + forza;
+    } else if (p.stato === "oggi_no") {
+      corpo = '<div class="avviso no">⛔ Stasera è ' + C.NOMI_GIORNI[C.giornoSettimana(C.sera())] + ": questo premio non vale.</div>" + forza;
+    } else if (p.stato === "scaduto") {
+      corpo = '<div class="avviso no">⛔ Scaduto: valeva fino a ' + C.dataBreve(p.al) + ".</div>" + forza;
+    } else {
+      corpo = '<button class="btn verde pieno grande" style="margin-top:14px" data-azione="usa">✅ Usa il premio</button>';
+    }
+    box.innerHTML = '<div class="card oro esito">' + intestazionePremioClub(p) + corpo +
+      '<button class="btn vuoto pieno" style="margin-top:10px" data-azione="altro">← Scansiona un altro</button></div>';
+    legaAltro();
+
+    const usa = async function (btn, forzato) {
+      btn.disabled = true;
+      try {
+        const r = await conPin(function (pp) { return S.clubUsa(pp, p.codice, forzato); });
+        if (navigator.vibrate) navigator.vibrate([40, 60, 40]);
+        box.innerHTML = '<div class="card esito">' +
+          '<div class="emoji">' + C.esc(r.emoji) + "</div>" +
+          '<div class="avviso ok">✅ Fatto! Da servire: <b>' + C.esc(r.nome.it) + "</b><br>per " + persone(r.persone) + "</div>" +
+          "<p>" + (TIPO_CLUB[r.tipo] || "Premio del Club") + " di <b>" + C.esc(r.iscritto.nome) + "</b></p>" +
+          '<button class="btn oro pieno" style="margin-top:14px" data-azione="altro">📷 Scansiona un altro</button>' +
+          '<button class="btn vuoto pieno" style="margin-top:10px" data-azione="annulla-club">Annulla (ho sbagliato)</button></div>';
+        legaAltro();
+        legaAnnullaClub(p.codice);
+      } catch (e) {
+        btn.disabled = false;
+        errore(e);
+        if (e.codice !== "pin") cercaClub(p.codice);
+      }
+    };
+    const bUsa = $('[data-azione="usa"]', box);
+    if (bUsa) bUsa.addEventListener("click", function () { usa(bUsa, false); });
+    const bForza = $('[data-azione="forza"]', box);
+    if (bForza) bForza.addEventListener("click", function () {
+      if (!confirm("Stasera questo premio non varrebbe. Lo dai lo stesso a " + p.iscritto.nome + "?")) return;
+      usa(bForza, true);
+    });
+    legaAnnullaClub(p.codice);
+  }
+  function legaAnnullaClub(codice) {
+    const btn = $('[data-azione="annulla-club"]', $("#r-esito"));
+    if (!btn) return;
+    btn.addEventListener("click", async function () {
+      if (!confirm("Annullo? Il premio torna da usare.")) return;
+      try {
+        await conPin(function (p) { return S.clubAnnulla(p, codice); });
+        C.toast("Annullato: il premio è di nuovo da usare");
+        cercaClub(codice);
+      } catch (e) { errore(e); }
+    });
+  }
+
   /* ---------- scanner ---------- */
   let flusso = null, giro = null;
   function caricaJsQR() {
@@ -293,10 +391,10 @@
       try {
         const testo = await leggiFrame();
         const c = testo && C.pulisciCodice(testo);
-        if (c && c.length === 6) {
+        if (c && (c.length === 6 || c.length === 7)) {
           chiudiScanner();
           if (navigator.vibrate) navigator.vibrate(60);
-          cerca(c);
+          if (c.length === 6) cerca(c); else cercaClub(c);
           return;
         }
       } catch (e) {}
@@ -351,6 +449,149 @@
       });
     } catch (e) { errore(e); }
   }
+
+  /* ================= CLUB ================= */
+
+  // anni che compie in quel giorno (per i compleanni) / anni che ha in quel giorno
+  function anni(nascita, giorno) { return +giorno.slice(0, 4) - +nascita.slice(0, 4); }
+  function eta(nascita, giorno) { return anni(nascita, giorno) - (giorno.slice(5) < nascita.slice(5) ? 1 : 0); }
+  // "+393331112233" → "+39 333 111 2233"
+  function telBello(t) { return String(t || "").replace(/^\+39(\d{3})(\d{3})(\d+)$/, "+39 $1 $2 $3"); }
+
+  async function caricaClub() {
+    cercaIscritti();
+    try {
+      const v = await Promise.all([conPin(S.clubPanoramica), conPin(S.clubImpostazioni)]);
+      const p = v[0], imp = v[1];
+      $("#cl-iscritti").textContent = p.iscritti;
+      $("#cl-nuovi").textContent = p.nuovi;
+      $("#cl-attivi").textContent = p.attivi;
+      $("#cl-promo").textContent = p.promo + " accettano le offerte";
+      $("#cl-mese").textContent = "Questo mese: " + p.usatiMese + (p.usatiMese === 1 ? " premio usato" : " premi usati");
+      $("#cl-stasera").innerHTML = p.stasera.length ? p.stasera.map(function (x) {
+        return '<li data-premio="' + C.esc(x.codice) + '" style="cursor:pointer"><span style="font-size:1.4rem">' + C.esc(x.emoji) + "</span>" +
+          '<div class="cresce"><b>' + C.esc(x.nome) + '</b><div class="dim">' + C.ora(x.quando) + " · " + C.esc(x.premio.it) +
+          " · per " + x.persone + "</div></div></li>";
+      }).join("") : '<li class="vuoto">Nessun premio usato stasera.</li>';
+      $$("[data-premio]", $("#cl-stasera")).forEach(function (li) {
+        li.addEventListener("click", function () { vai("riscatta"); cercaClub(li.dataset.premio); });
+      });
+      const oggi = C.sera();
+      $("#cl-compleanni-box").hidden = !p.compleanni.length;
+      $("#cl-compleanni").innerHTML = p.compleanni.map(function (x) {
+        const nome1 = x.nome.split(/\s+/)[0];
+        return "<li><span style=\"font-size:1.4rem\">🎂</span><div class=\"cresce\"><b>" + C.esc(x.nome) + "</b>" +
+          '<div class="dim">' + (x.giorno === oggi ? "<b style=\"color:var(--gold)\">oggi</b>" : C.dataBreve(x.giorno)) +
+          " · compie " + anni(x.nascita, x.giorno) + " anni</div></div>" +
+          '<a class="btn vuoto piccolo" target="_blank" rel="noopener" href="' +
+          linkChat(x.telefono, "Tanti auguri " + nome1 + "! 🎂 Ti aspettiamo al Vico del Carmine per festeggiare insieme.") +
+          '">💬 Auguri</a></li>';
+      }).join("");
+      $("#cl-emoji").value = imp.emoji;
+      $("#cl-nome").value = imp.nome.it || "";
+      $("#cl-nome-en").value = imp.nome.en || "";
+      $("#cl-persone").value = imp.persone;
+      $("#cl-sere").value = imp.sere;
+      chipGiorni($("#cl-giorni-no"), imp.giorniNo || []);
+      chipGiorni($("#cl-giorni-chiusura"), imp.giorniChiusura || []);
+    } catch (e) { errore(e); }
+  }
+
+  let timerCerca = null;
+  $("#cl-cerca").addEventListener("input", function () {
+    clearTimeout(timerCerca);
+    timerCerca = setTimeout(cercaIscritti, 250);
+  });
+  async function cercaIscritti() {
+    const box = $("#cl-lista");
+    try {
+      const lista = await conPin(function (p) { return S.clubElenco(p, $("#cl-cerca").value); });
+      box.innerHTML = lista.length ? lista.map(function (i) {
+        return '<li data-iscritto="' + C.esc(i.id) + '" style="cursor:pointer"><div class="cresce"><b>' + C.esc(i.nome) + "</b>" +
+          '<div class="dim">' + C.esc(telBello(i.telefono)) + " · dal " + C.dataBreve(C.sera(i.creato)) + "</div></div>" +
+          (i.premi ? '<span class="pill oro">🎁 ' + i.premi + "</span>" : "") + "</li>";
+      }).join("") : '<li class="vuoto">' + ($("#cl-cerca").value.trim() ? "Nessuno con questo nome." : "Ancora nessun iscritto: arriveranno dal menu.") + "</li>";
+      $$("[data-iscritto]", box).forEach(function (li) {
+        li.addEventListener("click", function () { apriIscritto(li.dataset.iscritto); });
+      });
+    } catch (e) { errore(e); }
+  }
+
+  const STATO_CLUB = {
+    valido: ["ok", "da usare"], presto: ["oro", "dalla prossima visita"], oggi_no: ["oro", "da usare"],
+    usato: ["", "usato"], scaduto: ["no", "scaduto"],
+  };
+  async function apriIscritto(id) {
+    let i;
+    try { i = await conPin(function (p) { return S.clubDettaglio(p, id); }); }
+    catch (e) { errore(e); return; }
+    const nome1 = i.nome.split(/\s+/)[0];
+    const oggi = C.sera();
+    apriFoglio(
+      "<h2>" + C.esc(i.nome) + "</h2>" +
+      '<p class="dim">Nel Club dal ' + C.dataBreve(C.sera(i.creato)) + "</p>" +
+      '<ul class="lista" style="margin-top:8px">' +
+      '<li><span class="cresce">📞 ' + C.esc(telBello(i.telefono)) + "</span>" +
+        '<a class="btn vuoto piccolo" target="_blank" rel="noopener" href="' + linkChat(i.telefono, "Ciao " + nome1 + "!") + '">💬</a>' +
+        '<a class="btn vuoto piccolo" href="tel:' + C.esc(i.telefono) + '">Chiama</a></li>' +
+      '<li><span class="cresce">✉️ <a href="mailto:' + C.esc(i.email) + '">' + C.esc(i.email) + "</a></span></li>" +
+      '<li><span class="cresce">🎂 ' + C.esc(C.dataBreve(i.nascita).replace(/^\S+ /, "")) + " " + i.nascita.slice(0, 4) +
+        " · " + eta(i.nascita, oggi) + " anni</span></li>" +
+      '<li><span class="cresce">📣 Offerte: ' + (i.promo ? "<b>sì</b>" : "no") + "</span></li></ul>" +
+
+      '<div class="card"><h3>🎁 Premi</h3><ul class="lista">' +
+      (i.premi.length ? i.premi.map(function (p) {
+        const st = STATO_CLUB[p.stato] || ["", p.stato];
+        return '<li data-premio="' + C.esc(p.codice) + '" style="cursor:pointer"><span style="font-size:1.4rem">' + C.esc(p.emoji) + "</span>" +
+          '<div class="cresce"><b>' + C.esc(p.nome.it) + '</b><div class="dim">' + (TIPO_CLUB[p.tipo] || "") + " · per " + p.persone +
+          " · " + (p.usato ? "usato " + quando(p.usato) : "dal " + C.dataBreve(p.dal) + " al " + C.dataBreve(p.al)) + "</div></div>" +
+          '<span class="pill ' + st[0] + '">' + st[1] + "</span></li>";
+      }).join("") : '<li class="vuoto">Nessun premio.</li>') + "</ul></div>" +
+
+      '<div class="card"><h3>📲 Riapri il Club sul suo telefono</h3>' +
+      '<p class="dim">Se ha cambiato telefono o ha cancellato i dati del browser: fagli inquadrare questo QR con la fotocamera e ritrova la sua tessera con i premi. È personale: non darlo ad altri.</p>' +
+      '<div class="qr" style="width:170px;margin:12px auto">' + C.disegnaQR(C.urlMenuClub(i.chiave)) + "</div></div>" +
+
+      '<button class="btn vuoto pieno" id="cl-elimina" style="color:var(--danger);border-color:rgba(255,107,94,.45)">🗑 Elimina dal Club</button>'
+    );
+    $$("[data-premio]", $("#foglio-corpo")).forEach(function (li) {
+      li.addEventListener("click", function () { chiudiFoglio(); vai("riscatta"); cercaClub(li.dataset.premio); });
+    });
+    $("#cl-elimina").addEventListener("click", async function () {
+      if (!confirm("Elimino " + i.nome + " dal Club? Si cancellano i suoi dati e i suoi premi. Non si può tornare indietro.")) return;
+      try {
+        await conPin(function (p) { return S.clubElimina(p, id); });
+        chiudiFoglio();
+        C.toast(i.nome + " eliminato dal Club");
+        caricaClub();
+      } catch (e) { errore(e); }
+    });
+  }
+
+  // giorni della settimana da lunedì a domenica (0 = domenica), accesi = "on"
+  function chipGiorni(box, accesi) {
+    box.innerHTML = [1, 2, 3, 4, 5, 6, 0].map(function (g) {
+      return '<button type="button" data-g="' + g + '" class="' + (accesi.indexOf(g) >= 0 ? "on" : "") + '">' +
+        C.NOMI_GIORNI[g].slice(0, 3) + "</button>";
+    }).join("");
+  }
+  function giorniAccesi(box) { return $$("button.on", box).map(function (b) { return Number(b.dataset.g); }); }
+  [$("#cl-giorni-no"), $("#cl-giorni-chiusura")].forEach(function (box) {
+    box.addEventListener("click", function (e) { if (e.target.dataset.g != null) e.target.classList.toggle("on"); });
+  });
+  $("#cl-salva").addEventListener("click", async function () {
+    try {
+      await conPin(function (p) {
+        return S.clubSalvaImpostazioni(p, {
+          emoji: $("#cl-emoji").value, nome: { it: $("#cl-nome").value, en: $("#cl-nome-en").value },
+          persone: $("#cl-persone").value, sere: $("#cl-sere").value,
+          giorniNo: giorniAccesi($("#cl-giorni-no")), giorniChiusura: giorniAccesi($("#cl-giorni-chiusura")),
+        });
+      });
+      C.toast("Salvato: vale per i prossimi iscritti");
+      caricaClub();
+    } catch (e) { errore(e); }
+  });
 
   /* ================= AGENTI ================= */
 

@@ -26,7 +26,7 @@
   <img class="marchio" src="../assets/img/logo.jpg" alt="">
   <div class="emblema grande solo-vetrina" aria-hidden="true">🍕</div>
   <h1><span class="marchio">Vico Dashboard</span><span class="solo-vetrina">Dashboard</span></h1>
-  <p class="muted">Agenti e premi · solo per il titolare</p>
+  <p class="muted">Agenti, premi e Club · solo per il titolare</p>
   <p class="dim" style="margin-top:6px">Usa il PIN da titolare del menu</p>
   <form id="f-login">
     <input class="pin" id="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="8" aria-label="PIN">
@@ -41,7 +41,7 @@
     <div class="emblema solo-vetrina" aria-hidden="true">🍕</div>
     <div>
       <div class="t1"><span class="marchio">Vico Dashboard</span><span class="solo-vetrina">Dashboard</span></div>
-      <div class="t2" id="sottotitolo">Agenti · premi · provvigioni</div>
+      <div class="t2" id="sottotitolo">Agenti · Club · provvigioni</div>
     </div>
   </header>
 
@@ -50,12 +50,12 @@
     <!-- RISCATTA -->
     <section data-tab="riscatta">
       <div id="r-inizio">
-        <button class="btn rosso pieno grande" id="scansiona" style="min-height:64px;font-size:1.15rem">📷 Scansiona il buono</button>
+        <button class="btn rosso pieno grande" id="scansiona" style="min-height:64px;font-size:1.15rem">📷 Scansiona buono o premio</button>
         <form id="f-codice" class="riga" style="margin-top:12px">
           <input id="codice" type="text" placeholder="oppure scrivi il codice" autocapitalize="characters" autocomplete="off" spellcheck="false">
           <button class="btn oro fisso">Cerca</button>
         </form>
-        <p class="dim center" style="margin-top:12px">Puoi anche inquadrare il buono con la fotocamera normale del telefono: si apre direttamente qui.</p>
+        <p class="dim center" style="margin-top:12px">Vale per i buoni degli agenti (6 caratteri) e per i premi del Club (7 caratteri). Puoi anche inquadrarli con la fotocamera normale del telefono: si apre direttamente qui.</p>
       </div>
       <div id="r-esito"></div>
       <div class="card" id="r-sera"></div>
@@ -75,6 +75,42 @@
       </div>
       <div class="card"><h3>Per agente</h3><ul class="lista" id="st-agenti"></ul></div>
       <div class="card"><h3>Tavoli arrivati</h3><ul class="lista" id="st-tavoli-lista"></ul></div>
+    </section>
+
+    <!-- CLUB -->
+    <section data-tab="club" hidden>
+      <div class="sez-titolo"><h2>💳 Club del Vico</h2><span class="dim" id="cl-promo"></span></div>
+      <div class="kpi">
+        <div><b id="cl-iscritti">0</b><span>iscritti</span></div>
+        <div><b id="cl-nuovi">0</b><span>ultimi 7 giorni</span></div>
+        <div class="euro"><b id="cl-attivi">0</b><span>premi da usare</span></div>
+      </div>
+      <div class="card"><h3>🌙 Premi usati stasera</h3><ul class="lista" id="cl-stasera"></ul>
+        <p class="dim" id="cl-mese" style="margin-top:6px"></p></div>
+      <div class="card" id="cl-compleanni-box" hidden><h3>🎂 Compleanni nei prossimi 7 giorni</h3><ul class="lista" id="cl-compleanni"></ul></div>
+      <div class="card">
+        <h3>👤 Iscritti</h3>
+        <input type="search" id="cl-cerca" placeholder="Cerca per nome, email o telefono" autocomplete="off">
+        <ul class="lista" id="cl-lista" style="margin-top:8px"></ul>
+      </div>
+      <div class="card">
+        <h3>🎁 Premio di benvenuto</h3>
+        <p class="dim">Lo riceve chi si iscrive dal menu e vale dalla sera dopo. I cambi valgono per i nuovi iscritti: chi ha già il premio lo tiene come gli è stato promesso.</p>
+        <div class="riga" style="margin-top:10px">
+          <input type="text" id="cl-emoji" class="fisso" style="width:62px;text-align:center;font-size:1.4rem" aria-label="Emoji">
+          <input type="text" id="cl-nome" placeholder="es. Spritz o dolce offerto" aria-label="Premio">
+        </div>
+        <label class="campo"><span>In inglese (per i turisti)</span><input type="text" id="cl-nome-en" placeholder="es. Free spritz or dessert"></label>
+        <div class="riga">
+          <label class="campo"><span>Per quante persone</span><input type="number" inputmode="numeric" id="cl-persone" min="1" max="20"></label>
+          <label class="campo"><span>Vale per (sere)</span><input type="number" inputmode="numeric" id="cl-sere" min="1" max="90"></label>
+        </div>
+        <p class="muted small" style="margin-top:6px">Sere in cui il premio NON vale (e non si contano):</p>
+        <div class="giorni" id="cl-giorni-no"></div>
+        <p class="muted small" style="margin-top:12px">Giorno di chiusura del ristorante (non si conta mai):</p>
+        <div class="giorni" id="cl-giorni-chiusura"></div>
+        <button class="btn oro pieno" id="cl-salva" style="margin-top:14px">Salva</button>
+      </div>
     </section>
 
     <!-- AGENTI -->
@@ -148,6 +184,7 @@
   <nav class="tabbar">
     <button data-vai="riscatta" class="on"><i>📷</i>Riscatta</button>
     <button data-vai="stasera"><i>🌙</i>Stasera</button>
+    <button data-vai="club"><i>💳</i>Club</button>
     <button data-vai="agenti"><i>👥</i>Agenti</button>
     <button data-vai="premi"><i>🎁</i>Premi</button>
     <button data-vai="altro"><i>⚙️</i>Altro</button>
@@ -165,7 +202,7 @@
   <video playsinline muted></video>
   <div class="mirino"></div>
   <div class="sotto">
-    <p>Inquadra il QR del buono</p>
+    <p>Inquadra il QR del buono o del premio</p>
     <button class="btn vuoto" id="chiudi-scanner">Annulla</button>
   </div>
 </div>

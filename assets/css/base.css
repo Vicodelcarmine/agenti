@@ -109,7 +109,7 @@ h3 { font-size: 1.1rem; }
 /* ---------- campi ---------- */
 label.campo { display: block; margin: 10px 0; }
 label.campo > span { display: block; font-size: .8rem; color: var(--muted); margin-bottom: 4px; }
-.input, input[type=text], input[type=tel], input[type=number], input[type=time], input[type=password], textarea, select {
+.input, input[type=text], input[type=search], input[type=tel], input[type=number], input[type=time], input[type=password], textarea, select {
   width: 100%;
   min-height: 46px;
   padding: 10px 14px;

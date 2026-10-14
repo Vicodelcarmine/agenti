@@ -146,3 +146,6 @@ body.con-tab { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
   background: rgba(0,0,0,.25); color: var(--muted); font-weight: 600; font-size: .78rem; text-transform: capitalize;
 }
 .giorni button.on { background: var(--brick); border-color: var(--flame); color: #fff; }
+
+/* ricerca degli iscritti del Club */
+input[type=search] { -webkit-appearance: none; appearance: none; color: var(--cream); }
