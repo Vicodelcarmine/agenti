@@ -149,3 +149,42 @@ body.con-tab { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
 
 /* ricerca degli iscritti del Club */
 input[type=search] { -webkit-appearance: none; appearance: none; color: var(--cream); }
+
+/* ---------- prenotazioni ---------- */
+input[type=date] {
+  width: 100%; min-height: 46px; padding: 10px 14px; background: rgba(0,0,0,.3);
+  border: 1px solid var(--line); border-radius: 12px; outline: none; font-size: 1rem; color: var(--cream);
+  -webkit-appearance: none; appearance: none;
+}
+.giorno-nav { margin: 4px 0 12px; }
+.giorno-nav .btn { min-height: 44px; font-size: 1rem; }
+/* la data al centro: si tocca e si apre il calendario del telefono */
+.scegli-data { position: relative; overflow: hidden; font-weight: 700; }
+.scegli-data input { position: absolute; inset: 0; opacity: 0; min-height: 0; padding: 0; border: 0; cursor: pointer; }
+.avviso-sera {
+  background: rgba(255,107,94,.12); border: 1px solid rgba(255,107,94,.35); color: #ffb3ab;
+  border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; font-size: .9rem;
+}
+.barra-coperti { height: 6px; border-radius: 3px; background: rgba(255,255,255,.07); margin: 10px 0 4px; overflow: hidden; }
+.barra-coperti i { display: block; height: 100%; background: linear-gradient(90deg, var(--basil), var(--gold)); border-radius: 3px; }
+.persone-tondo {
+  flex: 0 0 auto; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(230,178,74,.14); color: var(--gold-soft); font-weight: 700;
+}
+.lista li.spenta { opacity: .45; }
+.lista li.spenta b { text-decoration: line-through; }
+.lista li.qui b { color: var(--gold); }
+.azioni-pren { display: grid; gap: 8px; margin: 14px 0; }
+.turni-ore { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.ora-turno { display: flex; align-items: center; gap: 4px; }
+.ora-turno input { width: 118px; }
+.ora-turno .togli, .turni-scelta button {
+  min-height: 42px; min-width: 42px; border-radius: 10px; border: 1px solid var(--line); cursor: pointer;
+  background: rgba(0,0,0,.25); color: var(--muted); font-weight: 700;
+}
+.turni-scelta { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 4px; }
+.turni-scelta button { padding: 0 14px; }
+.turni-scelta button.on { background: var(--brick); border-color: var(--flame); color: #fff; }
+.turni-scelta input { width: 130px; }
+/* sette schede: un filo più strette */
+.tabbar button { font-size: .66rem; padding-left: 0; padding-right: 0; }

@@ -915,11 +915,155 @@ const Store = (function () {
     });
   }
 
+  /* ---------- prenotazioni (demo) ---------- */
+  const PREN = "vdcpren_demo_v1";
+  // per le prenotazioni conta il giorno di calendario a Firenze, non la "sera" degli agenti
+  function prenOggi() { return C.sera(Date.now() + 6 * 3600e3); }
+  function prenImpostazioniBase() {
+    return { attive: true, turni: ["19:30", "21:30"], coperti: 40, maxPersone: 8, giorniAvanti: 30, anticipoMin: 120, dateChiuse: [] };
+  }
+  function prenDatiIniziali() {
+    // qualche prenotazione finta, così la scheda non è vuota
+    const oggi = prenOggi(), db = { impostazioni: prenImpostazioniBase(), prenotazioni: [] };
+    const p = function (giorni, turno, persone, nome, telefono, fonte, nota, stato, oreFa) {
+      db.prenotazioni.push({ id: "p" + C.casuale(8), codice: C.casuale(6), sera: C.piuGiorni(oggi, giorni), turno: turno,
+        persone: persone, nome: nome, telefono: telefono, nota: nota, fonte: fonte, stato: stato, socio: fonte === "sito",
+        creato: Date.now() - oreFa * 3600e3, annullata: stato === "annullata" ? Date.now() - 3600e3 : null,
+        annullataDa: stato === "annullata" ? "cliente" : null });
+    };
+    p(0, "19:30", 4, "Giulia Rossi", "+393331112233", "sito", "Un seggiolone, grazie", "confermata", 26);
+    p(0, "19:30", 2, "Luca Neri", "+393409876543", "telefono", "", "confermata", 30);
+    p(0, "19:30", 6, "Famiglia Conti", "+393385551212", "thefork", "Compleanno della nonna", "confermata", 50);
+    p(0, "21:30", 3, "Marco Bianchi", "+393474455667", "sito", "", "confermata", 3);
+    p(0, "21:30", 2, "Anna Galli", "+393299988776", "google", "", "annullata", 8);
+    p(1, "19:30", 5, "Sara Verdi", "+393201234567", "sito", "Allergia alle noci", "confermata", 12);
+    p(1, "21:30", 8, "Gruppo Ferretti", "+393331234000", "telefono", "Tavolo lungo", "confermata", 40);
+    p(3, "21:30", 2, "Paolo Riva", "+393381112222", "sito", "", "confermata", 2);
+    return db;
+  }
+  function prenLeggi() {
+    let db = null;
+    try { db = JSON.parse(localStorage.getItem(PREN)); } catch (e) {}
+    if (!db) { db = prenDatiIniziali(); prenScrivi(db); }
+    db.impostazioni = Object.assign(prenImpostazioniBase(), db.impostazioni);
+    return db;
+  }
+  function prenScrivi(db) { try { localStorage.setItem(PREN, JSON.stringify(db)); } catch (e) {} }
+  function prenChiusa(db, s) {
+    return clubLeggi().impostazioni.giorniChiusura.indexOf(C.giornoSettimana(s)) >= 0 || db.impostazioni.dateChiuse.indexOf(s) >= 0;
+  }
+  function prenConta(l) { return l.filter(function (x) { return x.stato === "confermata" || x.stato === "arrivati"; }); }
+  function prenOccupati(db, s, t) {
+    return prenConta(db.prenotazioni.filter(function (x) { return x.sera === s && x.turno === t; }))
+      .reduce(function (n, x) { return n + x.persone; }, 0);
+  }
+  function prenVista(x) { return Object.assign({}, x); }
+  const ORARIO = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+  function prenGiorno(pin, sera) {
+    return rete(function () {
+      controllaPin(leggi(), pin);
+      const db = prenLeggi(), oggi = prenOggi(), s = /^\d{4}-\d\d-\d\d$/.test(sera || "") ? sera : oggi;
+      const orari = db.impostazioni.turni.concat(db.prenotazioni.filter(function (x) { return x.sera === s; })
+        .map(function (x) { return x.turno; })).filter(function (t, i, a) { return a.indexOf(t) === i; }).sort();
+      const prossimi = [];
+      for (let k = 0; k < 14; k++) {
+        const d = C.piuGiorni(oggi, k), l = prenConta(db.prenotazioni.filter(function (x) { return x.sera === d; }));
+        prossimi.push({ sera: d, chiuso: prenChiusa(db, d), prenotazioni: l.length,
+          persone: l.reduce(function (n, x) { return n + x.persone; }, 0) });
+      }
+      return {
+        sera: s, oggi: oggi, coperti: db.impostazioni.coperti, chiuso: prenChiusa(db, s), prossimi: prossimi,
+        turni: orari.map(function (t) {
+          return { ora: t, prenotati: prenOccupati(db, s, t), previsto: db.impostazioni.turni.indexOf(t) >= 0,
+            lista: db.prenotazioni.filter(function (x) { return x.sera === s && x.turno === t; })
+              .sort(function (a, b) { return (a.stato === "annullata") - (b.stato === "annullata") || a.creato - b.creato; })
+              .map(prenVista) };
+        }),
+      };
+    });
+  }
+  function prenAggiungi(pin, dati) {
+    return rete(function () {
+      controllaPin(leggi(), pin);
+      const db = prenLeggi(), n = parseInt(dati.persone, 10), nome = String(dati.nome || "").trim();
+      if (!/^\d{4}-\d\d-\d\d$/.test(dati.sera || "") || dati.sera < C.piuGiorni(prenOggi(), -1)) throw errore("sera", "Sera non valida");
+      if (!ORARIO.test(dati.turno || "")) throw errore("turno", "Orario non valido");
+      if (!(n >= 1 && n <= 200)) throw errore("persone", "Numero di persone non valido");
+      if (nome.length < 2) throw errore("nome", "Scrivi il nome");
+      const x = { id: "p" + C.casuale(8), codice: C.casuale(6), sera: dati.sera, turno: dati.turno, persone: n, nome: nome.slice(0, 60),
+        telefono: String(dati.telefono || "").trim(), nota: String(dati.nota || "").trim().slice(0, 300),
+        fonte: dati.fonte || "telefono", stato: "confermata", socio: false, creato: Date.now(), annullata: null, annullataDa: null };
+      db.prenotazioni.push(x);
+      prenScrivi(db);
+      return prenVista(x);
+    });
+  }
+  function prenModifica(pin, id, dati) {
+    return rete(function () {
+      controllaPin(leggi(), pin);
+      const db = prenLeggi(), x = db.prenotazioni.find(function (p) { return p.id === id; });
+      if (!x) throw errore("nonc", "Prenotazione non trovata");
+      if (dati.stato) {
+        if (dati.stato === "annullata" && x.stato !== "annullata") { x.annullata = Date.now(); x.annullataDa = "titolare"; }
+        if (dati.stato !== "annullata") { x.annullata = null; x.annullataDa = null; }
+        x.stato = dati.stato;
+      }
+      if (dati.persone != null) {
+        const n = parseInt(dati.persone, 10);
+        if (!(n >= 1 && n <= 200)) throw errore("persone", "Numero di persone non valido");
+        x.persone = n;
+      }
+      if (dati.turno != null) {
+        if (!ORARIO.test(dati.turno)) throw errore("turno", "Orario non valido");
+        x.turno = dati.turno;
+      }
+      if (dati.sera != null) x.sera = dati.sera;
+      if (dati.nota != null) x.nota = String(dati.nota).trim().slice(0, 300);
+      prenScrivi(db);
+      return prenVista(x);
+    });
+  }
+  function prenImpostazioniVista(db) {
+    const oggi = prenOggi();
+    return Object.assign({}, db.impostazioni, {
+      dateChiuse: db.impostazioni.dateChiuse.filter(function (d) { return d >= oggi; }).sort(),
+      giorniChiusura: clubLeggi().impostazioni.giorniChiusura, telefoni: 0 });
+  }
+  function prenImpostazioni(pin) {
+    return rete(function () { controllaPin(leggi(), pin); return prenImpostazioniVista(prenLeggi()); });
+  }
+  function prenSalvaImpostazioni(pin, dati) {
+    return rete(function () {
+      controllaPin(leggi(), pin);
+      const db = prenLeggi(), imp = db.impostazioni;
+      const intero = function (k, min, max) {
+        if (dati[k] == null) return;
+        const n = Number(dati[k]);
+        if (!Number.isInteger(n) || n < min || n > max) throw errore("numeri", "Numeri non validi");
+        imp[k] = n;
+      };
+      if (dati.turni) {
+        const t = dati.turni.filter(function (x, i, a) { return a.indexOf(x) === i; }).sort();
+        if (!t.length || t.length > 4 || t.some(function (x) { return !ORARIO.test(x); })) throw errore("turni", "Turni non validi: da 1 a 4 orari");
+        imp.turni = t;
+      }
+      if (dati.attive != null) imp.attive = !!dati.attive;
+      intero("coperti", 1, 500);
+      intero("maxPersone", 1, 60);
+      intero("giorniAvanti", 1, 180);
+      intero("anticipoMin", 0, 2880);
+      if (dati.dateChiuse) imp.dateChiuse = dati.dateChiuse.filter(function (d, i, a) { return a.indexOf(d) === i; }).sort();
+      prenScrivi(db);
+      return prenImpostazioniVista(db);
+    });
+  }
+
   /* solo per la demo */
   function demoAgenti() {
     return leggi().agenti.map(function (a) { return { nome: a.nome, chiave: a.chiave, codice: a.codice, attivo: a.attivo }; });
   }
-  function demoAzzera() { scrivi(datiIniziali()); clubScrivi(clubDatiIniziali()); }
+  function demoAzzera() { scrivi(datiIniziali()); clubScrivi(clubDatiIniziali()); prenScrivi(prenDatiIniziali()); }
 
   const demo = {
     agentePubblico, gioca, buono,
@@ -935,6 +1079,9 @@ const Store = (function () {
     clubOfferte, clubSalvaOfferte, clubMessaggi, clubGiroOra, clubProvaAvviso,
     clubStatoInvii: function () { return Promise.resolve({ email: false }); },
     clubInvia: function () { return Promise.resolve({ inviati: 0 }); },
+    prenGiorno, prenAggiungi, prenModifica, prenImpostazioni, prenSalvaImpostazioni,
+    prenSalvaPush: function () { return Promise.reject(errore("demo", "Nella demo le notifiche non partono")); },
+    prenProvaAvviso: function () { return Promise.reject(errore("demo", "Nella demo le notifiche non partono")); },
     demoAgenti, demoAzzera,
   };
 
@@ -975,6 +1122,21 @@ const Store = (function () {
     let r;
     try {
       r = await fetch(SUPABASE_URL + "/functions/v1/club-invia", {
+        method: "POST",
+        headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify(corpo),
+      });
+    } catch (e) { throw errore("rete", "Connessione assente"); }
+    const dati = await r.json().catch(function () { return {}; });
+    if (!r.ok) throw errore("server", dati.errore || "Avvisi non disponibili");
+    return dati;
+  }
+
+  // la funzione che avvisa il titolare delle prenotazioni nuove o annullate
+  async function funzionePren(corpo) {
+    let r;
+    try {
+      r = await fetch(SUPABASE_URL + "/functions/v1/pren-avvisa", {
         method: "POST",
         headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
         body: JSON.stringify(corpo),
@@ -1043,6 +1205,20 @@ const Store = (function () {
     clubStatoInvii: function () { return funzioneClub({ azione: "stato" }); },
     // manda subito gli avvisi in coda (se non riesce, ci pensa il giro dei 10 minuti)
     clubInvia: function () { return funzioneClub({ azione: "invia" }).catch(function () { return null; }); },
+
+    // Prenotazioni dal sito (funzioni SQL: supabase/10-prenotazioni.sql)
+    prenGiorno: function (pin, sera) { return rpc("pren_giorno", { p_pin: pin, p_sera: sera || "" }); },
+    prenAggiungi: function (pin, dati) { return rpc("pren_aggiungi", { p_pin: pin, p_dati: dati }); },
+    prenModifica: function (pin, id, dati) { return rpc("pren_modifica", { p_pin: pin, p_id: id, p_dati: dati }); },
+    prenImpostazioni: function (pin) { return rpc("pren_impostazioni", { p_pin: pin }); },
+    prenSalvaImpostazioni: function (pin, dati) { return rpc("pren_salva_impostazioni", { p_pin: pin, p_dati: dati }); },
+    prenSalvaPush: function (pin, sub) { return rpc("pren_salva_push", { p_pin: pin, p_sub: sub }); },
+    // mette in coda un avviso di prova e lo manda subito; false = non c'è ancora nessuna prenotazione da usare
+    prenProvaAvviso: async function (pin) {
+      const pronta = await rpc("pren_prova_avviso", { p_pin: pin });
+      if (pronta) await funzionePren({ azione: "invia" });
+      return pronta;
+    },
   };
 
   return Object.assign({ DEMO: DEMO }, DEMO ? demo : reale);

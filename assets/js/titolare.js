@@ -49,11 +49,15 @@
     $("#app").hidden = false;
     document.body.classList.add("con-tab");
     const q = new URLSearchParams(location.search);
-    const b = C.pulisciCodice(q.get("b")), c = C.pulisciCodice(q.get("c"));
+    const b = C.pulisciCodice(q.get("b")), c = C.pulisciCodice(q.get("c")), tab = q.get("tab");
     if (b || c) {
       history.replaceState(null, "", location.pathname);
       vai("riscatta");
       if (b) cerca(b); else cercaClub(c);
+    } else if (tab && $('[data-tab="' + tab + '"]')) {
+      // dalla notifica di una prenotazione: ?tab=prenota
+      history.replaceState(null, "", location.pathname);
+      vai(tab);
     } else {
       vai(schedaAttiva);
     }
@@ -75,7 +79,8 @@
     $$("[data-tab]").forEach(function (s) { s.hidden = s.dataset.tab !== nome; });
     $$(".tabbar button").forEach(function (b) { b.classList.toggle("on", b.dataset.vai === nome); });
     window.scrollTo(0, 0);
-    ({ riscatta: caricaRiscatta, stasera: caricaStasera, club: caricaClub, agenti: caricaAgenti, premi: caricaPremi, altro: caricaAltro })[nome]();
+    ({ riscatta: caricaRiscatta, stasera: caricaStasera, prenota: caricaPrenota, club: caricaClub, agenti: caricaAgenti,
+       premi: caricaPremi, altro: caricaAltro })[nome]();
   }
   $$(".tabbar button").forEach(function (b) { b.addEventListener("click", function () { vai(b.dataset.vai); }); });
 
@@ -749,6 +754,352 @@
       caricaClub();
     } catch (e) { errore(e); }
   });
+
+  /* ================= PRENOTA ================= */
+
+  const FONTI = { sito: "🌐 sito", telefono: "📞 telefono", thefork: "🍴 TheFork", google: "🔎 Google", altro: "✍️ altro" };
+  const STATO_PREN = {
+    confermata: ["ok", "confermata"], arrivati: ["oro", "arrivati"], noshow: ["no", "non venuti"], annullata: ["no", "annullata"],
+  };
+  let prSera = null;    // la sera che si sta guardando; null = oggi
+  let prDati = null;    // l'ultima sera caricata
+  let prImp = null;     // impostazioni delle prenotazioni
+  let prChiuse = [];    // sere chiuse in più, mentre si modificano
+
+  // per le prenotazioni conta il giorno di calendario a Firenze (a mezzanotte e mezza è già "domani")
+  function oggiCalendario() { return C.sera(Date.now() + 6 * 3600e3); }
+  function nomeGiorno(s) {
+    const o = oggiCalendario();
+    return s === o ? "Oggi" : s === C.piuGiorni(o, 1) ? "Domani" : C.dataBreve(s);
+  }
+
+  function caricaPrenota() {
+    caricaSeraPren();
+    caricaImpostazioniPren();
+  }
+
+  async function caricaSeraPren() {
+    try {
+      const d = await conPin(function (p) { return S.prenGiorno(p, prSera); });
+      prDati = d;
+      prSera = d.sera;
+      $("#pr-sera").textContent = nomeGiorno(d.sera) + (nomeGiorno(d.sera) === C.dataBreve(d.sera) ? "" : " · " + C.dataBreve(d.sera));
+      $("#pr-data").value = d.sera;
+      $("#pr-prima").disabled = d.sera <= C.piuGiorni(d.oggi, -1);
+      $("#pr-chiuso").hidden = !d.chiuso;
+      $("#pr-turni").innerHTML = d.turni.length ? d.turni.map(function (t) { return disegnaTurno(t, d.coperti); }).join("")
+        : '<div class="card"><p class="vuoto">Nessun turno impostato.</p></div>';
+      $("#pr-prossimi").innerHTML = d.prossimi.map(function (g) {
+        return '<li data-sera="' + g.sera + '" style="cursor:pointer"' + (g.sera === d.sera ? ' class="qui"' : "") + '>' +
+          '<span class="cresce"><b>' + C.esc(nomeGiorno(g.sera)) + "</b>" +
+          (nomeGiorno(g.sera) !== C.dataBreve(g.sera) ? ' <span class="dim">' + C.dataBreve(g.sera) + "</span>" : "") + "</span>" +
+          (g.chiuso ? '<span class="pill">chiuso</span>'
+            : g.prenotazioni ? '<span class="pill oro">' + g.prenotazioni + (g.prenotazioni === 1 ? " tavolo" : " tavoli") +
+              " · " + persone(g.persone) + "</span>" : '<span class="dim">—</span>') + "</li>";
+      }).join("");
+    } catch (e) { errore(e); }
+  }
+
+  function disegnaTurno(t, coperti) {
+    const pieno = Math.min(100, Math.round(100 * t.prenotati / Math.max(1, coperti)));
+    return '<div class="card turno">' +
+      '<div class="riga"><h3 class="cresce" style="margin:0">🕢 ' + C.esc(t.ora) + (t.previsto ? "" : ' <span class="dim small">fuori turno</span>') + "</h3>" +
+      '<span class="pill ' + (t.prenotati >= coperti ? "no" : "oro") + '">' + t.prenotati + " / " + coperti + " coperti</span></div>" +
+      '<div class="barra-coperti"><i style="width:' + pieno + '%"></i></div>' +
+      '<ul class="lista">' + (t.lista.length ? t.lista.map(function (x) {
+        const st = STATO_PREN[x.stato] || ["", x.stato];
+        return '<li data-pren="' + C.esc(x.id) + '" class="' + (x.stato === "annullata" ? "spenta" : "") + '" style="cursor:pointer">' +
+          '<span class="persone-tondo">' + x.persone + "</span>" +
+          '<div class="cresce"><b>' + C.esc(x.nome) + "</b>" +
+          '<div class="dim">' + (FONTI[x.fonte] || C.esc(x.fonte)) + (x.socio ? " · 💳 socio" : "") +
+          (x.nota ? " · «" + C.esc(x.nota) + "»" : "") + "</div></div>" +
+          (x.stato === "confermata" ? "" : '<span class="pill ' + st[0] + '">' + st[1] + "</span>") + "</li>";
+      }).join("") : '<li class="vuoto">Nessuna prenotazione.</li>') + "</ul></div>";
+  }
+
+  $("#pr-turni").addEventListener("click", function (e) {
+    const li = e.target.closest("[data-pren]");
+    if (li) apriPrenotazione(li.dataset.pren);
+  });
+  $("#pr-prossimi").addEventListener("click", function (e) {
+    const li = e.target.closest("[data-sera]");
+    if (!li) return;
+    prSera = li.dataset.sera;
+    caricaSeraPren();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+  $("#pr-prima").addEventListener("click", function () { prSera = C.piuGiorni(prSera || oggiCalendario(), -1); caricaSeraPren(); });
+  $("#pr-dopo").addEventListener("click", function () { prSera = C.piuGiorni(prSera || oggiCalendario(), 1); caricaSeraPren(); });
+  $("#pr-data").addEventListener("change", function () { if (this.value) { prSera = this.value; caricaSeraPren(); } });
+
+  function trovaPrenotazione(id) {
+    for (const t of (prDati ? prDati.turni : [])) {
+      const x = t.lista.find(function (p) { return p.id === id; });
+      if (x) return x;
+    }
+    return null;
+  }
+
+  function apriPrenotazione(id) {
+    const x = trovaPrenotazione(id);
+    if (!x) return;
+    const nome1 = x.nome.split(/\s+/)[0];
+    const st = STATO_PREN[x.stato] || ["", x.stato];
+    const azioni = {
+      confermata: [["arrivati", "✅ Sono arrivati", "verde"], ["noshow", "🚫 Non sono venuti", "vuoto"], ["annullata", "❌ Annulla", "vuoto"]],
+      arrivati: [["confermata", "↺ Non ancora arrivati", "vuoto"]],
+      noshow: [["arrivati", "✅ Sono arrivati", "verde"], ["confermata", "↺ Rimetti confermata", "vuoto"]],
+      annullata: [["confermata", "↺ Rimetti confermata", "vuoto"]],
+    }[x.stato] || [];
+    apriFoglio(
+      "<h2>" + C.esc(x.nome) + "</h2>" +
+      '<p class="dim">' + C.esc(nomeGiorno(x.sera)) + (nomeGiorno(x.sera) !== C.dataBreve(x.sera) ? " " + C.dataBreve(x.sera) : "") +
+        " alle " + C.esc(x.turno) + " · " + persone(x.persone) + ' · <span class="pill ' + st[0] + '">' + st[1] + "</span></p>" +
+      '<ul class="lista" style="margin-top:8px">' +
+      (x.telefono ? '<li><span class="cresce">📞 ' + C.esc(telBello(x.telefono)) + "</span>" +
+        '<a class="btn vuoto piccolo" target="_blank" rel="noopener" href="' + linkChat(x.telefono, "Ciao " + nome1 + "!") + '">💬</a>' +
+        '<a class="btn vuoto piccolo" href="tel:' + C.esc(x.telefono) + '">Chiama</a></li>' : "") +
+      '<li><span class="cresce">' + (FONTI[x.fonte] || C.esc(x.fonte)) + (x.socio ? " · 💳 socio del Club" : "") +
+        '<span class="dim" style="display:block">codice ' + C.esc(x.codice) + " · presa " + quando(x.creato) +
+        (x.annullata ? " · annullata " + quando(x.annullata) + (x.annullataDa === "cliente" ? " dal cliente" : "") : "") + "</span></span></li>" +
+      "</ul>" +
+      '<div class="azioni-pren">' + azioni.map(function (a) {
+        return '<button class="btn ' + a[2] + ' pieno" data-stato="' + a[0] + '">' + a[1] + "</button>";
+      }).join("") + "</div>" +
+      '<div class="card"><h3>✏️ Modifica</h3>' +
+      '<div class="riga">' +
+        '<label class="campo"><span>Persone</span><input type="number" inputmode="numeric" id="pm-persone" min="1" max="200" value="' + x.persone + '"></label>' +
+        '<label class="campo"><span>Turno</span><input type="time" id="pm-turno" value="' + C.esc(x.turno) + '"></label></div>' +
+      '<label class="campo"><span>Sera</span><input type="date" id="pm-sera" value="' + x.sera + '"></label>' +
+      '<label class="campo"><span>Nota</span><textarea id="pm-nota" rows="2" maxlength="300">' + C.esc(x.nota) + "</textarea></label>" +
+      '<button class="btn oro pieno" id="pm-salva">Salva le modifiche</button></div>'
+    );
+    $$("[data-stato]", $("#foglio-corpo")).forEach(function (b) {
+      b.addEventListener("click", async function () {
+        const stato = b.dataset.stato;
+        if (stato === "annullata" && !confirm("Annullo la prenotazione di " + x.nome + "? Il posto torna libero sul sito.")) return;
+        await modificaPren(x, { stato: stato }, { arrivati: "Segnati come arrivati", noshow: "Segnati come non venuti",
+          annullata: "Prenotazione annullata", confermata: "Di nuovo confermata" }[stato]);
+      });
+    });
+    $("#pm-salva").addEventListener("click", function () {
+      modificaPren(x, { persone: $("#pm-persone").value, turno: $("#pm-turno").value, sera: $("#pm-sera").value,
+        nota: $("#pm-nota").value }, "Prenotazione aggiornata");
+    });
+  }
+
+  async function modificaPren(x, dati, messaggio) {
+    try {
+      await conPin(function (p) { return S.prenModifica(p, x.id, dati); });
+      chiudiFoglio();
+      C.toast(messaggio);
+      caricaSeraPren();
+    } catch (e) { errore(e); }
+  }
+
+  $("#pr-nuova").addEventListener("click", function () {
+    const turni = (prImp && prImp.turni) || ["19:30", "21:30"];
+    apriFoglio(
+      "<h2>＋ Nuova prenotazione</h2>" +
+      '<p class="dim">Per quelle arrivate al telefono, da TheFork o da Google: così i coperti sul sito tornano giusti.</p>' +
+      '<label class="campo"><span>Da dove arriva</span><select id="pn-fonte">' +
+        '<option value="telefono">📞 Telefono</option><option value="thefork">🍴 TheFork</option>' +
+        '<option value="google">🔎 Google</option><option value="altro">✍️ Altro</option></select></label>' +
+      '<label class="campo"><span>Sera</span><input type="date" id="pn-sera" value="' + (prSera || oggiCalendario()) + '"></label>' +
+      '<p class="muted small">Turno</p><div class="turni-scelta" id="pn-turni">' +
+        turni.map(function (t, i) { return '<button type="button" data-ora="' + t + '" class="' + (i ? "" : "on") + '">' + t + "</button>"; }).join("") +
+        '<input type="time" id="pn-altro" aria-label="Altro orario"></div>' +
+      '<div class="riga">' +
+        '<label class="campo"><span>Persone</span><input type="number" inputmode="numeric" id="pn-persone" min="1" max="200" value="2"></label>' +
+        '<label class="campo"><span>Telefono (se c\'è)</span><input type="tel" id="pn-telefono" autocomplete="off"></label></div>' +
+      '<label class="campo"><span>Nome</span><input type="text" id="pn-nome" autocomplete="off" maxlength="60"></label>' +
+      '<label class="campo"><span>Nota</span><textarea id="pn-nota" rows="2" maxlength="300" placeholder="allergie, seggiolone, compleanno…"></textarea></label>' +
+      '<button class="btn oro pieno" id="pn-salva">Aggiungi</button>'
+    );
+    const box = $("#pn-turni");
+    box.addEventListener("click", function (e) {
+      if (e.target.dataset.ora == null) return;
+      $$("button", box).forEach(function (b) { b.classList.toggle("on", b === e.target); });
+      $("#pn-altro").value = "";
+    });
+    $("#pn-altro").addEventListener("input", function () { $$("button", box).forEach(function (b) { b.classList.remove("on"); }); });
+    $("#pn-salva").addEventListener("click", async function () {
+      const scelto = $("button.on", box);
+      const dati = {
+        fonte: $("#pn-fonte").value, sera: $("#pn-sera").value, turno: $("#pn-altro").value || (scelto && scelto.dataset.ora) || "",
+        persone: $("#pn-persone").value, telefono: $("#pn-telefono").value, nome: $("#pn-nome").value, nota: $("#pn-nota").value,
+      };
+      // fuori dai coperti: si può, ma meglio saperlo
+      if (prDati && dati.sera === prDati.sera) {
+        const t = prDati.turni.find(function (x) { return x.ora === dati.turno; });
+        const dopo = (t ? t.prenotati : 0) + Number(dati.persone || 0);
+        if (dopo > prDati.coperti && !confirm("Con questa il turno delle " + dati.turno + " arriva a " + dopo + " coperti su " +
+            prDati.coperti + ". La aggiungo lo stesso?")) return;
+      }
+      try {
+        await conPin(function (p) { return S.prenAggiungi(p, dati); });
+        chiudiFoglio();
+        C.toast("Prenotazione aggiunta");
+        prSera = dati.sera;
+        caricaSeraPren();
+      } catch (e) { errore(e); }
+    });
+  });
+
+  /* --- impostazioni --- */
+  async function caricaImpostazioniPren() {
+    try {
+      prImp = await conPin(S.prenImpostazioni);
+      $("#pr-attive").checked = prImp.attive;
+      $("#pr-ore").innerHTML = prImp.turni.map(rigaOra).join("");
+      $("#pr-coperti").value = prImp.coperti;
+      $("#pr-max").value = prImp.maxPersone;
+      $("#pr-avanti").value = prImp.giorniAvanti;
+      $("#pr-anticipo").value = prImp.anticipoMin / 60;
+      prChiuse = prImp.dateChiuse.slice();
+      disegnaChiuse();
+      const gc = prImp.giorniChiusura || [];
+      $("#pr-giorno-chiusura").textContent = gc.length
+        ? "Chiuso ogni " + gc.map(function (g) { return C.NOMI_GIORNI[g]; }).join(" e ") + ": si cambia nella scheda Club."
+        : "Giorno di chiusura settimanale: nessuno (si imposta nella scheda Club).";
+      statoAvvisiPren();
+    } catch (e) { errore(e); }
+  }
+  function rigaOra(t) {
+    return '<span class="ora-turno"><input type="time" value="' + C.esc(t) + '" aria-label="Orario del turno">' +
+      '<button type="button" class="togli" aria-label="Togli questo turno">×</button></span>';
+  }
+  $("#pr-ora-piu").addEventListener("click", function () {
+    if ($$("#pr-ore input").length >= 4) { C.toast("Al massimo 4 turni", true); return; }
+    $("#pr-ore").insertAdjacentHTML("beforeend", rigaOra("20:30"));
+  });
+  $("#pr-ore").addEventListener("click", function (e) {
+    if (!e.target.classList.contains("togli")) return;
+    if ($$("#pr-ore input").length <= 1) { C.toast("Serve almeno un turno", true); return; }
+    e.target.parentNode.remove();
+  });
+  function disegnaChiuse() {
+    $("#pr-chiuse").innerHTML = prChiuse.length ? prChiuse.map(function (d) {
+      return '<li><span class="cresce">🔒 ' + C.esc(nomeGiorno(d)) + (nomeGiorno(d) !== C.dataBreve(d) ? " " + C.dataBreve(d) : "") + "</span>" +
+        '<button type="button" class="btn vuoto piccolo fisso" data-riapri="' + d + '">Riapri</button></li>';
+    }).join("") : "";
+  }
+  $("#pr-chiusa-piu").addEventListener("click", function () {
+    const d = $("#pr-chiusa-data").value;
+    if (!d) { C.toast("Scegli la sera da chiudere", true); return; }
+    if (d < oggiCalendario()) { C.toast("Quella sera è già passata", true); return; }
+    if (prChiuse.indexOf(d) < 0) prChiuse.push(d);
+    prChiuse.sort();
+    $("#pr-chiusa-data").value = "";
+    disegnaChiuse();
+  });
+  $("#pr-chiuse").addEventListener("click", function (e) {
+    const d = e.target.dataset.riapri;
+    if (!d) return;
+    prChiuse = prChiuse.filter(function (x) { return x !== d; });
+    disegnaChiuse();
+  });
+  $("#pr-salva").addEventListener("click", async function () {
+    const ore = parseFloat(String($("#pr-anticipo").value).replace(",", "."));
+    try {
+      prImp = await conPin(function (p) {
+        return S.prenSalvaImpostazioni(p, {
+          attive: $("#pr-attive").checked,
+          turni: $$("#pr-ore input").map(function (i) { return i.value; }).filter(Boolean),
+          coperti: Number($("#pr-coperti").value), maxPersone: Number($("#pr-max").value),
+          giorniAvanti: Number($("#pr-avanti").value), anticipoMin: isNaN(ore) ? null : Math.round(ore * 60),
+          dateChiuse: prChiuse,
+        });
+      });
+      C.toast("Salvato: il sito si aggiorna da solo");
+      caricaPrenota();
+    } catch (e) { errore(e); }
+  });
+  // l'interruttore vale subito, senza dover premere Salva
+  $("#pr-attive").addEventListener("change", async function () {
+    const acceso = this.checked;
+    try {
+      await conPin(function (p) { return S.prenSalvaImpostazioni(p, { attive: acceso }); });
+      C.toast(acceso ? "Prenotazioni dal sito accese" : "Prenotazioni dal sito spente: il sito dice di chiamare");
+    } catch (e) { this.checked = !acceso; errore(e); }
+  });
+  $("#pr-copia").addEventListener("click", async function () {
+    try { await navigator.clipboard.writeText("https://vicodelcarmine.it/#prenota"); C.toast("Link copiato"); }
+    catch (e) { C.toast("vicodelcarmine.it/#prenota"); }
+  });
+
+  /* --- avvisi sul telefono del titolare --- */
+  const supportaPush = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+  const suIphone = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  const installata = navigator.standalone === true || matchMedia("(display-mode: standalone)").matches;
+  function b64ToU8(b64) {
+    const s = atob((b64 + "=".repeat((4 - b64.length % 4) % 4)).replace(/-/g, "+").replace(/_/g, "/"));
+    return Uint8Array.from(s, function (c) { return c.charCodeAt(0); });
+  }
+  async function iscrizionePush() {
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      return reg ? await reg.pushManager.getSubscription() : null;
+    } catch (e) { return null; }
+  }
+  async function statoAvvisiPren() {
+    const testo = $("#pr-avvisi-testo"), attiva = $("#pr-avvisi-attiva"), prova = $("#pr-avvisi-prova");
+    const altri = prImp && prImp.telefoni ? " Telefoni con gli avvisi: " + prImp.telefoni + "." : "";
+    attiva.hidden = true;
+    prova.hidden = true;
+    if (S.DEMO) { testo.textContent = "Nella demo le notifiche non partono."; return; }
+    if (!supportaPush) {
+      testo.innerHTML = suIphone && !installata
+        ? "Su iPhone: tocca <b>Condividi</b> ↑ e poi <b>«Aggiungi alla schermata Home»</b>. Apri la dashboard da lì e attiva gli avvisi."
+        : "Questo telefono non riceve notifiche." + C.esc(altri);
+      return;
+    }
+    if (Notification.permission === "denied") {
+      testo.textContent = "Le notifiche sono bloccate: riattivale dalle impostazioni del telefono per questa app." + altri;
+      return;
+    }
+    const sub = Notification.permission === "granted" ? await iscrizionePush() : null;
+    if (sub) {
+      testo.textContent = "✅ Attivi: ti arriva una notifica a ogni prenotazione nuova o annullata dal sito." + altri;
+      prova.hidden = false;
+      conPin(function (p) { return S.prenSalvaPush(p, sub.toJSON()); }).catch(function () {});   // la tengo fresca sul server
+      return;
+    }
+    testo.textContent = "Ricevi una notifica a ogni prenotazione nuova o annullata dal sito, anche con la dashboard chiusa." + altri;
+    attiva.hidden = false;
+  }
+  $("#pr-avvisi-attiva").addEventListener("click", async function () {
+    const btn = this;
+    btn.disabled = true;
+    try {
+      const permesso = await Notification.requestPermission();
+      if (permesso === "granted") {
+        const reg = await navigator.serviceWorker.register("sw.js");
+        await navigator.serviceWorker.ready;
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+          sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToU8(await S.chiavePush()) });
+        }
+        const n = await conPin(function (p) { return S.prenSalvaPush(p, sub.toJSON()); });
+        if (prImp) prImp.telefoni = n;
+        C.toast("Avvisi attivati! 🎉");
+      }
+    } catch (e) {
+      C.toast(e.message || "Non sono riuscito ad attivarli", true);
+    }
+    btn.disabled = false;
+    statoAvvisiPren();
+  });
+  $("#pr-avvisi-prova").addEventListener("click", async function () {
+    const btn = this;
+    btn.disabled = true;
+    try {
+      const ok = await conPin(S.prenProvaAvviso);
+      C.toast(ok ? "Prova mandata: tra qualche secondo arriva la notifica" : "Serve almeno una prenotazione per fare la prova", !ok);
+    } catch (e) { errore(e); }
+    btn.disabled = false;
+  });
+  if (supportaPush && !S.DEMO) navigator.serviceWorker.register("sw.js").catch(function () {});
 
   /* ================= AGENTI ================= */
 

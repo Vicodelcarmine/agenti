@@ -26,7 +26,7 @@
   <img class="marchio" src="../assets/img/logo.jpg" alt="">
   <div class="emblema grande solo-vetrina" aria-hidden="true">🍕</div>
   <h1><span class="marchio">Vico Dashboard</span><span class="solo-vetrina">Dashboard</span></h1>
-  <p class="muted">Agenti, premi e Club · solo per il titolare</p>
+  <p class="muted">Agenti, premi, prenotazioni e Club · solo per il titolare</p>
   <p class="dim" style="margin-top:6px">Usa il PIN da titolare del menu</p>
   <form id="f-login">
     <input class="pin" id="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="8" aria-label="PIN">
@@ -75,6 +75,55 @@
       </div>
       <div class="card"><h3>Per agente</h3><ul class="lista" id="st-agenti"></ul></div>
       <div class="card"><h3>Tavoli arrivati</h3><ul class="lista" id="st-tavoli-lista"></ul></div>
+    </section>
+
+    <!-- PRENOTA -->
+    <section data-tab="prenota" hidden>
+      <div class="sez-titolo"><h2>📅 Prenotazioni</h2><button class="btn oro piccolo" id="pr-nuova">＋ Aggiungi</button></div>
+      <div class="riga giorno-nav">
+        <button class="btn vuoto piccolo fisso" id="pr-prima" aria-label="Sera prima">‹</button>
+        <label class="btn vuoto piccolo scegli-data"><span id="pr-sera">Oggi</span><input type="date" id="pr-data" aria-label="Scegli la sera"></label>
+        <button class="btn vuoto piccolo fisso" id="pr-dopo" aria-label="Sera dopo">›</button>
+      </div>
+      <p class="avviso-sera" id="pr-chiuso" hidden>🔒 Sera chiusa: dal sito non si prenota.</p>
+      <div id="pr-turni"></div>
+      <div class="card"><h3>📆 Prossimi 14 giorni</h3><ul class="lista" id="pr-prossimi"></ul></div>
+      <div class="card">
+        <div class="riga"><h3 class="cresce" style="margin:0">🌐 Prenotazioni dal sito</h3>
+          <label class="switch fisso"><input type="checkbox" id="pr-attive"><i></i></label></div>
+        <p class="dim" style="margin-top:6px">Si confermano da sole finché nel turno c'è posto. I coperti contano anche le prenotazioni che aggiungi tu.</p>
+        <p class="muted small" style="margin-top:12px">Turni della sera</p>
+        <div class="turni-ore" id="pr-ore"></div>
+        <button class="btn vuoto piccolo" id="pr-ora-piu" type="button">＋ Turno</button>
+        <div class="riga">
+          <label class="campo"><span>Coperti per turno</span><input type="number" inputmode="numeric" id="pr-coperti" min="1" max="500"></label>
+          <label class="campo"><span>Persone al massimo</span><input type="number" inputmode="numeric" id="pr-max" min="1" max="60"></label>
+        </div>
+        <div class="riga">
+          <label class="campo"><span>Si prenota fino a (giorni)</span><input type="number" inputmode="numeric" id="pr-avanti" min="1" max="180"></label>
+          <label class="campo"><span>Chiude prima del turno (ore)</span><input type="number" inputmode="decimal" id="pr-anticipo" min="0" max="48" step="0.5"></label>
+        </div>
+        <p class="dim small">Chi è in più del massimo vede il tasto per chiamarvi.</p>
+        <p class="muted small" style="margin-top:12px">Sere chiuse in più (ferie, eventi privati):</p>
+        <div class="riga"><input type="date" id="pr-chiusa-data" aria-label="Sera da chiudere"><button class="btn vuoto piccolo fisso" id="pr-chiusa-piu" type="button">＋ Chiudi</button></div>
+        <ul class="lista" id="pr-chiuse"></ul>
+        <p class="dim small" id="pr-giorno-chiusura"></p>
+        <button class="btn oro pieno" id="pr-salva" style="margin-top:12px">Salva</button>
+      </div>
+      <div class="card">
+        <h3>🔔 Avvisi su questo telefono</h3>
+        <p class="dim" id="pr-avvisi-testo"></p>
+        <button class="btn rosso pieno" id="pr-avvisi-attiva" hidden>Attiva gli avvisi</button>
+        <button class="btn vuoto piccolo" id="pr-avvisi-prova" hidden style="margin-top:10px">Manda una prova</button>
+      </div>
+      <div class="card">
+        <h3>🔗 Pagina per prenotare</h3>
+        <ul class="lista">
+          <li><span class="cresce">vicodelcarmine.it<span class="dim" style="display:block">da mettere su Google, Instagram e Facebook</span></span>
+            <a class="btn vuoto piccolo" href="https://vicodelcarmine.it/#prenota" target="_blank" rel="noopener">Apri</a>
+            <button class="btn oro piccolo" id="pr-copia" type="button">Copia</button></li>
+        </ul>
+      </div>
     </section>
 
     <!-- CLUB -->
@@ -222,6 +271,7 @@
   <nav class="tabbar">
     <button data-vai="riscatta" class="on"><i>📷</i>Riscatta</button>
     <button data-vai="stasera"><i>🌙</i>Stasera</button>
+    <button data-vai="prenota"><i>📅</i>Prenota</button>
     <button data-vai="club"><i>💳</i>Club</button>
     <button data-vai="agenti"><i>👥</i>Agenti</button>
     <button data-vai="premi"><i>🎁</i>Premi</button>
