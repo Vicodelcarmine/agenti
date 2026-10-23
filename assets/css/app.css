@@ -175,10 +175,15 @@ input[type=date] {
 .lista li.spenta b { text-decoration: line-through; }
 .lista li.qui b { color: var(--gold); }
 .azioni-pren { display: grid; gap: 8px; margin: 14px 0; }
-.turni-ore { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
-.ora-turno { display: flex; align-items: center; gap: 4px; }
-.ora-turno input { width: 118px; }
-.ora-turno .togli, .turni-scelta button {
+/* turni = fasce di orari di arrivo */
+.fascia { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+.fascia-n { font-weight: 700; color: var(--gold); min-width: 24px; }
+.fascia-tratto { color: var(--muted); }
+.fascia input { width: auto; flex: 1 1 0; min-width: 0; max-width: 130px; padding: 8px 10px; text-align: center; }
+.fascia input::-webkit-calendar-picker-indicator { display: none; }
+.fascia .togli { min-width: 38px; }
+.ora-arrivo { color: var(--gold); margin-right: 4px; font-variant-numeric: tabular-nums; }
+.fascia .togli, .turni-scelta button {
   min-height: 42px; min-width: 42px; border-radius: 10px; border: 1px solid var(--line); cursor: pointer;
   background: rgba(0,0,0,.25); color: var(--muted); font-weight: 700;
 }

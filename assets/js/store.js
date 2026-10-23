@@ -916,11 +916,12 @@ const Store = (function () {
   }
 
   /* ---------- prenotazioni (demo) ---------- */
-  const PREN = "vdcpren_demo_v1";
+  const PREN = "vdcpren_demo_v2";
   // per le prenotazioni conta il giorno di calendario a Firenze, non la "sera" degli agenti
   function prenOggi() { return C.sera(Date.now() + 6 * 3600e3); }
   function prenImpostazioniBase() {
-    return { attive: true, turni: ["19:30", "21:30"], coperti: 40, maxPersone: 8, giorniAvanti: 30, anticipoMin: 120, dateChiuse: [] };
+    return { attive: true, fasce: [{ dalle: "19:00", alle: "20:30" }, { dalle: "21:00", alle: "22:30" }], passo: 30,
+      coperti: 40, maxPersone: 8, giorniAvanti: 30, anticipoMin: 120, dateChiuse: [] };
   }
   function prenDatiIniziali() {
     // qualche prenotazione finta, così la scheda non è vuota
@@ -932,12 +933,12 @@ const Store = (function () {
         annullataDa: stato === "annullata" ? "cliente" : null });
     };
     p(0, "19:30", 4, "Giulia Rossi", "+393331112233", "sito", "Un seggiolone, grazie", "confermata", 26);
-    p(0, "19:30", 2, "Luca Neri", "+393409876543", "telefono", "", "confermata", 30);
-    p(0, "19:30", 6, "Famiglia Conti", "+393385551212", "thefork", "Compleanno della nonna", "confermata", 50);
+    p(0, "19:00", 2, "Luca Neri", "+393409876543", "telefono", "", "confermata", 30);
+    p(0, "20:30", 6, "Famiglia Conti", "+393385551212", "thefork", "Compleanno della nonna", "confermata", 50);
     p(0, "21:30", 3, "Marco Bianchi", "+393474455667", "sito", "", "confermata", 3);
-    p(0, "21:30", 2, "Anna Galli", "+393299988776", "google", "", "annullata", 8);
-    p(1, "19:30", 5, "Sara Verdi", "+393201234567", "sito", "Allergia alle noci", "confermata", 12);
-    p(1, "21:30", 8, "Gruppo Ferretti", "+393331234000", "telefono", "Tavolo lungo", "confermata", 40);
+    p(0, "22:00", 2, "Anna Galli", "+393299988776", "google", "", "annullata", 8);
+    p(1, "20:00", 5, "Sara Verdi", "+393201234567", "sito", "Allergia alle noci", "confermata", 12);
+    p(1, "21:00", 8, "Gruppo Ferretti", "+393331234000", "telefono", "Tavolo lungo", "confermata", 40);
     p(3, "21:30", 2, "Paolo Riva", "+393381112222", "sito", "", "confermata", 2);
     return db;
   }
@@ -953,9 +954,21 @@ const Store = (function () {
     return clubLeggi().impostazioni.giorniChiusura.indexOf(C.giornoSettimana(s)) >= 0 || db.impostazioni.dateChiuse.indexOf(s) >= 0;
   }
   function prenConta(l) { return l.filter(function (x) { return x.stato === "confermata" || x.stato === "arrivati"; }); }
-  function prenOccupati(db, s, t) {
-    return prenConta(db.prenotazioni.filter(function (x) { return x.sera === s && x.turno === t; }))
+  // il turno (fascia di orari di arrivo) di un'ora; -1 = fuori dai turni
+  function prenFascia(db, t) {
+    return db.impostazioni.fasce.findIndex(function (f) { return t >= f.dalle && t <= f.alle; });
+  }
+  function prenOccupati(db, s, k) {
+    return prenConta(db.prenotazioni.filter(function (x) { return x.sera === s && prenFascia(db, x.turno) === k; }))
       .reduce(function (n, x) { return n + x.persone; }, 0);
+  }
+  // gli orari che il cliente può scegliere (come pren_orari nel database)
+  function prenOrari(imp) {
+    const min = function (t) { const p = t.split(":"); return +p[0] * 60 + +p[1]; };
+    const hhmm = function (m) { return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"); };
+    const l = [];
+    imp.fasce.forEach(function (f) { for (let m = min(f.dalle); m <= min(f.alle); m += imp.passo) l.push(hhmm(m)); });
+    return l;
   }
   function prenVista(x) { return Object.assign({}, x); }
   const ORARIO = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -964,8 +977,10 @@ const Store = (function () {
     return rete(function () {
       controllaPin(leggi(), pin);
       const db = prenLeggi(), oggi = prenOggi(), s = /^\d{4}-\d\d-\d\d$/.test(sera || "") ? sera : oggi;
-      const orari = db.impostazioni.turni.concat(db.prenotazioni.filter(function (x) { return x.sera === s; })
-        .map(function (x) { return x.turno; })).filter(function (t, i, a) { return a.indexOf(t) === i; }).sort();
+      const dellaSera = db.prenotazioni.filter(function (x) { return x.sera === s; });
+      const ordina = function (a, b) {
+        return (a.stato === "annullata") - (b.stato === "annullata") || (a.turno < b.turno ? -1 : a.turno > b.turno ? 1 : a.creato - b.creato);
+      };
       const prossimi = [];
       for (let k = 0; k < 14; k++) {
         const d = C.piuGiorni(oggi, k), l = prenConta(db.prenotazioni.filter(function (x) { return x.sera === d; }));
@@ -974,12 +989,13 @@ const Store = (function () {
       }
       return {
         sera: s, oggi: oggi, coperti: db.impostazioni.coperti, chiuso: prenChiusa(db, s), prossimi: prossimi,
-        turni: orari.map(function (t) {
-          return { ora: t, prenotati: prenOccupati(db, s, t), previsto: db.impostazioni.turni.indexOf(t) >= 0,
-            lista: db.prenotazioni.filter(function (x) { return x.sera === s && x.turno === t; })
-              .sort(function (a, b) { return (a.stato === "annullata") - (b.stato === "annullata") || a.creato - b.creato; })
-              .map(prenVista) };
-        }),
+        turni: db.impostazioni.fasce.map(function (f, k) {
+          return { ora: f.dalle + " – " + f.alle, dalle: f.dalle, alle: f.alle, numero: k + 1, previsto: true,
+            prenotati: prenOccupati(db, s, k),
+            lista: dellaSera.filter(function (x) { return prenFascia(db, x.turno) === k; }).sort(ordina).map(prenVista) };
+        }).concat(dellaSera.some(function (x) { return prenFascia(db, x.turno) < 0; }) ? [{
+          ora: "Altri orari", previsto: false, prenotati: prenOccupati(db, s, -1),
+          lista: dellaSera.filter(function (x) { return prenFascia(db, x.turno) < 0; }).sort(ordina).map(prenVista) }] : []),
       };
     });
   }
@@ -1026,7 +1042,7 @@ const Store = (function () {
   }
   function prenImpostazioniVista(db) {
     const oggi = prenOggi();
-    return Object.assign({}, db.impostazioni, {
+    return Object.assign({}, db.impostazioni, { orari: prenOrari(db.impostazioni),
       dateChiuse: db.impostazioni.dateChiuse.filter(function (d) { return d >= oggi; }).sort(),
       giorniChiusura: clubLeggi().impostazioni.giorniChiusura, telefoni: 0 });
   }
@@ -1043,10 +1059,17 @@ const Store = (function () {
         if (!Number.isInteger(n) || n < min || n > max) throw errore("numeri", "Numeri non validi");
         imp[k] = n;
       };
-      if (dati.turni) {
-        const t = dati.turni.filter(function (x, i, a) { return a.indexOf(x) === i; }).sort();
-        if (!t.length || t.length > 4 || t.some(function (x) { return !ORARIO.test(x); })) throw errore("turni", "Turni non validi: da 1 a 4 orari");
-        imp.turni = t;
+      if (dati.fasce) {
+        const f = dati.fasce.slice().sort(function (a, b) { return a.dalle < b.dalle ? -1 : 1; });
+        const male = !f.length || f.length > 4 || f.some(function (x, i) {
+          return !ORARIO.test(x.dalle || "") || !ORARIO.test(x.alle || "") || x.dalle > x.alle || (i && f[i - 1].alle >= x.dalle);
+        });
+        if (male) throw errore("turni", "Turni non validi: da 1 a 4, con l'ora di inizio prima della fine e senza sovrapporsi");
+        imp.fasce = f.map(function (x) { return { dalle: x.dalle, alle: x.alle }; });
+      }
+      if (dati.passo != null) {
+        if ([15, 30, 60].indexOf(Number(dati.passo)) < 0) throw errore("numeri", "Numeri non validi");
+        imp.passo = Number(dati.passo);
       }
       if (dati.attive != null) imp.attive = !!dati.attive;
       intero("coperti", 1, 500);

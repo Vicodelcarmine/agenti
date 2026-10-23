@@ -91,10 +91,13 @@
       <div class="card">
         <div class="riga"><h3 class="cresce" style="margin:0">🌐 Prenotazioni dal sito</h3>
           <label class="switch fisso"><input type="checkbox" id="pr-attive"><i></i></label></div>
-        <p class="dim" style="margin-top:6px">Si confermano da sole finché nel turno c'è posto. I coperti contano anche le prenotazioni che aggiungi tu.</p>
-        <p class="muted small" style="margin-top:12px">Turni della sera</p>
-        <div class="turni-ore" id="pr-ore"></div>
-        <button class="btn vuoto piccolo" id="pr-ora-piu" type="button">＋ Turno</button>
+        <p class="dim" style="margin-top:6px">Il cliente sceglie l'ora in cui arriva; i coperti si contano per turno. Si confermano da sole finché nel turno c'è posto, e contano anche le prenotazioni che aggiungi tu.</p>
+        <p class="muted small" style="margin-top:12px">Turni: arrivi dalle – alle</p>
+        <div id="pr-fasce"></div>
+        <button class="btn vuoto piccolo" id="pr-fascia-piu" type="button">＋ Turno</button>
+        <label class="campo"><span>Orari proposti al cliente ogni</span>
+          <select id="pr-passo"><option value="15">15 minuti</option><option value="30">30 minuti</option><option value="60">un'ora</option></select></label>
+        <p class="dim small" id="pr-orari-anteprima"></p>
         <div class="riga">
           <label class="campo"><span>Coperti per turno</span><input type="number" inputmode="numeric" id="pr-coperti" min="1" max="500"></label>
           <label class="campo"><span>Persone al massimo</span><input type="number" inputmode="numeric" id="pr-max" min="1" max="60"></label>

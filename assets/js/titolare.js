@@ -800,17 +800,20 @@
     } catch (e) { errore(e); }
   }
 
+  // un turno = una fascia di orari di arrivo con i suoi coperti; dentro, ogni tavolo con la sua ora
   function disegnaTurno(t, coperti) {
     const pieno = Math.min(100, Math.round(100 * t.prenotati / Math.max(1, coperti)));
     return '<div class="card turno">' +
-      '<div class="riga"><h3 class="cresce" style="margin:0">🕢 ' + C.esc(t.ora) + (t.previsto ? "" : ' <span class="dim small">fuori turno</span>') + "</h3>" +
-      '<span class="pill ' + (t.prenotati >= coperti ? "no" : "oro") + '">' + t.prenotati + " / " + coperti + " coperti</span></div>" +
-      '<div class="barra-coperti"><i style="width:' + pieno + '%"></i></div>' +
+      '<div class="riga"><h3 class="cresce" style="margin:0">' +
+        (t.previsto ? "🕢 " + (t.numero ? t.numero + "° turno · " : "") + C.esc(t.ora) : "🕘 Altri orari") + "</h3>" +
+      (t.previsto ? '<span class="pill ' + (t.prenotati >= coperti ? "no" : "oro") + '">' + t.prenotati + " / " + coperti + " coperti</span>"
+        : '<span class="pill">' + persone(t.prenotati) + "</span>") + "</div>" +
+      (t.previsto ? '<div class="barra-coperti"><i style="width:' + pieno + '%"></i></div>' : "") +
       '<ul class="lista">' + (t.lista.length ? t.lista.map(function (x) {
         const st = STATO_PREN[x.stato] || ["", x.stato];
         return '<li data-pren="' + C.esc(x.id) + '" class="' + (x.stato === "annullata" ? "spenta" : "") + '" style="cursor:pointer">' +
           '<span class="persone-tondo">' + x.persone + "</span>" +
-          '<div class="cresce"><b>' + C.esc(x.nome) + "</b>" +
+          '<div class="cresce"><b><span class="ora-arrivo">' + C.esc(x.turno) + "</span> " + C.esc(x.nome) + "</b>" +
           '<div class="dim">' + (FONTI[x.fonte] || C.esc(x.fonte)) + (x.socio ? " · 💳 socio" : "") +
           (x.nota ? " · «" + C.esc(x.nota) + "»" : "") + "</div></div>" +
           (x.stato === "confermata" ? "" : '<span class="pill ' + st[0] + '">' + st[1] + "</span>") + "</li>";
@@ -869,7 +872,7 @@
       '<div class="card"><h3>✏️ Modifica</h3>' +
       '<div class="riga">' +
         '<label class="campo"><span>Persone</span><input type="number" inputmode="numeric" id="pm-persone" min="1" max="200" value="' + x.persone + '"></label>' +
-        '<label class="campo"><span>Turno</span><input type="time" id="pm-turno" value="' + C.esc(x.turno) + '"></label></div>' +
+        '<label class="campo"><span>Ora di arrivo</span><input type="time" id="pm-turno" value="' + C.esc(x.turno) + '"></label></div>' +
       '<label class="campo"><span>Sera</span><input type="date" id="pm-sera" value="' + x.sera + '"></label>' +
       '<label class="campo"><span>Nota</span><textarea id="pm-nota" rows="2" maxlength="300">' + C.esc(x.nota) + "</textarea></label>" +
       '<button class="btn oro pieno" id="pm-salva">Salva le modifiche</button></div>'
@@ -898,7 +901,7 @@
   }
 
   $("#pr-nuova").addEventListener("click", function () {
-    const turni = (prImp && prImp.turni) || ["19:30", "21:30"];
+    const turni = (prImp && prImp.orari) || ["19:00", "19:30", "20:00", "20:30", "21:00", "21:30", "22:00", "22:30"];
     apriFoglio(
       "<h2>＋ Nuova prenotazione</h2>" +
       '<p class="dim">Per quelle arrivate al telefono, da TheFork o da Google: così i coperti sul sito tornano giusti.</p>' +
@@ -906,7 +909,7 @@
         '<option value="telefono">📞 Telefono</option><option value="thefork">🍴 TheFork</option>' +
         '<option value="google">🔎 Google</option><option value="altro">✍️ Altro</option></select></label>' +
       '<label class="campo"><span>Sera</span><input type="date" id="pn-sera" value="' + (prSera || oggiCalendario()) + '"></label>' +
-      '<p class="muted small">Turno</p><div class="turni-scelta" id="pn-turni">' +
+      '<p class="muted small">Ora di arrivo</p><div class="turni-scelta" id="pn-turni">' +
         turni.map(function (t, i) { return '<button type="button" data-ora="' + t + '" class="' + (i ? "" : "on") + '">' + t + "</button>"; }).join("") +
         '<input type="time" id="pn-altro" aria-label="Altro orario"></div>' +
       '<div class="riga">' +
@@ -929,12 +932,12 @@
         fonte: $("#pn-fonte").value, sera: $("#pn-sera").value, turno: $("#pn-altro").value || (scelto && scelto.dataset.ora) || "",
         persone: $("#pn-persone").value, telefono: $("#pn-telefono").value, nome: $("#pn-nome").value, nota: $("#pn-nota").value,
       };
-      // fuori dai coperti: si può, ma meglio saperlo
+      // fuori dai coperti del turno: si può, ma meglio saperlo
       if (prDati && dati.sera === prDati.sera) {
-        const t = prDati.turni.find(function (x) { return x.ora === dati.turno; });
-        const dopo = (t ? t.prenotati : 0) + Number(dati.persone || 0);
-        if (dopo > prDati.coperti && !confirm("Con questa il turno delle " + dati.turno + " arriva a " + dopo + " coperti su " +
-            prDati.coperti + ". La aggiungo lo stesso?")) return;
+        const t = prDati.turni.find(function (x) { return x.previsto && dati.turno >= x.dalle && dati.turno <= x.alle; });
+        const dopo = t ? t.prenotati + Number(dati.persone || 0) : 0;
+        if (t && dopo > prDati.coperti && !confirm("Con questa il " + t.numero + "° turno (" + t.ora + ") arriva a " + dopo +
+            " coperti su " + prDati.coperti + ". La aggiungo lo stesso?")) return;
       }
       try {
         await conPin(function (p) { return S.prenAggiungi(p, dati); });
@@ -951,7 +954,9 @@
     try {
       prImp = await conPin(S.prenImpostazioni);
       $("#pr-attive").checked = prImp.attive;
-      $("#pr-ore").innerHTML = prImp.turni.map(rigaOra).join("");
+      $("#pr-fasce").innerHTML = prImp.fasce.map(rigaFascia).join("");
+      $("#pr-passo").value = String(prImp.passo);
+      anteprimaOrari();
       $("#pr-coperti").value = prImp.coperti;
       $("#pr-max").value = prImp.maxPersone;
       $("#pr-avanti").value = prImp.giorniAvanti;
@@ -965,19 +970,45 @@
       statoAvvisiPren();
     } catch (e) { errore(e); }
   }
-  function rigaOra(t) {
-    return '<span class="ora-turno"><input type="time" value="' + C.esc(t) + '" aria-label="Orario del turno">' +
-      '<button type="button" class="togli" aria-label="Togli questo turno">×</button></span>';
+  // un turno = arrivi "dalle"–"alle"; il numero (1°, 2°…) segue l'ordine
+  function rigaFascia(f) {
+    return '<div class="fascia"><span class="fascia-n"></span>' +
+      '<input type="time" class="f-dalle" value="' + C.esc(f.dalle) + '" aria-label="Arrivi dalle">' +
+      '<span class="fascia-tratto">–</span>' +
+      '<input type="time" class="f-alle" value="' + C.esc(f.alle) + '" aria-label="Arrivi fino alle">' +
+      '<button type="button" class="togli" aria-label="Togli questo turno">×</button></div>';
   }
-  $("#pr-ora-piu").addEventListener("click", function () {
-    if ($$("#pr-ore input").length >= 4) { C.toast("Al massimo 4 turni", true); return; }
-    $("#pr-ore").insertAdjacentHTML("beforeend", rigaOra("20:30"));
+  function fasceScritte() {
+    return $$("#pr-fasce .fascia").map(function (r) { return { dalle: $(".f-dalle", r).value, alle: $(".f-alle", r).value }; });
+  }
+  // "il cliente vede: 19:00 19:30 20:00 20:30 · 21:00 …" (come pren_orari nel database)
+  function anteprimaOrari() {
+    $$("#pr-fasce .fascia-n").forEach(function (n, i) { n.textContent = (i + 1) + "°"; });
+    const passo = Number($("#pr-passo").value) || 30;
+    const min = function (t) { const p = t.split(":"); return +p[0] * 60 + +p[1]; };
+    const hhmm = function (m) { return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"); };
+    const gruppi = fasceScritte().filter(function (f) { return f.dalle && f.alle && f.dalle <= f.alle; })
+      .sort(function (a, b) { return a.dalle < b.dalle ? -1 : 1; })
+      .map(function (f) {
+        const l = [];
+        for (let m = min(f.dalle); m <= min(f.alle) && l.length < 40; m += passo) l.push(hhmm(m));
+        return l.join(" ");
+      });
+    $("#pr-orari-anteprima").textContent = gruppi.length ? "Il cliente può scegliere: " + gruppi.join("  ·  ") : "";
+  }
+  $("#pr-fascia-piu").addEventListener("click", function () {
+    if ($$("#pr-fasce .fascia").length >= 4) { C.toast("Al massimo 4 turni", true); return; }
+    $("#pr-fasce").insertAdjacentHTML("beforeend", rigaFascia({ dalle: "23:00", alle: "23:30" }));
+    anteprimaOrari();
   });
-  $("#pr-ore").addEventListener("click", function (e) {
+  $("#pr-fasce").addEventListener("click", function (e) {
     if (!e.target.classList.contains("togli")) return;
-    if ($$("#pr-ore input").length <= 1) { C.toast("Serve almeno un turno", true); return; }
-    e.target.parentNode.remove();
+    if ($$("#pr-fasce .fascia").length <= 1) { C.toast("Serve almeno un turno", true); return; }
+    e.target.closest(".fascia").remove();
+    anteprimaOrari();
   });
+  $("#pr-fasce").addEventListener("input", anteprimaOrari);
+  $("#pr-passo").addEventListener("change", anteprimaOrari);
   function disegnaChiuse() {
     $("#pr-chiuse").innerHTML = prChiuse.length ? prChiuse.map(function (d) {
       return '<li><span class="cresce">🔒 ' + C.esc(nomeGiorno(d)) + (nomeGiorno(d) !== C.dataBreve(d) ? " " + C.dataBreve(d) : "") + "</span>" +
@@ -1005,7 +1036,7 @@
       prImp = await conPin(function (p) {
         return S.prenSalvaImpostazioni(p, {
           attive: $("#pr-attive").checked,
-          turni: $$("#pr-ore input").map(function (i) { return i.value; }).filter(Boolean),
+          fasce: fasceScritte(), passo: Number($("#pr-passo").value),
           coperti: Number($("#pr-coperti").value), maxPersone: Number($("#pr-max").value),
           giorniAvanti: Number($("#pr-avanti").value), anticipoMin: isNaN(ore) ? null : Math.round(ore * 60),
           dateChiuse: prChiuse,
