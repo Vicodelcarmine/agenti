@@ -114,6 +114,30 @@
         <button class="btn oro pieno" id="pr-salva" style="margin-top:12px">Salva</button>
       </div>
       <div class="card">
+        <div class="riga"><h3 class="cresce" style="margin:0">🛍️ Asporto</h3>
+          <label class="switch fisso"><input type="checkbox" id="as-attive"><i></i></label></div>
+        <p class="dim" style="margin-top:6px">Dal sito si apre il menu in modalità asporto: il cliente sceglie i piatti e l'ora di ritiro di stasera, e paga al ritiro. Gli ordini arrivano sul Banco, a parte dai tavoli.</p>
+        <p class="small" id="as-stasera" style="margin-top:8px"></p>
+        <div class="riga">
+          <label class="campo"><span>Primo ritiro</span><input type="time" id="as-dalle"></label>
+          <label class="campo"><span>Ultimo ritiro</span><input type="time" id="as-alle"></label>
+        </div>
+        <div class="riga">
+          <label class="campo"><span>Piatti per orario</span><input type="number" inputmode="numeric" id="as-piatti" min="1" max="200"></label>
+          <label class="campo"><span>Un orario ogni</span>
+            <select id="as-passo"><option value="10">10 minuti</option><option value="15">15 minuti</option><option value="20">20 minuti</option><option value="30">30 minuti</option></select></label>
+        </div>
+        <label class="campo"><span>Tempo minimo per prepararlo (minuti)</span><input type="number" inputmode="numeric" id="as-anticipo" min="0" max="240"></label>
+        <p class="muted small">Sere senza asporto:</p>
+        <div class="giorni" id="as-giorni-no"></div>
+        <p class="dim small" style="margin-top:8px">Bevande e dolci non contano nei piatti della cucina. Il giorno di chiusura del Club vale anche qui.</p>
+        <button class="btn oro pieno" id="as-salva" style="margin-top:12px">Salva</button>
+        <ul class="lista" style="margin-top:8px">
+          <li><span class="cresce">Schermata del Banco<span class="dim" style="display:block">dove arrivano gli ordini</span></span>
+            <a class="btn vuoto piccolo" href="https://vicodelcarmine.github.io/menu/banco.html" target="_blank" rel="noopener">Apri</a></li>
+        </ul>
+      </div>
+      <div class="card">
         <h3>🔔 Avvisi su questo telefono</h3>
         <p class="dim" id="pr-avvisi-testo"></p>
         <button class="btn rosso pieno" id="pr-avvisi-attiva" hidden>Attiva gli avvisi</button>

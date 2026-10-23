@@ -1082,6 +1082,51 @@ const Store = (function () {
     });
   }
 
+  /* ---------- asporto (demo): solo le regole, gli ordini stanno nel Banco del menu ---------- */
+  const ASP = "vdcasp_demo_v1";
+  function aspBase() {
+    return { attive: true, dalle: "19:00", alle: "22:30", passo: 15, piatti: 15, anticipoMin: 30, giorniNo: [6],
+      nonContano: ["dolci", "birre", "cocktail", "bevande", "vini"] };
+  }
+  function aspLeggi() {
+    let a = null;
+    try { a = JSON.parse(localStorage.getItem(ASP)); } catch (e) {}
+    return Object.assign(aspBase(), a || {});
+  }
+  function aspVista(a) {
+    const g = C.giornoSettimana(prenOggi());
+    return Object.assign({}, a, { stasera: { ordini: 3, piatti: 9, incasso: 86.5, aperti: 1 },
+      apertoStasera: a.attive && a.giorniNo.indexOf(g) < 0 && clubLeggi().impostazioni.giorniChiusura.indexOf(g) < 0 });
+  }
+  function aspImpostazioni(pin) {
+    return rete(function () { controllaPin(leggi(), pin); return aspVista(aspLeggi()); });
+  }
+  function aspSalvaImpostazioni(pin, dati) {
+    return rete(function () {
+      controllaPin(leggi(), pin);
+      const a = aspLeggi();
+      if (dati.attive != null) a.attive = !!dati.attive;
+      if (dati.dalle != null || dati.alle != null) {
+        const d = dati.dalle != null ? dati.dalle : a.dalle, al = dati.alle != null ? dati.alle : a.alle;
+        if (!ORARIO.test(d) || !ORARIO.test(al) || d > al) throw errore("orari", "Orari non validi: il primo ritiro deve venire prima dell'ultimo");
+        a.dalle = d; a.alle = al;
+      }
+      [["piatti", 1, 200], ["anticipoMin", 0, 240]].forEach(function (x) {
+        if (dati[x[0]] == null) return;
+        const n = Number(dati[x[0]]);
+        if (!Number.isInteger(n) || n < x[1] || n > x[2]) throw errore("numeri", "Numeri non validi");
+        a[x[0]] = n;
+      });
+      if (dati.passo != null) {
+        if ([10, 15, 20, 30].indexOf(Number(dati.passo)) < 0) throw errore("numeri", "Numeri non validi");
+        a.passo = Number(dati.passo);
+      }
+      if (dati.giorniNo) a.giorniNo = dati.giorniNo.map(Number).filter(function (g, i, l) { return g >= 0 && g <= 6 && l.indexOf(g) === i; }).sort();
+      try { localStorage.setItem(ASP, JSON.stringify(a)); } catch (e) {}
+      return aspVista(a);
+    });
+  }
+
   /* solo per la demo */
   function demoAgenti() {
     return leggi().agenti.map(function (a) { return { nome: a.nome, chiave: a.chiave, codice: a.codice, attivo: a.attivo }; });
@@ -1105,6 +1150,7 @@ const Store = (function () {
     prenGiorno, prenAggiungi, prenModifica, prenImpostazioni, prenSalvaImpostazioni,
     prenSalvaPush: function () { return Promise.reject(errore("demo", "Nella demo le notifiche non partono")); },
     prenProvaAvviso: function () { return Promise.reject(errore("demo", "Nella demo le notifiche non partono")); },
+    aspImpostazioni, aspSalvaImpostazioni,
     demoAgenti, demoAzzera,
   };
 
@@ -1242,6 +1288,10 @@ const Store = (function () {
       if (pronta) await funzionePren({ azione: "invia" });
       return pronta;
     },
+
+    // Asporto: le regole (funzioni SQL: supabase/12-asporto.sql). Gli ordini li gestisce il Banco del menu.
+    aspImpostazioni: function (pin) { return rpc("asp_impostazioni", { p_pin: pin }); },
+    aspSalvaImpostazioni: function (pin, dati) { return rpc("asp_salva_impostazioni", { p_pin: pin, p_dati: dati }); },
   };
 
   return Object.assign({ DEMO: DEMO }, DEMO ? demo : reale);

@@ -776,7 +776,49 @@
   function caricaPrenota() {
     caricaSeraPren();
     caricaImpostazioniPren();
+    caricaAsporto();
   }
+
+  /* --- asporto: le regole, gli ordini li gestisce il Banco --- */
+  async function caricaAsporto() {
+    try {
+      const a = await conPin(S.aspImpostazioni);
+      $("#as-attive").checked = a.attive;
+      $("#as-dalle").value = a.dalle;
+      $("#as-alle").value = a.alle;
+      $("#as-piatti").value = a.piatti;
+      $("#as-passo").value = String(a.passo);
+      $("#as-anticipo").value = a.anticipoMin;
+      chipGiorni($("#as-giorni-no"), a.giorniNo || []);
+      const s = a.stasera || {};
+      $("#as-stasera").innerHTML = !a.attive ? "Asporto spento: il sito dice che stasera è chiuso."
+        : !a.apertoStasera ? "Stasera niente asporto (sera esclusa)."
+        : "<b>Stasera:</b> " + (s.ordini || 0) + (s.ordini === 1 ? " ordine" : " ordini") + " · " + (s.piatti || 0) + " piatti" +
+          (s.incasso ? " · " + C.euro(s.incasso) : "") + (s.aperti ? " · " + s.aperti + " da preparare" : "");
+    } catch (e) { errore(e); }
+  }
+  $("#as-giorni-no").addEventListener("click", function (e) { if (e.target.dataset.g != null) e.target.classList.toggle("on"); });
+  $("#as-salva").addEventListener("click", async function () {
+    try {
+      await conPin(function (p) {
+        return S.aspSalvaImpostazioni(p, {
+          dalle: $("#as-dalle").value, alle: $("#as-alle").value, piatti: Number($("#as-piatti").value),
+          passo: Number($("#as-passo").value), anticipoMin: Number($("#as-anticipo").value),
+          giorniNo: giorniAccesi($("#as-giorni-no")),
+        });
+      });
+      C.toast("Salvato: il menu si aggiorna da solo");
+      caricaAsporto();
+    } catch (e) { errore(e); }
+  });
+  $("#as-attive").addEventListener("change", async function () {
+    const acceso = this.checked;
+    try {
+      await conPin(function (p) { return S.aspSalvaImpostazioni(p, { attive: acceso }); });
+      C.toast(acceso ? "Asporto acceso" : "Asporto spento: nel menu si può solo sfogliare");
+      caricaAsporto();
+    } catch (e) { this.checked = !acceso; errore(e); }
+  });
 
   async function caricaSeraPren() {
     try {
