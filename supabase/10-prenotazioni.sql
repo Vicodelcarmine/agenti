@@ -89,8 +89,8 @@ $$;
 -- sera chiusa: giorno di chiusura del Club o una delle date chiuse delle prenotazioni
 create or replace function public.pren_chiuso(s date) returns boolean
 language sql stable set search_path = public as $$
-  select extract(dow from s)::int = any((select giorni_chiusura from public.club_impostazioni where id = 1))
-      or s = any((select date_chiuse from public.pren_impostazioni where id = 1))
+  select extract(dow from s)::int = any(coalesce((select giorni_chiusura from public.club_impostazioni where id = 1), '{}'::int[]))
+      or s = any(coalesce((select date_chiuse from public.pren_impostazioni where id = 1), '{}'::date[]))
 $$;
 
 -- coperti già presi in un turno (contano anche quelle aggiunte dal titolare)
