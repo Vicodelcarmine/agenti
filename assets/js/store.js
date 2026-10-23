@@ -1082,7 +1082,7 @@ const Store = (function () {
     });
   }
 
-  /* ---------- asporto (demo): solo le regole, gli ordini stanno nel Banco del menu ---------- */
+  /* ---------- asporto (demo): le regole e uno storico finto (gli ordini veri stanno nel Banco del menu) ---------- */
   const ASP = "vdcasp_demo_v1";
   function aspBase() {
     return { attive: true, dalle: "19:00", alle: "22:30", passo: 15, piatti: 15, anticipoMin: 30, giorniNo: [6],
@@ -1093,9 +1093,57 @@ const Store = (function () {
     try { a = JSON.parse(localStorage.getItem(ASP)); } catch (e) {}
     return Object.assign(aspBase(), a || {});
   }
+  // ordini finti di una sera: sempre gli stessi per la stessa data, niente il sabato
+  function aspDemoSera(s) {
+    if (C.giornoSettimana(s) === 6 || s > prenOggi()) return [];
+    let seme = Number(s.replace(/-/g, "")) % 89;
+    const caso = function (n) { seme = (seme * 37 + 11) % 97; return Math.floor(seme / 97 * n); };
+    const nomi = ["Giulia Rossi", "Marco Bianchi", "Sara Conti", "Luca Ferri", "Anna Galli", "Paolo Neri"];
+    const piatti = [["Margherita", 8, "pizze"], ["Pizza Vico", 12, "pizze"], ["Diavola", 9, "pizze"],
+      ["Spaghetti allo scoglio", 18, "primi"], ["Coca-Cola", 3, "bevande"], ["Tiramisù", 6, "dolci"]];
+    const orari = ["19:30", "20:00", "20:15", "20:45", "21:00", "21:30", "22:00"];
+    const quanti = 1 + caso(4), oggi = s === prenOggi(), lista = [];
+    for (let i = 0; i < quanti; i++) {
+      const righe = [];
+      for (let k = 0, n = 1 + caso(3); k < n; k++) {
+        const p = piatti[caso(piatti.length)];
+        righe.push({ nome: p[0], prezzo: p[1], qta: 1 + caso(2), nota: "", slug: p[2] });
+      }
+      const stato = oggi ? ["ricevuto", "preparazione", "pronto", "ritirato"][i % 4] : (caso(8) === 0 ? "annullato" : "ritirato");
+      lista.push({
+        id: s + "-" + i, codice: "ABCDEFGHJKLMNPQRSTUVWXYZ"[caso(24)] + "K" + (2 + caso(8)) + "Q", sera: s, ritiro: orari[caso(orari.length)],
+        righe: righe, totale: righe.reduce(function (t, r) { return t + r.prezzo * r.qta; }, 0),
+        nota: caso(3) === 0 ? "Senza cipolla" : "", nome: nomi[caso(nomi.length)], telefono: "+39347" + (1000000 + caso(8999999)),
+        stato: stato, socio: true, pezzi: righe.reduce(function (t, r) { return t + (r.slug === "pizze" || r.slug === "primi" ? r.qta : 0); }, 0),
+      });
+    }
+    return lista.sort(function (a, b) { return a.ritiro < b.ritiro ? -1 : 1; });
+  }
+  function aspDemoConti(lista) {
+    const vivi = lista.filter(function (o) { return o.stato !== "annullato"; });
+    return { ordini: vivi.length, annullati: lista.length - vivi.length,
+      piatti: vivi.reduce(function (t, o) { return t + o.pezzi; }, 0),
+      incasso: vivi.reduce(function (t, o) { return t + o.totale; }, 0) };
+  }
+  function aspStorico(pin, sera) {
+    return rete(function () {
+      controllaPin(leggi(), pin);
+      const oggi = prenOggi(), s = sera && sera < oggi ? sera : oggi, sere = [];
+      for (let k = 0; k < 30; k++) {
+        const g = C.piuGiorni(oggi, -k), c = aspDemoConti(aspDemoSera(g));
+        if (c.ordini || c.annullati) sere.push(Object.assign({ sera: g }, c));
+      }
+      const mese = sere.filter(function (x) { return x.sera.slice(0, 7) === oggi.slice(0, 7); });
+      return { oggi: oggi, sera: s, ordini: aspDemoSera(s), sere: sere,
+        mese: { ordini: mese.reduce(function (t, x) { return t + x.ordini; }, 0),
+                incasso: mese.reduce(function (t, x) { return t + x.incasso; }, 0) } };
+    });
+  }
   function aspVista(a) {
     const g = C.giornoSettimana(prenOggi());
-    return Object.assign({}, a, { stasera: { ordini: 3, piatti: 9, incasso: 86.5, aperti: 1 },
+    const stasera = aspDemoSera(prenOggi()), c = aspDemoConti(stasera);
+    return Object.assign({}, a, { stasera: { ordini: c.ordini, piatti: c.piatti, incasso: c.incasso,
+        aperti: stasera.filter(function (o) { return ["ricevuto", "preparazione", "pronto"].indexOf(o.stato) >= 0; }).length },
       apertoStasera: a.attive && a.giorniNo.indexOf(g) < 0 && clubLeggi().impostazioni.giorniChiusura.indexOf(g) < 0 });
   }
   function aspImpostazioni(pin) {
@@ -1150,7 +1198,7 @@ const Store = (function () {
     prenGiorno, prenAggiungi, prenModifica, prenImpostazioni, prenSalvaImpostazioni,
     prenSalvaPush: function () { return Promise.reject(errore("demo", "Nella demo le notifiche non partono")); },
     prenProvaAvviso: function () { return Promise.reject(errore("demo", "Nella demo le notifiche non partono")); },
-    aspImpostazioni, aspSalvaImpostazioni,
+    aspImpostazioni, aspSalvaImpostazioni, aspStorico,
     demoAgenti, demoAzzera,
   };
 
@@ -1289,9 +1337,11 @@ const Store = (function () {
       return pronta;
     },
 
-    // Asporto: le regole (funzioni SQL: supabase/12-asporto.sql). Gli ordini li gestisce il Banco del menu.
+    // Asporto: le regole (supabase/12-asporto.sql) e lo storico (13-asporto-storico.sql).
+    // Gli ordini di stasera li gestisce il Banco del menu.
     aspImpostazioni: function (pin) { return rpc("asp_impostazioni", { p_pin: pin }); },
     aspSalvaImpostazioni: function (pin, dati) { return rpc("asp_salva_impostazioni", { p_pin: pin, p_dati: dati }); },
+    aspStorico: function (pin, sera) { return rpc("asp_storico", { p_pin: pin, p_sera: sera || null }); },
   };
 
   return Object.assign({ DEMO: DEMO }, DEMO ? demo : reale);

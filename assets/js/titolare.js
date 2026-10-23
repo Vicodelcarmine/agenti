@@ -798,6 +798,67 @@
     } catch (e) { errore(e); }
   }
   $("#as-giorni-no").addEventListener("click", function (e) { if (e.target.dataset.g != null) e.target.classList.toggle("on"); });
+
+  /* --- asporto: gli ordini di una sera qualsiasi e le ultime sere (si rivedono e basta: li manda avanti il Banco) --- */
+  const STATO_ASP = {
+    ricevuto: ["oro", "ricevuto"], preparazione: ["oro", "in preparazione"], pronto: ["ok", "pronto"],
+    ritirato: ["ok", "ritirato"], annullato: ["no", "annullato"],
+  };
+  function contaOrdini(n) { return n + (n === 1 ? " ordine" : " ordini"); }
+  async function apriStoricoAsporto(sera) {
+    let d;
+    try { d = await conPin(function (p) { return S.aspStorico(p, sera); }); } catch (e) { errore(e); return; }
+    const vivi = d.ordini.filter(function (o) { return o.stato !== "annullato"; });
+    const piatti = vivi.reduce(function (t, o) { return t + (o.pezzi || 0); }, 0);
+    const incasso = vivi.reduce(function (t, o) { return t + (Number(o.totale) || 0); }, 0);
+    const annullati = d.ordini.length - vivi.length;
+    const giorno = nomeGiorno(d.sera) + (nomeGiorno(d.sera) === C.dataBreve(d.sera) ? "" : " · " + C.dataBreve(d.sera));
+    apriFoglio(
+      "<h2>🛍️ Ordini da asporto</h2>" +
+      '<div class="riga giorno-nav">' +
+        '<button class="btn vuoto piccolo fisso" id="as-prima" aria-label="Sera prima">‹</button>' +
+        '<label class="btn vuoto piccolo scegli-data"><span>' + C.esc(giorno) + "</span>" +
+          '<input type="date" id="as-data" max="' + d.oggi + '" value="' + d.sera + '" aria-label="Scegli la sera"></label>' +
+        '<button class="btn vuoto piccolo fisso" id="as-dopo" aria-label="Sera dopo"' + (d.sera >= d.oggi ? " disabled" : "") + ">›</button>" +
+      "</div>" +
+      '<p class="small" style="margin:10px 0">' + (d.ordini.length
+        ? "<b>" + contaOrdini(vivi.length) + "</b> · " + piatti + " piatti · " + C.euro(incasso) +
+          (annullati ? ' <span class="dim">· ' + annullati + (annullati === 1 ? " annullato" : " annullati") + "</span>" : "")
+        : '<span class="dim">Nessun ordine da asporto in questa sera.</span>') + "</p>" +
+      (d.ordini.length ? '<ul class="lista">' + d.ordini.map(function (o) {
+        const st = STATO_ASP[o.stato] || ["", o.stato];
+        const righe = (o.righe || []).map(function (r) { return r.qta + "× " + C.esc(r.nome) + (r.nota ? " (" + C.esc(r.nota) + ")" : ""); }).join(", ");
+        return '<li class="' + (o.stato === "annullato" ? "spenta" : "") + '">' +
+          '<div class="cresce"><b><span class="ora-arrivo">' + C.esc(o.ritiro) + "</span> " + C.esc(o.nome) + "</b>" +
+          ' <span class="pill ' + st[0] + '">' + st[1] + "</span>" +
+          '<div class="dim">' + righe + "</div>" +
+          '<div class="dim">codice ' + C.esc(o.codice) + (o.socio ? " · 💳 socio" : "") +
+            (o.nota ? " · «" + C.esc(o.nota) + "»" : "") + "</div></div>" +
+          '<div style="text-align:right"><b>' + (o.totale != null ? C.euro(Number(o.totale)) : "") + "</b>" +
+            (o.telefono ? '<a class="btn vuoto piccolo" style="display:block;margin-top:6px" href="tel:' + C.esc(o.telefono) + '">📞</a>' : "") +
+          "</div></li>";
+      }).join("") + "</ul>" : "") +
+      '<div class="card" style="margin-top:14px"><h3>📆 Ultime sere</h3>' +
+        '<p class="small"><b>Questo mese:</b> ' + contaOrdini(d.mese.ordini || 0) + " · " + C.euro(Number(d.mese.incasso) || 0) + "</p>" +
+        (d.sere.length ? '<ul class="lista" id="as-sere">' + d.sere.map(function (g) {
+          return '<li data-sera="' + g.sera + '" style="cursor:pointer"' + (g.sera === d.sera ? ' class="qui"' : "") + ">" +
+            '<span class="cresce"><b>' + C.esc(nomeGiorno(g.sera)) + "</b>" +
+            (nomeGiorno(g.sera) !== C.dataBreve(g.sera) ? ' <span class="dim">' + C.dataBreve(g.sera) + "</span>" : "") + "</span>" +
+            (g.ordini ? '<span class="pill oro">' + contaOrdini(g.ordini) + " · " + C.euro(Number(g.incasso)) + "</span>"
+              : '<span class="pill">' + g.annullati + (g.annullati === 1 ? " annullato" : " annullati") + "</span>") + "</li>";
+        }).join("") + "</ul>" : '<p class="vuoto">Ancora nessun ordine.</p>') +
+      "</div>"
+    );
+    $("#as-prima").addEventListener("click", function () { apriStoricoAsporto(C.piuGiorni(d.sera, -1)); });
+    $("#as-dopo").addEventListener("click", function () { apriStoricoAsporto(C.piuGiorni(d.sera, 1)); });
+    $("#as-data").addEventListener("change", function () { if (this.value) apriStoricoAsporto(this.value); });
+    const sere = $("#as-sere");
+    if (sere) sere.addEventListener("click", function (e) {
+      const li = e.target.closest("[data-sera]");
+      if (li) apriStoricoAsporto(li.dataset.sera);
+    });
+  }
+  $("#as-storico").addEventListener("click", function () { apriStoricoAsporto(null); });
   $("#as-salva").addEventListener("click", async function () {
     try {
       await conPin(function (p) {
