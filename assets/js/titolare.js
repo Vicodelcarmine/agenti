@@ -247,7 +247,10 @@
   }
 
   /* ---------- premio del Club (7 caratteri) ---------- */
-  const TIPO_CLUB = { benvenuto: "Premio di benvenuto", compleanno: "Regalo di compleanno", promo: "Offerta del Club" };
+  const TIPO_CLUB = { benvenuto: "Premio di benvenuto", compleanno: "Regalo di compleanno", promo: "Offerta del Club",
+                      fortuna: "Premio di Tenta la Fortuna" };
+  // per quante persone vale un premio del Club (0 = gli sconti della Fortuna: il nome dice già "sul conto")
+  function perChi(n, prima) { return n > 0 ? (prima || "") + "per " + persone(n) : ""; }
   function codiceClub(c) { return c.slice(0, 3) + " " + c.slice(3); }
   function giorniNoTesto(g) {
     return g && g.length ? g.map(function (n) { return C.NOMI_GIORNI[n]; }).join(" e ") + " escluso" : "";
@@ -273,7 +276,7 @@
     const no = giorniNoTesto(p.giorniNo);
     return '<div class="emoji">' + C.esc(p.emoji) + "</div>" +
       '<div class="nome">' + C.esc(p.nome.it) + "</div>" +
-      '<div class="muted small">per ' + persone(p.persone) + "</div>" +
+      (p.persone > 0 ? '<div class="muted small">' + perChi(p.persone) + "</div>" : "") +
       '<p style="margin-top:10px">' + (TIPO_CLUB[p.tipo] || "Premio del Club") + " di <b>" + C.esc(p.iscritto.nome) + "</b></p>" +
       '<p class="dim">Codice ' + codiceClub(p.codice) + " · vale da " + C.dataBreve(p.dal) + " a " + C.dataBreve(p.al) +
       (no ? " · " + no : "") + "</p>";
@@ -476,7 +479,7 @@
       $("#cl-stasera").innerHTML = p.stasera.length ? p.stasera.map(function (x) {
         return '<li data-premio="' + C.esc(x.codice) + '" style="cursor:pointer"><span style="font-size:1.4rem">' + C.esc(x.emoji) + "</span>" +
           '<div class="cresce"><b>' + C.esc(x.nome) + '</b><div class="dim">' + C.ora(x.quando) + " · " + C.esc(x.premio.it) +
-          " · per " + x.persone + "</div></div></li>";
+          perChi(x.persone, " · ") + "</div></div></li>";
       }).join("") : '<li class="vuoto">Nessun premio usato stasera.</li>';
       $$("[data-premio]", $("#cl-stasera")).forEach(function (li) {
         li.addEventListener("click", function () { vai("riscatta"); cercaClub(li.dataset.premio); });
@@ -694,7 +697,7 @@
       (i.premi.length ? i.premi.map(function (p) {
         const st = STATO_CLUB[p.stato] || ["", p.stato];
         return '<li data-premio="' + C.esc(p.codice) + '" style="cursor:pointer"><span style="font-size:1.4rem">' + C.esc(p.emoji) + "</span>" +
-          '<div class="cresce"><b>' + C.esc(p.nome.it) + '</b><div class="dim">' + (TIPO_CLUB[p.tipo] || "") + " · per " + p.persone +
+          '<div class="cresce"><b>' + C.esc(p.nome.it) + '</b><div class="dim">' + (TIPO_CLUB[p.tipo] || "") + perChi(p.persone, " · ") +
           " · " + (p.usato ? "usato " + quando(p.usato) : "dal " + C.dataBreve(p.dal) + " al " + C.dataBreve(p.al)) + "</div></div>" +
           '<span class="pill ' + st[0] + '">' + st[1] + "</span></li>";
       }).join("") : '<li class="vuoto">Nessun premio.</li>') + "</ul></div>" +
