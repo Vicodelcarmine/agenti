@@ -761,6 +761,11 @@
   /* ================= PRENOTA ================= */
 
   const FONTI = { sito: "🌐 sito", telefono: "📞 telefono", thefork: "🍴 TheFork", google: "🔎 Google", altro: "✍️ altro" };
+  // il WhatsApp di conferma: consegnato = il numero è giusto (e vale il prosecco di benvenuto)
+  const WA = { in_coda: "📲 WhatsApp in invio", inviato: "📲 WhatsApp inviato, non ancora consegnato",
+               consegnato: "✅ WhatsApp consegnato: numero verificato", letto: "✅ WhatsApp letto: numero verificato",
+               errore: "⚠️ WhatsApp non arrivato: numero da controllare" };
+  const WA_BREVE = { in_coda: "📲", inviato: "📲", consegnato: "✅ verificato", letto: "✅ verificato", errore: "⚠️ numero?" };
   const STATO_PREN = {
     confermata: ["ok", "confermata"], arrivati: ["oro", "arrivati"], noshow: ["no", "non venuti"], annullata: ["no", "annullata"],
   };
@@ -780,7 +785,44 @@
     caricaSeraPren();
     caricaImpostazioniPren();
     caricaAsporto();
+    caricaWhatsapp();
   }
+
+  /* --- WhatsApp di conferma delle prenotazioni (e prosecco di benvenuto) --- */
+  async function caricaWhatsapp() {
+    try {
+      const w = await conPin(S.waImpostazioni);
+      $("#wa-attivo").checked = w.attivo;
+      $("#wa-benvenuto").value = w.benvenutoMax;
+      $("#wa-numero").value = w.numeroId || "";
+      $("#wa-modello-nuovo").value = w.modelloNuovo;
+      $("#wa-modello").value = w.modello;
+      const s = w.settimana || {};
+      $("#wa-stato").innerHTML = !w.configurato ? "⚙️ Da collegare con Meta: finché è spento, il prosecco si vede sulla conferma del sito."
+        : !w.attivo ? "Spento: la conferma resta solo sul sito."
+        : "<b>Ultimi 7 giorni:</b> " + (s.inviati || 0) + " inviati · " + (s.verificati || 0) + " verificati" +
+          (s.errori ? " · ⚠️ " + s.errori + " non arrivati" : "") +
+          (w.ultimoErrore ? '<span class="dim" style="display:block">Ultimo errore: ' + C.esc(w.ultimoErrore) + "</span>" : "");
+    } catch (e) { errore(e); }
+  }
+  $("#wa-salva").addEventListener("click", async function () {
+    try {
+      await conPin(function (p) {
+        return S.waSalva(p, { numeroId: $("#wa-numero").value.trim(), modelloNuovo: $("#wa-modello-nuovo").value.trim(),
+          modello: $("#wa-modello").value.trim(), benvenutoMax: Number($("#wa-benvenuto").value) });
+      });
+      C.toast("Salvato");
+      caricaWhatsapp();
+    } catch (e) { errore(e); }
+  });
+  $("#wa-attivo").addEventListener("change", async function () {
+    const acceso = this.checked;
+    try {
+      await conPin(function (p) { return S.waSalva(p, { attivo: acceso }); });
+      C.toast(acceso ? "WhatsApp di conferma acceso" : "WhatsApp di conferma spento");
+      caricaWhatsapp();
+    } catch (e) { this.checked = !acceso; errore(e); }
+  });
 
   /* --- asporto: le regole, gli ordini li gestisce il Banco --- */
   async function caricaAsporto() {
@@ -921,6 +963,7 @@
           '<span class="persone-tondo">' + x.persone + "</span>" +
           '<div class="cresce"><b><span class="ora-arrivo">' + C.esc(x.turno) + "</span> " + C.esc(x.nome) + "</b>" +
           '<div class="dim">' + (FONTI[x.fonte] || C.esc(x.fonte)) + (x.socio ? " · 💳 socio" : "") +
+          (x.benvenuto ? " · 🥂 prosecco per " + x.benvenuto : "") + (x.whatsapp ? " · " + (WA_BREVE[x.whatsapp] || "") : "") +
           (x.nota ? " · «" + C.esc(x.nota) + "»" : "") + "</div></div>" +
           (x.stato === "confermata" ? "" : '<span class="pill ' + st[0] + '">' + st[1] + "</span>") + "</li>";
       }).join("") : '<li class="vuoto">Nessuna prenotazione.</li>') + "</ul></div>";
@@ -968,6 +1011,10 @@
       (x.telefono ? '<li><span class="cresce">📞 ' + C.esc(telBello(x.telefono)) + "</span>" +
         '<a class="btn vuoto piccolo" target="_blank" rel="noopener" href="' + linkChat(x.telefono, "Ciao " + nome1 + "!") + '">💬</a>' +
         '<a class="btn vuoto piccolo" href="tel:' + C.esc(x.telefono) + '">Chiama</a></li>' : "") +
+      (x.benvenuto ? '<li><span class="cresce">🥂 Cliente nuovo: prosecco di benvenuto per ' + persone(x.benvenuto) +
+        (x.whatsapp ? '<span class="dim" style="display:block">vale con il messaggio WhatsApp che gli è arrivato</span>' : "") + "</span></li>" : "") +
+      (x.whatsapp ? '<li><span class="cresce">' + (WA[x.whatsapp] || C.esc(x.whatsapp)) +
+        (x.waErrore ? '<span class="dim" style="display:block">' + C.esc(x.waErrore) + "</span>" : "") + "</span></li>" : "") +
       '<li><span class="cresce">' + (FONTI[x.fonte] || C.esc(x.fonte)) + (x.socio ? " · 💳 socio del Club" : "") +
         '<span class="dim" style="display:block">codice ' + C.esc(x.codice) + " · presa " + quando(x.creato) +
         (x.annullata ? " · annullata " + quando(x.annullata) + (x.annullataDa === "cliente" ? " dal cliente" : "") : "") + "</span></span></li>" +

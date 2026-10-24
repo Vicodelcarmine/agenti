@@ -139,6 +139,21 @@
         </ul>
       </div>
       <div class="card">
+        <div class="riga"><h3 class="cresce" style="margin:0">📲 WhatsApp di conferma</h3>
+          <label class="switch fisso"><input type="checkbox" id="wa-attivo"><i></i></label></div>
+        <p class="dim" style="margin-top:6px">Dopo ogni prenotazione dal sito parte un WhatsApp con la conferma; al cliente nuovo anche il prosecco di benvenuto, da mostrare al cameriere. Se il messaggio arriva, il numero è giusto (nella prenotazione vedi ✅ verificato).</p>
+        <p class="small" id="wa-stato" style="margin-top:8px"></p>
+        <label class="campo"><span>Prosecco di benvenuto al cliente nuovo: al massimo per (persone)</span><input type="number" inputmode="numeric" id="wa-benvenuto" min="0" max="20"></label>
+        <details style="margin-top:10px"><summary class="dim small" style="cursor:pointer">Collegamento con Meta</summary>
+          <label class="campo"><span>Phone number ID (da WhatsApp Manager)</span><input type="text" inputmode="numeric" id="wa-numero" autocomplete="off"></label>
+          <div class="riga">
+            <label class="campo"><span>Modello cliente nuovo</span><input type="text" id="wa-modello-nuovo" autocomplete="off"></label>
+            <label class="campo"><span>Modello cliente abituale</span><input type="text" id="wa-modello" autocomplete="off"></label>
+          </div>
+        </details>
+        <button class="btn oro pieno" id="wa-salva" style="margin-top:12px">Salva</button>
+      </div>
+      <div class="card">
         <h3>🔔 Avvisi su questo telefono</h3>
         <p class="dim" id="pr-avvisi-testo"></p>
         <button class="btn rosso pieno" id="pr-avvisi-attiva" hidden>Attiva gli avvisi</button>

@@ -916,7 +916,7 @@ const Store = (function () {
   }
 
   /* ---------- prenotazioni (demo) ---------- */
-  const PREN = "vdcpren_demo_v2";
+  const PREN = "vdcpren_demo_v3";
   // per le prenotazioni conta il giorno di calendario a Firenze, non la "sera" degli agenti
   function prenOggi() { return C.sera(Date.now() + 6 * 3600e3); }
   function prenImpostazioniBase() {
@@ -926,20 +926,21 @@ const Store = (function () {
   function prenDatiIniziali() {
     // qualche prenotazione finta, così la scheda non è vuota
     const oggi = prenOggi(), db = { impostazioni: prenImpostazioniBase(), prenotazioni: [] };
-    const p = function (giorni, turno, persone, nome, telefono, fonte, nota, stato, oreFa) {
-      db.prenotazioni.push({ id: "p" + C.casuale(8), codice: C.casuale(6), sera: C.piuGiorni(oggi, giorni), turno: turno,
+    const p = function (giorni, turno, persone, nome, telefono, fonte, nota, stato, oreFa, extra) {
+      db.prenotazioni.push(Object.assign({ id: "p" + C.casuale(8), codice: C.casuale(6), sera: C.piuGiorni(oggi, giorni), turno: turno,
         persone: persone, nome: nome, telefono: telefono, nota: nota, fonte: fonte, stato: stato, socio: fonte === "sito",
         creato: Date.now() - oreFa * 3600e3, annullata: stato === "annullata" ? Date.now() - 3600e3 : null,
-        annullataDa: stato === "annullata" ? "cliente" : null });
+        annullataDa: stato === "annullata" ? "cliente" : null, benvenuto: 0, whatsapp: null }, extra || {}));
     };
     p(0, "19:30", 4, "Giulia Rossi", "+393331112233", "sito", "Un seggiolone, grazie", "confermata", 26);
     p(0, "19:00", 2, "Luca Neri", "+393409876543", "telefono", "", "confermata", 30);
     p(0, "20:30", 6, "Famiglia Conti", "+393385551212", "thefork", "Compleanno della nonna", "confermata", 50);
-    p(0, "21:30", 3, "Marco Bianchi", "+393474455667", "sito", "", "confermata", 3);
+    p(0, "21:30", 3, "Marco Bianchi", "+393474455667", "sito", "", "confermata", 3, { socio: false, benvenuto: 3, whatsapp: "letto" });
     p(0, "22:00", 2, "Anna Galli", "+393299988776", "google", "", "annullata", 8);
     p(1, "20:00", 5, "Sara Verdi", "+393201234567", "sito", "Allergia alle noci", "confermata", 12);
     p(1, "21:00", 8, "Gruppo Ferretti", "+393331234000", "telefono", "Tavolo lungo", "confermata", 40);
-    p(3, "21:30", 2, "Paolo Riva", "+393381112222", "sito", "", "confermata", 2);
+    p(3, "21:30", 2, "Paolo Riva", "+393381112222", "sito", "", "confermata", 2,
+      { socio: false, benvenuto: 2, whatsapp: "errore", waErrore: "Il numero non ha WhatsApp" });
     return db;
   }
   function prenLeggi() {
@@ -1175,6 +1176,41 @@ const Store = (function () {
     });
   }
 
+  /* ---------- WhatsApp di conferma (demo) ---------- */
+  const WAD = "vdcwa_demo_v1";
+  function waLeggi() {
+    let w = null;
+    try { w = JSON.parse(localStorage.getItem(WAD)); } catch (e) {}
+    return Object.assign({ attivo: false, numeroId: "", modelloNuovo: "prenotazione_benvenuto", modello: "prenotazione_confermata",
+      benvenutoMax: 4 }, w || {});
+  }
+  function waVista(w) {
+    return Object.assign({}, w, { configurato: !!w.numeroId, ultimoInvio: null, ultimoErrore: null,
+      settimana: { inviati: w.attivo ? 12 : 0, verificati: w.attivo ? 11 : 0, errori: w.attivo ? 1 : 0 } });
+  }
+  function waImpostazioni(pin) { return rete(function () { controllaPin(leggi(), pin); return waVista(waLeggi()); }); }
+  function waSalva(pin, dati) {
+    return rete(function () {
+      controllaPin(leggi(), pin);
+      const w = waLeggi();
+      if (dati.numeroId != null) {
+        if (!/^\d{0,30}$/.test(dati.numeroId)) throw errore("numero", "Il Phone number ID è fatto solo di cifre");
+        w.numeroId = dati.numeroId;
+      }
+      if (dati.attivo && !w.numeroId) throw errore("numero", "Prima collega il numero WhatsApp");
+      if (dati.attivo != null) w.attivo = !!dati.attivo;
+      if (dati.modelloNuovo) w.modelloNuovo = dati.modelloNuovo;
+      if (dati.modello) w.modello = dati.modello;
+      if (dati.benvenutoMax != null) {
+        const n = Number(dati.benvenutoMax);
+        if (!Number.isInteger(n) || n < 0 || n > 20) throw errore("numeri", "Numeri non validi");
+        w.benvenutoMax = n;
+      }
+      try { localStorage.setItem(WAD, JSON.stringify(w)); } catch (e) {}
+      return waVista(w);
+    });
+  }
+
   /* solo per la demo */
   function demoAgenti() {
     return leggi().agenti.map(function (a) { return { nome: a.nome, chiave: a.chiave, codice: a.codice, attivo: a.attivo }; });
@@ -1198,7 +1234,7 @@ const Store = (function () {
     prenGiorno, prenAggiungi, prenModifica, prenImpostazioni, prenSalvaImpostazioni,
     prenSalvaPush: function () { return Promise.reject(errore("demo", "Nella demo le notifiche non partono")); },
     prenProvaAvviso: function () { return Promise.reject(errore("demo", "Nella demo le notifiche non partono")); },
-    aspImpostazioni, aspSalvaImpostazioni, aspStorico,
+    aspImpostazioni, aspSalvaImpostazioni, aspStorico, waImpostazioni, waSalva,
     demoAgenti, demoAzzera,
   };
 
@@ -1342,6 +1378,9 @@ const Store = (function () {
     aspImpostazioni: function (pin) { return rpc("asp_impostazioni", { p_pin: pin }); },
     aspSalvaImpostazioni: function (pin, dati) { return rpc("asp_salva_impostazioni", { p_pin: pin, p_dati: dati }); },
     aspStorico: function (pin, sera) { return rpc("asp_storico", { p_pin: pin, p_sera: sera || null }); },
+    // WhatsApp di conferma delle prenotazioni (supabase/16-whatsapp.sql)
+    waImpostazioni: function (pin) { return rpc("wa_impostazioni", { p_pin: pin }); },
+    waSalva: function (pin, dati) { return rpc("wa_salva", { p_pin: pin, p_dati: dati }); },
   };
 
   return Object.assign({ DEMO: DEMO }, DEMO ? demo : reale);
