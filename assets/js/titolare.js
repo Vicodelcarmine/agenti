@@ -797,10 +797,17 @@
       $("#wa-numero").value = w.numeroId || "";
       $("#wa-modello-nuovo").value = w.modelloNuovo;
       $("#wa-modello").value = w.modello;
+      $("#wa-modello-voto").value = w.modelloVoto || "";
+      $("#wa-recensioni").value = w.linkRecensioni || "";
+      $("#wa-club-ore").value = w.clubDopoOre;
+      $("#wa-voto-ora").value = w.votoOra || "";
+      $("#wa-inglese").checked = !!w.inglese;
+      $("#wa-messaggi").textContent = "💬 Messaggi ricevuti" + (w.nonLetti ? " · " + w.nonLetti + " nuovi" : "");
       const s = w.settimana || {};
       $("#wa-stato").innerHTML = !w.configurato ? "⚙️ Da collegare con Meta: finché è spento, il prosecco si vede sulla conferma del sito."
         : !w.attivo ? "Spento: la conferma resta solo sul sito."
-        : "<b>Ultimi 7 giorni:</b> " + (s.inviati || 0) + " inviati · " + (s.verificati || 0) + " verificati" +
+        : "<b>Ultimi 7 giorni:</b> " + (s.inviati || 0) + " inviati · " + (s.verificati || 0) + " verificati · " +
+          (s.attivati || 0) + " hanno risposto CIAO" + (s.voti ? " · ⭐ " + s.media + " su " + s.voti + " voti" : "") +
           (s.errori ? " · ⚠️ " + s.errori + " non arrivati" : "") +
           (w.ultimoErrore ? '<span class="dim" style="display:block">Ultimo errore: ' + C.esc(w.ultimoErrore) + "</span>" : "");
     } catch (e) { errore(e); }
@@ -809,12 +816,46 @@
     try {
       await conPin(function (p) {
         return S.waSalva(p, { numeroId: $("#wa-numero").value.trim(), modelloNuovo: $("#wa-modello-nuovo").value.trim(),
-          modello: $("#wa-modello").value.trim(), benvenutoMax: Number($("#wa-benvenuto").value) });
+          modello: $("#wa-modello").value.trim(), modelloVoto: $("#wa-modello-voto").value.trim(),
+          benvenutoMax: Number($("#wa-benvenuto").value), linkRecensioni: $("#wa-recensioni").value.trim(),
+          clubDopoOre: Number($("#wa-club-ore").value), votoOra: $("#wa-voto-ora").value, inglese: $("#wa-inglese").checked });
       });
       C.toast("Salvato");
       caricaWhatsapp();
     } catch (e) { errore(e); }
   });
+  // i messaggi dei clienti su WhatsApp: si leggono qui e, entro 24 ore dal loro ultimo messaggio, si risponde
+  async function apriMessaggiWa() {
+    let lista;
+    try { lista = await conPin(S.waMessaggi); } catch (e) { errore(e); return; }
+    apriFoglio("<h2>💬 Messaggi WhatsApp</h2>" +
+      '<p class="dim small">Le risposte dei clienti al numero del Vico. Si può rispondere solo entro 24 ore dal loro ultimo messaggio.</p>' +
+      (lista.length ? '<ul class="lista" style="margin-top:10px">' + lista.map(function (m) {
+        return '<li style="display:block' + (m.letto ? "" : ";border-left:3px solid var(--gold);padding-left:10px") + '">' +
+          "<b>" + C.esc(m.nome) + "</b>" + (m.voto ? ' <span class="pill oro">⭐ ' + m.voto + "</span>" : "") +
+          ' <span class="dim small">' + quando(m.quando) + "</span>" +
+          '<div style="margin-top:4px;white-space:pre-wrap">' + C.esc(m.testo) + "</div>" +
+          (m.aperta ? '<div class="riga" style="margin-top:8px"><input type="text" class="cresce wa-risposta" maxlength="1000" placeholder="Rispondi…">' +
+            '<button class="btn oro piccolo fisso" data-wa-tel="' + C.esc(m.telefono) + '" type="button">Invia</button></div>' : "") +
+          "</li>";
+      }).join("") + "</ul>" : '<p class="vuoto">Ancora nessun messaggio.</p>'));
+    $$("[data-wa-tel]", $("#foglio-corpo")).forEach(function (b) {
+      b.addEventListener("click", async function () {
+        const campo = b.parentNode.querySelector(".wa-risposta");
+        const testo = campo.value.trim();
+        if (!testo) return;
+        b.disabled = true;
+        try {
+          await conPin(function (p) { return S.waRispondi(p, b.dataset.waTel, testo); });
+          campo.value = "";
+          C.toast("Inviato");
+        } catch (e) { errore(e); }
+        b.disabled = false;
+      });
+    });
+    caricaWhatsapp();
+  }
+  $("#wa-messaggi").addEventListener("click", apriMessaggiWa);
   $("#wa-attivo").addEventListener("change", async function () {
     const acceso = this.checked;
     try {
@@ -963,7 +1004,8 @@
           '<span class="persone-tondo">' + x.persone + "</span>" +
           '<div class="cresce"><b><span class="ora-arrivo">' + C.esc(x.turno) + "</span> " + C.esc(x.nome) + "</b>" +
           '<div class="dim">' + (FONTI[x.fonte] || C.esc(x.fonte)) + (x.socio ? " · 💳 socio" : "") +
-          (x.benvenuto ? " · 🥂 prosecco per " + x.benvenuto : "") + (x.whatsapp ? " · " + (WA_BREVE[x.whatsapp] || "") : "") +
+          (x.benvenuto ? " · 🥂 prosecco per " + x.benvenuto + (x.waAttivato ? " attivato" : x.whatsapp ? " (attende il CIAO)" : "") : "") +
+          (x.whatsapp ? " · " + (WA_BREVE[x.whatsapp] || "") : "") + (x.voto ? " · ⭐ " + x.voto : "") +
           (x.nota ? " · «" + C.esc(x.nota) + "»" : "") + "</div></div>" +
           (x.stato === "confermata" ? "" : '<span class="pill ' + st[0] + '">' + st[1] + "</span>") + "</li>";
       }).join("") : '<li class="vuoto">Nessuna prenotazione.</li>') + "</ul></div>";
@@ -1012,7 +1054,9 @@
         '<a class="btn vuoto piccolo" target="_blank" rel="noopener" href="' + linkChat(x.telefono, "Ciao " + nome1 + "!") + '">💬</a>' +
         '<a class="btn vuoto piccolo" href="tel:' + C.esc(x.telefono) + '">Chiama</a></li>' : "") +
       (x.benvenuto ? '<li><span class="cresce">🥂 Cliente nuovo: prosecco di benvenuto per ' + persone(x.benvenuto) +
-        (x.whatsapp ? '<span class="dim" style="display:block">vale con il messaggio WhatsApp che gli è arrivato</span>' : "") + "</span></li>" : "") +
+        '<span class="dim" style="display:block">' + (x.waAttivato ? "Attivato: ha risposto su WhatsApp " + quando(x.waAttivato)
+          : x.whatsapp ? "Vale quando risponde CIAO al WhatsApp di conferma" : "Lo vede sulla conferma del sito") + "</span></span></li>" : "") +
+      (x.voto ? '<li><span class="cresce">⭐ Voto alla serata: ' + x.voto + " su 5</span></li>" : "") +
       (x.whatsapp ? '<li><span class="cresce">' + (WA[x.whatsapp] || C.esc(x.whatsapp)) +
         (x.waErrore ? '<span class="dim" style="display:block">' + C.esc(x.waErrore) + "</span>" : "") + "</span></li>" : "") +
       '<li><span class="cresce">' + (FONTI[x.fonte] || C.esc(x.fonte)) + (x.socio ? " · 💳 socio del Club" : "") +

@@ -143,13 +143,21 @@
           <label class="switch fisso"><input type="checkbox" id="wa-attivo"><i></i></label></div>
         <p class="dim" style="margin-top:6px">Dopo ogni prenotazione dal sito parte un WhatsApp con la conferma; al cliente nuovo anche il prosecco di benvenuto, da mostrare al cameriere. Se il messaggio arriva, il numero è giusto (nella prenotazione vedi ✅ verificato).</p>
         <p class="small" id="wa-stato" style="margin-top:8px"></p>
+        <button class="btn vuoto pieno" id="wa-messaggi" type="button" style="margin-top:8px">💬 Messaggi ricevuti</button>
         <label class="campo"><span>Prosecco di benvenuto al cliente nuovo: al massimo per (persone)</span><input type="number" inputmode="numeric" id="wa-benvenuto" min="0" max="20"></label>
+        <label class="campo"><span>Link per le recensioni Google (a chi dà 4 o 5)</span><input type="url" id="wa-recensioni" placeholder="https://g.page/r/…/review" autocomplete="off"></label>
+        <div class="riga">
+          <label class="campo"><span>Invito al Club dopo (ore)</span><input type="number" inputmode="numeric" id="wa-club-ore" min="0" max="20"></label>
+          <label class="campo"><span>Voto il giorno dopo alle</span><input type="time" id="wa-voto-ora"></label>
+        </div>
         <details style="margin-top:10px"><summary class="dim small" style="cursor:pointer">Collegamento con Meta</summary>
           <label class="campo"><span>Phone number ID (da WhatsApp Manager)</span><input type="text" inputmode="numeric" id="wa-numero" autocomplete="off"></label>
           <div class="riga">
             <label class="campo"><span>Modello cliente nuovo</span><input type="text" id="wa-modello-nuovo" autocomplete="off"></label>
             <label class="campo"><span>Modello cliente abituale</span><input type="text" id="wa-modello" autocomplete="off"></label>
           </div>
+          <label class="campo"><span>Modello del voto</span><input type="text" id="wa-modello-voto" autocomplete="off"></label>
+          <label class="riga" style="gap:8px;margin-top:8px"><input type="checkbox" id="wa-inglese"><span class="small">Modelli in inglese approvati (ai turisti in inglese)</span></label>
         </details>
         <button class="btn oro pieno" id="wa-salva" style="margin-top:12px">Salva</button>
       </div>

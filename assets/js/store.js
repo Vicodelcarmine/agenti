@@ -916,7 +916,7 @@ const Store = (function () {
   }
 
   /* ---------- prenotazioni (demo) ---------- */
-  const PREN = "vdcpren_demo_v3";
+  const PREN = "vdcpren_demo_v4";
   // per le prenotazioni conta il giorno di calendario a Firenze, non la "sera" degli agenti
   function prenOggi() { return C.sera(Date.now() + 6 * 3600e3); }
   function prenImpostazioniBase() {
@@ -935,7 +935,7 @@ const Store = (function () {
     p(0, "19:30", 4, "Giulia Rossi", "+393331112233", "sito", "Un seggiolone, grazie", "confermata", 26);
     p(0, "19:00", 2, "Luca Neri", "+393409876543", "telefono", "", "confermata", 30);
     p(0, "20:30", 6, "Famiglia Conti", "+393385551212", "thefork", "Compleanno della nonna", "confermata", 50);
-    p(0, "21:30", 3, "Marco Bianchi", "+393474455667", "sito", "", "confermata", 3, { socio: false, benvenuto: 3, whatsapp: "letto" });
+    p(0, "21:30", 3, "Marco Bianchi", "+393474455667", "sito", "", "confermata", 3, { socio: false, benvenuto: 3, whatsapp: "letto", waAttivato: Date.now() - 2 * 3600e3 });
     p(0, "22:00", 2, "Anna Galli", "+393299988776", "google", "", "annullata", 8);
     p(1, "20:00", 5, "Sara Verdi", "+393201234567", "sito", "Allergia alle noci", "confermata", 12);
     p(1, "21:00", 8, "Gruppo Ferretti", "+393331234000", "telefono", "Tavolo lungo", "confermata", 40);
@@ -1182,11 +1182,31 @@ const Store = (function () {
     let w = null;
     try { w = JSON.parse(localStorage.getItem(WAD)); } catch (e) {}
     return Object.assign({ attivo: false, numeroId: "", modelloNuovo: "prenotazione_benvenuto", modello: "prenotazione_confermata",
-      benvenutoMax: 4 }, w || {});
+      modelloVoto: "voto_serata", benvenutoMax: 4, linkRecensioni: "", clubDopoOre: 3, votoOra: "12:30", inglese: false }, w || {});
   }
   function waVista(w) {
-    return Object.assign({}, w, { configurato: !!w.numeroId, ultimoInvio: null, ultimoErrore: null,
-      settimana: { inviati: w.attivo ? 12 : 0, verificati: w.attivo ? 11 : 0, errori: w.attivo ? 1 : 0 } });
+    return Object.assign({}, w, { configurato: !!w.numeroId, ultimoInvio: null, ultimoErrore: null, nonLetti: 2,
+      settimana: { inviati: w.attivo ? 12 : 0, verificati: w.attivo ? 11 : 0, errori: w.attivo ? 1 : 0,
+                   attivati: w.attivo ? 7 : 0, voti: w.attivo ? 5 : 0, media: 4.4 } });
+  }
+  function waMessaggi(pin) {
+    return rete(function () {
+      controllaPin(leggi(), pin);
+      const ora = Date.now();
+      return [
+        { id: 1, telefono: "+393474455667", nome: "Marco Bianchi", testo: "Ciao!", tipo: "attiva", quando: ora - 3600e3, letto: false, aperta: true },
+        { id: 2, telefono: "+393381112222", nome: "Paolo Riva", testo: "Il servizio è stato lento, abbiamo aspettato 40 minuti la pizza.", tipo: "testo",
+          quando: ora - 5 * 3600e3, letto: false, voto: 2, aperta: true },
+        { id: 3, telefono: "+393331112233", nome: "Giulia Rossi", testo: "5", tipo: "voto", quando: ora - 26 * 3600e3, letto: true, voto: 5, aperta: false },
+      ];
+    });
+  }
+  function waRispondi(pin, telefono, testo) {
+    return rete(function () {
+      controllaPin(leggi(), pin);
+      if (!String(testo || "").trim()) throw errore("vuoto", "Scrivi il messaggio");
+      return { ok: true };
+    });
   }
   function waImpostazioni(pin) { return rete(function () { controllaPin(leggi(), pin); return waVista(waLeggi()); }); }
   function waSalva(pin, dati) {
@@ -1201,6 +1221,14 @@ const Store = (function () {
       if (dati.attivo != null) w.attivo = !!dati.attivo;
       if (dati.modelloNuovo) w.modelloNuovo = dati.modelloNuovo;
       if (dati.modello) w.modello = dati.modello;
+      if (dati.modelloVoto) w.modelloVoto = dati.modelloVoto;
+      if (dati.linkRecensioni != null) {
+        if (dati.linkRecensioni && !/^https:\/\/\S{5,250}$/.test(dati.linkRecensioni)) throw errore("link", "Il link deve cominciare con https://");
+        w.linkRecensioni = dati.linkRecensioni;
+      }
+      if (dati.clubDopoOre != null) w.clubDopoOre = Number(dati.clubDopoOre);
+      if (dati.votoOra) w.votoOra = dati.votoOra;
+      if (dati.inglese != null) w.inglese = !!dati.inglese;
       if (dati.benvenutoMax != null) {
         const n = Number(dati.benvenutoMax);
         if (!Number.isInteger(n) || n < 0 || n > 20) throw errore("numeri", "Numeri non validi");
@@ -1234,7 +1262,7 @@ const Store = (function () {
     prenGiorno, prenAggiungi, prenModifica, prenImpostazioni, prenSalvaImpostazioni,
     prenSalvaPush: function () { return Promise.reject(errore("demo", "Nella demo le notifiche non partono")); },
     prenProvaAvviso: function () { return Promise.reject(errore("demo", "Nella demo le notifiche non partono")); },
-    aspImpostazioni, aspSalvaImpostazioni, aspStorico, waImpostazioni, waSalva,
+    aspImpostazioni, aspSalvaImpostazioni, aspStorico, waImpostazioni, waSalva, waMessaggi, waRispondi,
     demoAgenti, demoAzzera,
   };
 
@@ -1381,6 +1409,8 @@ const Store = (function () {
     // WhatsApp di conferma delle prenotazioni (supabase/16-whatsapp.sql)
     waImpostazioni: function (pin) { return rpc("wa_impostazioni", { p_pin: pin }); },
     waSalva: function (pin, dati) { return rpc("wa_salva", { p_pin: pin, p_dati: dati }); },
+    waMessaggi: function (pin) { return rpc("wa_messaggi", { p_pin: pin }); },
+    waRispondi: function (pin, telefono, testo) { return rpc("wa_rispondi", { p_pin: pin, p_telefono: telefono, p_testo: testo }); },
   };
 
   return Object.assign({ DEMO: DEMO }, DEMO ? demo : reale);

@@ -1,5 +1,6 @@
 // =============================================================================
-// WHATSAPP — riceve da Meta come sono andati i messaggi (inviato, consegnato, letto, errore).
+// WHATSAPP — riceve da Meta come sono andati i messaggi (inviato, consegnato, letto, errore)
+// e i messaggi dei clienti (CIAO, il voto, STOP, domande): li passa a wa_ricevi (17-whatsapp-dialogo.sql).
 // Funzione Supabase "whatsapp-webhook" (Verify JWT: OFF). Vedi supabase/16-whatsapp.sql.
 // Su Meta (app → WhatsApp → Configurazione → Webhook):
 //   URL di callback: https://agbvmhpktilpaoabjkre.supabase.co/functions/v1/whatsapp-webhook
@@ -25,6 +26,11 @@ const SERVICE_KEY = pickKey(Deno.env.get("SUPABASE_SECRET_KEYS"), Deno.env.get("
 const db = createClient(Deno.env.get("SUPABASE_URL")!, SERVICE_KEY);
 const VERIFICA = Deno.env.get("WHATSAPP_VERIFICA") || "";
 const APP_SECRET = Deno.env.get("WHATSAPP_APP_SECRET") || "";
+const FUNZIONI = Deno.env.get("SUPABASE_URL") + "/functions/v1/";
+// sveglia un'altra funzione (whatsapp-invia per le risposte, pren-avvisa per le notifiche al titolare)
+const sveglia = (nome: string) =>
+  fetch(FUNZIONI + nome, { method: "POST", headers: { "Content-Type": "application/json" }, body: '{"azione":"invia"}' })
+    .catch((e) => console.error("sveglia", nome, e));
 
 async function firmaGiusta(corpo: string, firma: string | null) {
   if (!APP_SECRET || !firma?.startsWith("sha256=")) return false;
@@ -51,19 +57,32 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("no", { status: 405 });
   const corpo = await req.text();
   if (!(await firmaGiusta(corpo, req.headers.get("x-hub-signature-256")))) return new Response("firma", { status: 401 });
+  let invia = false, avvisa = false;
   try {
     const d = JSON.parse(corpo);
     for (const e of d?.entry || []) {
       for (const c of e?.changes || []) {
-        for (const s of c?.value?.statuses || []) {
+        const v = c?.value || {};
+        for (const s of v.statuses || []) {
           const errore = s?.errors?.[0] ? `${s.errors[0].title || ""} ${s.errors[0].error_data?.details || ""}`.trim() : null;
           await db.rpc("wa_aggiorna", { p_wa_id: s.id, p_stato: s.status, p_errore: errore });
+        }
+        for (const m of v.messages || []) {
+          const nome = (v.contacts || []).find((x: any) => x.wa_id === m.from)?.profile?.name || "";
+          const testo = m.text?.body || m.button?.text || m.interactive?.button_reply?.title ||
+            m.interactive?.list_reply?.title || `[${m.type}]`;
+          const { data, error } = await db.rpc("wa_ricevi", { p_da: m.from, p_nome: nome, p_testo: testo, p_wa_id: m.id });
+          if (error) console.error("wa_ricevi", error.message);
+          invia = invia || !!data?.invia;
+          avvisa = avvisa || !!data?.avvisa;
         }
       }
     }
   } catch (e) {
     console.error("webhook", e);
   }
+  if (invia) await sveglia("whatsapp-invia");
+  if (avvisa) await sveglia("pren-avvisa");
   // a Meta si risponde sempre 200, se no riprova all'infinito
   return new Response("ok", { status: 200 });
 });
