@@ -42,7 +42,9 @@ Deno.serve(async (req) => {
       if (error) throw new Error(error.message);
       tolti += data || 0;
     }
-    console.log("brevo", eventi.length, "eventi,", tolti, "contatti tolti");   // niente email nei registri
+    // nei registri solo la forma degli eventi (nomi dei campi e tipo), mai le email
+    const forma = eventi.slice(0, 3).map((e: any) => ({ campi: Object.keys(e || {}).sort(), evento: e?.event }));
+    console.log("brevo", eventi.length, "eventi,", tolti, "contatti tolti", JSON.stringify(forma));
     return risposta({ ok: true, tolti });
   } catch (e: any) {
     console.error("brevo", String(e?.message || e));
