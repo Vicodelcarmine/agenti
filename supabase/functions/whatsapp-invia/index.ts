@@ -10,6 +10,7 @@
 //   prenotazione_benvenuto  {{1}} nome, {{2}} giorno, {{3}} ora, {{4}} persone ("rispondi CIAO…")
 //   prenotazione_confermata {{1}} nome, {{2}} giorno, {{3}} ora, {{4}} persone
 //   voto_serata             {{1}} nome, tasti 5 4 3 2 1
+//   regalo_sorpresa_richiamo {{1}} nome, bottone col link ?c={{1}} (19-campagna-whatsapp.sql)
 // Il segreto (WHATSAPP_TOKEN, token permanente dell'utente di sistema) sta nei Secrets di Supabase.
 // =============================================================================
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -49,11 +50,14 @@ async function chiama(numeroId: string, corpo: Record<string, unknown>) {
   if (!r.ok) throw new Error(d?.error?.error_data?.details || d?.error?.message || `errore ${r.status}`);
   return d?.messages?.[0]?.id || "";
 }
-// un modello approvato (si può mandare quando si vuole)
-const manda = (numeroId: string, m: any, modello: string, parametri: string[]) =>
+// un modello approvato (si può mandare quando si vuole); link = il pezzo variabile del bottone col link
+const manda = (numeroId: string, m: any, modello: string, parametri: string[], link?: string) =>
   chiama(numeroId, {
     to: String(m.telefono).replace(/\D/g, ""), type: "template",
-    template: { name: modello, language: { code: m.lingua }, components: [{ type: "body", parameters: parametri.map(testo) }] },
+    template: { name: modello, language: { code: m.lingua }, components: [
+      { type: "body", parameters: parametri.map(testo) },
+      ...(link ? [{ type: "button", sub_type: "url", index: "0", parameters: [{ type: "text", text: String(link) }] }] : []),
+    ] },
   });
 // un messaggio libero (solo entro 24 ore dall'ultimo messaggio del cliente)
 const scrivi = (numeroId: string, m: any) =>
@@ -82,7 +86,7 @@ async function invia() {
       await db.rpc("wa_esito", { p_id: m.id, p_wa_id: id, p_errore: errore || null });
     }
   }
-  // la coda del dialogo: prosecco, Club, voto, grazie, risposte del titolare
+  // la coda del dialogo: prosecco, Club, voto, grazie, risposte del titolare, richiamo della campagna
   for (let giro = 0; giro < 4; giro++) {
     const { data, error } = await db.rpc("wa_prendi_uscita", { n: 20 });
     if (error) throw new Error(error.message);
@@ -92,13 +96,15 @@ async function invia() {
       let id = "", errore = "";
       try {
         if (!data.numeroId) throw new Error("manca il Phone number ID");
-        id = m.modello ? await manda(data.numeroId, m, m.modello, m.parametri || []) : await scrivi(data.numeroId, m);
+        id = m.modello ? await manda(data.numeroId, m, m.modello, m.parametri || [], m.link) : await scrivi(data.numeroId, m);
         inviati++;
       } catch (e: any) {
         errore = String(e?.message || e);
         console.error("whatsapp", m.tipo, errore);
       }
-      await db.rpc("wa_esito_uscita", { p_id: m.id, p_wa_id: id, p_errore: errore || null });
+      // la campagna riprova fra un'ora (3 tentativi), il resto no
+      if (errore && m.tipo === "campagna") await db.rpc("camp_rimanda", { p_id: m.id, p_errore: errore });
+      else await db.rpc("wa_esito_uscita", { p_id: m.id, p_wa_id: id, p_errore: errore || null });
     }
   }
   return inviati;

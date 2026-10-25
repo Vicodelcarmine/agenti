@@ -491,8 +491,47 @@
             (finiti ? " finiti" : "") + "</span></li>";
         }).join("") + "</ul>" +
         '<p class="dim" style="margin-top:6px">Il regalo vale ' + k.sere + " sere da quando lo scoprono, sabato escluso" +
-        (k.scopriEntro ? " · i link danno regali fino al " + C.dataBreve(k.scopriEntro) : "") + "</p>";
+        (k.scopriEntro ? " · i link danno regali fino al " + C.dataBreve(k.scopriEntro) : "") + "</p>" +
+        campWhatsapp(k);
     }).join("");
+    $$("[data-camp-wa]", $("#cl-camp")).forEach(function (btn) {
+      btn.addEventListener("click", async function () {
+        const accendi = btn.dataset.campWa === "1";
+        if (accendi && !confirm("Accendo il WhatsApp di richiamo? Parte solo se Meta ha approvato il modello, " +
+          "ai clienti che non hanno ancora scoperto il regalo, " + "qualche giorno dopo l'email del loro gruppo.")) return;
+        btn.disabled = true;
+        try { await conPin(function (pp) { return S.campWaAttiva(pp, btn.dataset.camp, accendi); }); caricaCampagne(); }
+        catch (e) { errore(e); btn.disabled = false; }
+      });
+    });
+  }
+  // il WhatsApp di richiamo (supabase/19-campagna-whatsapp.sql): acceso o no, i gruppi e quando parte
+  function campWhatsapp(k) {
+    const w = k.wa;
+    if (!w) return "";
+    const quando = function (t) { return C.dataBreve(C.sera(t)) + " " + C.ora(t); };
+    return '<p style="margin-top:14px"><b>📲 WhatsApp di richiamo</b></p>' +
+      '<p class="dim">A chi non ha ancora scoperto il regalo, ' + w.giorni + " giorni dopo l'email del suo gruppo " +
+      "(sabato escluso, dalle 10 alle 20). Chi si toglie dalle email o scrive STOP non lo riceve.</p>" +
+      '<div class="riga" style="margin-top:8px;align-items:center">' +
+        '<span class="pill fisso ' + (w.attivo ? "ok" : "no") + '">' + (w.attivo ? "acceso" : "spento") + "</span>" +
+        '<button class="btn fisso ' + (w.attivo ? "vuoto " : "oro ") + 'piccolo" data-camp="' + C.esc(k.id) + '" data-camp-wa="' +
+          (w.attivo ? "0" : "1") + '">' + (w.attivo ? "Spegni" : "Accendi") + "</button></div>" +
+      (w.attivo || w.inviati ? '<div class="kpi" style="margin-top:8px">' +
+        "<div><b>" + w.inviati + "</b><span>WhatsApp partiti</span></div>" +
+        "<div><b>" + w.letti + "</b><span>letti</span></div>" +
+        '<div class="euro"><b>' + w.scopertiDopo + "</b><span>regali scoperti dopo</span></div></div>" : "") +
+      (w.errori ? '<p class="dim" style="margin-top:6px">⚠️ ' + w.errori + " non partiti" +
+        (w.ultimoErrore ? ": " + C.esc(w.ultimoErrore) : "") + "</p>"
+        : w.ultimoErrore ? '<p class="dim" style="margin-top:6px">⏳ Si riprova fra poco: ' + C.esc(w.ultimoErrore) + "</p>" : "") +
+      ((k.gruppi || []).length ? '<ul class="lista" style="margin-top:8px">' + k.gruppi.map(function (g) {
+        return '<li><div class="cresce"><b>Gruppo ' + g.gruppo + "</b> · " + g.contatti + " contatti" +
+          '<div class="dim">✉️ ' + quando(g.email) + " · 📲 " + quando(g.wa) + "</div></div>" +
+          '<span class="pill oro">' + g.scoperti + " scoperti</span>" +
+          (g.whatsapp ? ' <span class="pill">' + g.whatsapp + " WhatsApp</span>" : "") + "</li>";
+      }).join("") + "</ul>" : "") +
+      (k.senzaGruppo ? '<p class="dim" style="margin-top:6px">' + k.senzaGruppo +
+        " contatti non hanno ancora l'email programmata: niente WhatsApp finché non parte la loro.</p>" : "");
   }
 
   async function caricaClub() {

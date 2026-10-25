@@ -747,11 +747,23 @@ const Store = (function () {
     });
   }
   // la campagna "regalo a sorpresa" della demo: numeri finti, per vedere il riquadro
+  let campWaDemo = false;
+  function campWaAttiva(pin, id, attivo) {
+    return rete(function () { controllaPin(leggi(), pin); campWaDemo = !!attivo; }).then(function () { return campPanoramica(pin); });
+  }
   function campPanoramica(pin) {
     return rete(function () {
       controllaPin(leggi(), pin);
+      const ore = function (m, g) { return new Date(Date.UTC(2026, m - 1, g, 10, 30)).toISOString(); };   // le 11:30 a Roma (inverno)
       return [{ id: "regalo-thefork", nome: "Regalo a sorpresa · clienti TheFork", attiva: true, sere: 15, scopriEntro: null,
         contatti: 384, aperti: 96, scoperti: 41, prenotati: 23, usati: 9, disiscritti: 6,
+        wa: { attivo: campWaDemo, modello: "regalo_sorpresa_richiamo", giorni: 3, inviati: campWaDemo ? 38 : 0,
+              letti: campWaDemo ? 31 : 0, errori: 0, scopertiDopo: campWaDemo ? 7 : 0, ultimoErrore: null },
+        gruppi: [
+          { gruppo: 1, email: ore(10, 26), wa: ore(10, 29), contatti: 50, scoperti: 14, whatsapp: campWaDemo ? 36 : 0 },
+          { gruppo: 2, email: ore(10, 28), wa: ore(11, 1), contatti: 50, scoperti: 9, whatsapp: 0 },
+        ],
+        senzaGruppo: 284,
         premi: [
           { id: "CINQUANTA", emoji: "🎉", nome: "50% di sconto sul conto", peso: 8, limite: 15, usciti: 3 },
           { id: "TRENTA", emoji: "🔥", nome: "30% di sconto sul conto", peso: 15, limite: 30, usciti: 7 },
@@ -1271,7 +1283,7 @@ const Store = (function () {
     entra, leggiBuono, riscatta, annulla, panoramica, dettaglioAgente, salvaAgente, nuovaChiave, eliminaAgente,
     pagamento, premi, salvaPremi, impostazioni, salvaImpostazioni,
     candidatura, candidature, approvaCandidatura, scartaCandidatura,
-    clubPanoramica, clubElenco, clubDettaglio, clubLeggiPremio, clubUsa, clubAnnulla, campPanoramica,
+    clubPanoramica, clubElenco, clubDettaglio, clubLeggiPremio, clubUsa, clubAnnulla, campPanoramica, campWaAttiva,
     clubImpostazioni, clubSalvaImpostazioni, clubElimina,
     clubOfferte, clubSalvaOfferte, clubMessaggi, clubGiroOra, clubProvaAvviso,
     clubStatoInvii: function () { return Promise.resolve({ email: false }); },
@@ -1394,6 +1406,8 @@ const Store = (function () {
     clubAnnulla: function (pin, codice) { return rpc("club_annulla", { p_pin: pin, p_codice: codice }); },
     // campagne "regalo a sorpresa" (supabase/18-campagna-regalo.sql)
     campPanoramica: function (pin) { return rpc("camp_panoramica", { p_pin: pin }); },
+    // il WhatsApp di richiamo della campagna (supabase/19-campagna-whatsapp.sql)
+    campWaAttiva: function (pin, id, attivo) { return rpc("camp_wa_attiva", { p_pin: pin, p_campagna: id, p_attivo: !!attivo }); },
     clubImpostazioni: function (pin) { return rpc("club_impostazioni", { p_pin: pin }); },
     clubSalvaImpostazioni: function (pin, dati) { return rpc("club_salva_impostazioni", { p_pin: pin, p_dati: dati }); },
     clubElimina: function (pin, id) { return rpc("club_elimina_iscritto", { p_pin: pin, p_id: id }); },
