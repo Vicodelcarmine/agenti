@@ -750,7 +750,7 @@ const Store = (function () {
   function campPanoramica(pin) {
     return rete(function () {
       controllaPin(leggi(), pin);
-      return [{ id: "regalo-thefork", nome: "Regalo a sorpresa · clienti TheFork", attiva: true, sere: 14, scopriEntro: C.piuGiorni(C.sera(), 30),
+      return [{ id: "regalo-thefork", nome: "Regalo a sorpresa · clienti TheFork", attiva: true, sere: 15, scopriEntro: null,
         contatti: 384, aperti: 96, scoperti: 41, prenotati: 23, usati: 9, disiscritti: 6,
         premi: [
           { id: "CINQUANTA", emoji: "🎉", nome: "50% di sconto sul conto", peso: 8, limite: 15, usciti: 3 },

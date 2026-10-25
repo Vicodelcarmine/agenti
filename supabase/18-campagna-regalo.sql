@@ -81,8 +81,10 @@ alter table public.club_premi add constraint club_premi_tipo_check
 
 
 -- ---------- la prima campagna: clienti TheFork (scelte del titolare, 25/10/2026) ----------
+-- ogni regalo scade 15 sere dopo che il cliente lo scopre (sabato escluso); nessuna data di fine
+-- comune: la campagna si chiude mettendo attiva = false
 insert into public.camp_campagne (id, nome, sere, scopri_entro)
-values ('regalo-thefork', 'Regalo a sorpresa · clienti TheFork', 14, date '2026-11-30')
+values ('regalo-thefork', 'Regalo a sorpresa · clienti TheFork', 15, null)
 on conflict (id) do nothing;
 
 insert into public.camp_premi (campagna, id, emoji, nome, descr, persone, peso, limite, ordine) values
