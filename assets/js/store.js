@@ -746,6 +746,23 @@ const Store = (function () {
       return clubLettura(db, p);
     });
   }
+  // la campagna "regalo a sorpresa" della demo: numeri finti, per vedere il riquadro
+  function campPanoramica(pin) {
+    return rete(function () {
+      controllaPin(leggi(), pin);
+      return [{ id: "regalo-thefork", nome: "Regalo a sorpresa · clienti TheFork", attiva: true, sere: 14, scopriEntro: C.piuGiorni(C.sera(), 30),
+        contatti: 384, aperti: 96, scoperti: 41, prenotati: 23, usati: 9, disiscritti: 6,
+        premi: [
+          { id: "CINQUANTA", emoji: "🎉", nome: "50% di sconto sul conto", peso: 8, limite: 15, usciti: 3 },
+          { id: "TRENTA", emoji: "🔥", nome: "30% di sconto sul conto", peso: 15, limite: 30, usciti: 7 },
+          { id: "VENTI", emoji: "⭐", nome: "20% di sconto sul conto", peso: 25, limite: null, usciti: 10 },
+          { id: "DIECI", emoji: "🍕", nome: "10% di sconto sul conto", peso: 12, limite: null, usciti: 5 },
+          { id: "PROSECCO", emoji: "🥂", nome: "Prosecco di benvenuto per il tavolo", peso: 15, limite: null, usciti: 7 },
+          { id: "DOLCE", emoji: "🍰", nome: "Dolce della casa offerto", peso: 15, limite: null, usciti: 6 },
+          { id: "SPRITZ", emoji: "🍹", nome: "Spritz offerto", peso: 10, limite: null, usciti: 3 },
+        ] }];
+    });
+  }
   function clubAnnulla(pin, codice) {
     return rete(function () {
       controllaPin(leggi(), pin);
@@ -1254,7 +1271,7 @@ const Store = (function () {
     entra, leggiBuono, riscatta, annulla, panoramica, dettaglioAgente, salvaAgente, nuovaChiave, eliminaAgente,
     pagamento, premi, salvaPremi, impostazioni, salvaImpostazioni,
     candidatura, candidature, approvaCandidatura, scartaCandidatura,
-    clubPanoramica, clubElenco, clubDettaglio, clubLeggiPremio, clubUsa, clubAnnulla,
+    clubPanoramica, clubElenco, clubDettaglio, clubLeggiPremio, clubUsa, clubAnnulla, campPanoramica,
     clubImpostazioni, clubSalvaImpostazioni, clubElimina,
     clubOfferte, clubSalvaOfferte, clubMessaggi, clubGiroOra, clubProvaAvviso,
     clubStatoInvii: function () { return Promise.resolve({ email: false }); },
@@ -1375,6 +1392,8 @@ const Store = (function () {
     clubLeggiPremio: function (pin, codice) { return rpc("club_leggi_premio", { p_pin: pin, p_codice: codice }); },
     clubUsa: function (pin, codice, forza) { return rpc("club_usa", { p_pin: pin, p_codice: codice, p_forza: !!forza }); },
     clubAnnulla: function (pin, codice) { return rpc("club_annulla", { p_pin: pin, p_codice: codice }); },
+    // campagne "regalo a sorpresa" (supabase/18-campagna-regalo.sql)
+    campPanoramica: function (pin) { return rpc("camp_panoramica", { p_pin: pin }); },
     clubImpostazioni: function (pin) { return rpc("club_impostazioni", { p_pin: pin }); },
     clubSalvaImpostazioni: function (pin, dati) { return rpc("club_salva_impostazioni", { p_pin: pin, p_dati: dati }); },
     clubElimina: function (pin, id) { return rpc("club_elimina_iscritto", { p_pin: pin, p_id: id }); },

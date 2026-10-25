@@ -248,7 +248,7 @@
 
   /* ---------- premio del Club (7 caratteri) ---------- */
   const TIPO_CLUB = { benvenuto: "Premio di benvenuto", compleanno: "Regalo di compleanno", promo: "Offerta del Club",
-                      fortuna: "Premio di Tenta la Fortuna" };
+                      fortuna: "Premio di Tenta la Fortuna", regalo: "Regalo a sorpresa della campagna" };
   // per quante persone vale un premio del Club (0 = gli sconti della Fortuna: il nome dice già "sul conto")
   function perChi(n, prima) { return n > 0 ? (prima || "") + "per " + persone(n) : ""; }
   function codiceClub(c) { return c.slice(0, 3) + " " + c.slice(3); }
@@ -296,6 +296,8 @@
       corpo = '<div class="avviso no">⛔ Stasera è ' + C.NOMI_GIORNI[C.giornoSettimana(C.sera())] + ": questo premio non vale.</div>" + forza;
     } else if (p.stato === "scaduto") {
       corpo = '<div class="avviso no">⛔ Scaduto: valeva fino a ' + C.dataBreve(p.al) + ".</div>" + forza;
+    } else if (p.soloPrenotati && !p.prenotato) {
+      corpo = '<div class="avviso no">📅 Questo regalo vale solo con una prenotazione fatta dal sito per stasera, e non la trovo.</div>' + forza;
     } else {
       corpo = '<button class="btn verde pieno grande" style="margin-top:14px" data-azione="usa">✅ Usa il premio</button>';
     }
@@ -466,8 +468,36 @@
   // "+393331112233" → "+39 333 111 2233"
   function telBello(t) { return String(t || "").replace(/^\+39(\d{3})(\d{3})(\d+)$/, "+39 $1 $2 $3"); }
 
+  // le campagne "regalo a sorpresa" (supabase/18-campagna-regalo.sql): come stanno andando
+  async function caricaCampagne() {
+    let lista = null;
+    try { lista = await conPin(S.campPanoramica); } catch (e) { /* non ancora installate: il riquadro resta nascosto */ }
+    $("#cl-camp-box").hidden = !(lista && lista.length);
+    if (!lista) return;
+    $("#cl-camp").innerHTML = lista.map(function (k) {
+      return '<p style="margin-top:4px"><b>' + C.esc(k.nome) + "</b>" + (k.attiva ? "" : ' <span class="pill">ferma</span>') + "</p>" +
+        '<div class="kpi" style="margin-top:8px">' +
+          "<div><b>" + k.contatti + "</b><span>contatti</span></div>" +
+          "<div><b>" + k.aperti + "</b><span>hanno aperto il link</span></div>" +
+          '<div class="euro"><b>' + k.scoperti + "</b><span>regali scoperti</span></div></div>" +
+        '<div class="kpi" style="margin-top:8px">' +
+          '<div class="euro"><b>' + k.prenotati + "</b><span>hanno prenotato</span></div>" +
+          "<div><b>" + k.usati + "</b><span>regali usati</span></div>" +
+          "<div><b>" + k.disiscritti + "</b><span>disiscritti</span></div></div>" +
+        '<ul class="lista" style="margin-top:8px">' + (k.premi || []).map(function (p) {
+          const finiti = p.limite != null && p.usciti >= p.limite;
+          return '<li><span style="font-size:1.3rem">' + C.esc(p.emoji) + '</span><span class="cresce">' + C.esc(p.nome) + "</span>" +
+            '<span class="pill' + (finiti ? " no" : "") + '">' + p.usciti + (p.limite != null ? " / " + p.limite : "") +
+            (finiti ? " finiti" : "") + "</span></li>";
+        }).join("") + "</ul>" +
+        '<p class="dim" style="margin-top:6px">Il regalo vale ' + k.sere + " sere da quando lo scoprono, sabato escluso" +
+        (k.scopriEntro ? " · i link danno regali fino al " + C.dataBreve(k.scopriEntro) : "") + "</p>";
+    }).join("");
+  }
+
   async function caricaClub() {
     cercaIscritti();
+    caricaCampagne();
     try {
       const v = await Promise.all([conPin(S.clubPanoramica), conPin(S.clubImpostazioni)]);
       const p = v[0], imp = v[1];
@@ -1005,6 +1035,7 @@
           '<div class="cresce"><b><span class="ora-arrivo">' + C.esc(x.turno) + "</span> " + C.esc(x.nome) + "</b>" +
           '<div class="dim">' + (FONTI[x.fonte] || C.esc(x.fonte)) + (x.socio ? " · 💳 socio" : "") +
           (x.benvenuto ? " · 🥂 prosecco per " + x.benvenuto + (x.waAttivato ? " attivato" : x.whatsapp ? " (attende il CIAO)" : "") : "") +
+          (x.regalo ? " · " + C.esc(x.regalo.emoji) + " regalo" + (x.regalo.usato ? " usato" : "") : "") +
           (x.whatsapp ? " · " + (WA_BREVE[x.whatsapp] || "") : "") + (x.voto ? " · ⭐ " + x.voto : "") +
           (x.nota ? " · «" + C.esc(x.nota) + "»" : "") + "</div></div>" +
           (x.stato === "confermata" ? "" : '<span class="pill ' + st[0] + '">' + st[1] + "</span>") + "</li>";
@@ -1056,6 +1087,11 @@
       (x.benvenuto ? '<li><span class="cresce">🥂 Cliente nuovo: prosecco di benvenuto per ' + persone(x.benvenuto) +
         '<span class="dim" style="display:block">' + (x.waAttivato ? "Attivato: ha risposto su WhatsApp " + quando(x.waAttivato)
           : x.whatsapp ? "Vale quando risponde CIAO al WhatsApp di conferma" : "Lo vede sulla conferma del sito") + "</span></span></li>" : "") +
+      (x.regalo ? '<li><span class="cresce">' + C.esc(x.regalo.emoji) + " Regalo a sorpresa: " + C.esc(x.regalo.nome.it) +
+        '<span class="dim" style="display:block">' + (x.regalo.usato ? "Già usato " + quando(x.regalo.usato)
+          : "Codice " + codiceClub(x.regalo.codice) + " · si usa come i premi del Club") + "</span></span>" +
+        (x.regalo.usato ? "" : '<button class="btn oro piccolo" data-azione="regalo" data-codice="' + C.esc(x.regalo.codice) + '">Apri</button>') +
+        "</li>" : "") +
       (x.voto ? '<li><span class="cresce">⭐ Voto alla serata: ' + x.voto + " su 5</span></li>" : "") +
       (x.whatsapp ? '<li><span class="cresce">' + (WA[x.whatsapp] || C.esc(x.whatsapp)) +
         (x.waErrore ? '<span class="dim" style="display:block">' + C.esc(x.waErrore) + "</span>" : "") + "</span></li>" : "") +
@@ -1085,6 +1121,13 @@
     $("#pm-salva").addEventListener("click", function () {
       modificaPren(x, { persone: $("#pm-persone").value, turno: $("#pm-turno").value, sera: $("#pm-sera").value,
         nota: $("#pm-nota").value }, "Prenotazione aggiornata");
+    });
+    // il regalo della campagna si usa dalla pagina "Riscatta", come i premi del Club
+    const bRegalo = $('[data-azione="regalo"]', $("#foglio-corpo"));
+    if (bRegalo) bRegalo.addEventListener("click", function () {
+      chiudiFoglio();
+      vai("riscatta");
+      cercaClub(bRegalo.dataset.codice);
     });
   }
 
