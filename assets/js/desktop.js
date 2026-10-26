@@ -456,7 +456,7 @@
       card("c4", "🔌 Collegamento automatico (cassa)",
         '<p>' + (erp.collegato ? '<span class="pill ok">collegato</span> chiave creata il ' + quando(erp.creata) : '<span class="pill no">non collegato</span>') + "</p>" +
         '<p class="dim" style="margin-top:8px">Ultimo invio: ' + quando(erp.ultimoInvio) + (erp.ultimoEsito ? " · " + esc(erp.ultimoEsito) : "") + "</p>" +
-        '<p class="dim" style="margin-top:8px">Le chiusure di cassa arrivano da sole da Google Drive (account chiusurevico, controllo ogni ora) con una chiave. Istruzioni: <b>MENU/collegamento-cassa/LEGGIMI.md</b>. Più avanti la stessa chiave servirà al gestionale o al POS.</p>' +
+        '<p class="dim" style="margin-top:8px">Le chiusure di cassa arrivano da sole da Google Drive (account chiusurevico, ogni mattina tra le 7 e le 8) con una chiave. Istruzioni: <b>MENU/collegamento-cassa/LEGGIMI.md</b>. Più avanti la stessa chiave servirà al gestionale o al POS.</p>' +
         '<p style="margin-top:12px"><button class="btn ' + (erp.collegato ? "vuoto" : "oro") + '" id="b-chiave">' + (erp.collegato ? "Crea una chiave nuova" : "Crea la chiave del collegamento") + "</button></p>") +
       "</div>" +
       '<div id="cassa-articoli"></div>' +
