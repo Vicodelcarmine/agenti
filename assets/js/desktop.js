@@ -66,6 +66,7 @@
   const STATO = {
     preset: leggi("vdc_desk_preset", "30"), dal: null, al: null, modoCmp: leggi("vdc_desk_cmp", "prec"),
     cmpDal: null, cmpAl: null, cur: null, cmp: null, cli: null, cliCmp: null, imp: null, salute: null, campagne: null,
+    bordi: [],   // i giorni appena fuori dal periodo che servono ai grafici (settimana prima, mesi interi)
     metrica: leggi("vdc_desk_metrica", "incasso"), aperto: null,
   };
   const grafici = {};
@@ -94,6 +95,18 @@
     return [piu(dal, -indietro), piu(al, -indietro)];
   }
 
+  // per i grafici servono anche i giorni appena fuori dal periodo: la settimana prima del primo giorno
+  // e i mesi interi ai due bordi (per la media del mese). Qui i due pezzi da chiedere in più.
+  function fineMese(s) {
+    const p = parti(s), y = p[1] === 12 ? p[0] + 1 : p[0], m = p[1] === 12 ? 1 : p[1] + 1;
+    return piu(y + "-" + String(m).padStart(2, "0") + "-01", -1);
+  }
+  function bordiDi(dal, al) {
+    const oggi = D.oggiRoma(), primoMese = dal.slice(0, 8) + "01", unaSettimana = piu(dal, -7);
+    const fine = fineMese(al) < oggi ? fineMese(al) : oggi;
+    return [[unaSettimana < primoMese ? unaSettimana : primoMese, piu(dal, -1)], al < fine ? [piu(al, 1), fine] : null];
+  }
+
   /* ---------- grafici (Chart.js) ---------- */
   if (window.Chart) {
     Chart.defaults.color = "#cbb49c";
@@ -111,26 +124,54 @@
   }
   function pulisciGrafici(prefisso) { Object.keys(grafici).forEach(function (k) { if (!prefisso || k.indexOf(prefisso) === 0) { grafici[k].destroy(); delete grafici[k]; } }); }
 
-  // una serie giorno per giorno, col periodo di confronto sovrapposto (giorno 1 con giorno 1)
+  // una serie giorno per giorno (le barre) con due linee per orientarsi: lo stesso giorno della settimana
+  // prima (sabato con sabato) e la media del mese (per ogni giorno, la media dei giorni con un valore in
+  // quel mese, anche fuori dal periodo). Le percentuali ▲▼ invece usano il confronto scelto in alto.
   function serieConfronto(id, canvas, chiave, opz) {
     opz = opz || {};
-    const cur = STATO.cur.giorni, cmp = STATO.cmp ? STATO.cmp.giorni : null;
+    const cur = STATO.cur.giorni;
     const valore = typeof chiave === "function" ? chiave : function (x) { return x[chiave]; };
+    const perGiorno = {};
+    (STATO.bordi || []).concat(cur).forEach(function (x) { perGiorno[x.g] = x; });
+    const val = function (g) {
+      const x = perGiorno[g], v = x ? valore(x) : null;
+      return v == null || isNaN(v) ? null : Number(v);
+    };
+    const mesi = {};
+    Object.keys(perGiorno).forEach(function (g) {
+      const v = val(g);
+      if (v == null) return;
+      const m = mesi[g.slice(0, 7)] = mesi[g.slice(0, 7)] || { s: 0, n: 0 };
+      m.s += v; m.n++;
+    });
+    const media = function (g) { const m = mesi[g.slice(0, 7)]; return m && m.n ? m.s / m.n : null; };
+    const fmt = function (v) { return opz.euro ? euro(v) : num(v); };
     const ds = [{
       label: opz.etichetta || "Periodo scelto", data: cur.map(valore), type: opz.tipo || "bar",
       backgroundColor: ORO_T, borderColor: ORO, borderWidth: opz.tipo === "line" ? 2 : 0, borderRadius: 4, tension: .3, spanGaps: true,
-      pointRadius: opz.tipo === "line" ? 2 : 0,
+      pointRadius: opz.tipo === "line" ? 2 : 0, order: 3,
+    }, {
+      label: "Settimana prima", data: cur.map(function (x) { return val(piu(x.g, -7)); }), type: "line",
+      borderColor: GRIGIO, borderDash: [5, 4], borderWidth: 2, pointRadius: 0, tension: .3, spanGaps: true, order: 2,
+      hidden: cur.length > 100,   // su un anno intero è solo un doppione delle barre: si accende dalla legenda
+    }, {
+      label: "Media del mese", data: cur.map(function (x) { return media(x.g); }), type: "line",
+      borderColor: BASILICO, borderWidth: 2, pointRadius: 0, stepped: "middle", spanGaps: true, order: 1,
     }];
-    if (cmp) ds.push({ label: "Confronto", data: cur.map(function (_, i) { return cmp[i] ? valore(cmp[i]) : null; }), type: "line",
-      borderColor: GRIGIO, borderDash: [5, 4], borderWidth: 2, pointRadius: 0, tension: .3, spanGaps: true });
     disegna(id, canvas, {
       type: "bar", data: { labels: cur.map(function (x) { return dataBreve(x.g); }), datasets: ds },
       options: { responsive: true, maintainAspectRatio: false, interaction: { mode: "index", intersect: false },
-        plugins: { tooltip: { callbacks: {
-          title: function (it) { const i = it[0].dataIndex; return dataLunga(cur[i].g) + (cmp && cmp[i] ? "  ·  confronto: " + dataLunga(cmp[i].g) : ""); },
-          label: function (c) { return c.dataset.label + ": " + (opz.euro ? euro(c.parsed.y) : num(c.parsed.y)); } } } },
+        plugins: { legend: { labels: { sort: function (a, b) { return a.datasetIndex - b.datasetIndex; } } },
+          tooltip: { callbacks: {
+          title: function (it) { return dataLunga(cur[it[0].dataIndex].g); },
+          label: function (c) {
+            const g = cur[c.dataIndex].g;
+            if (c.datasetIndex === 1) return "Settimana prima (" + dataBreve(piu(g, -7)) + "): " + fmt(c.parsed.y);
+            if (c.datasetIndex === 2) return "Media di " + nomeMese(g.slice(0, 7)).toLowerCase() + ": " + fmt(c.parsed.y);
+            return c.dataset.label + ": " + fmt(c.parsed.y);
+          } } } },
         scales: { x: { grid: { display: false }, ticks: { maxTicksLimit: 16 } },
-          y: { beginAtZero: true, ticks: { callback: function (v) { return opz.euro ? euro(v) : num(v); } } } } },
+          y: { beginAtZero: true, ticks: { callback: function (v) { return fmt(v); } } } } },
     });
   }
   function barre(id, canvas, etichette, serie, opz) {
@@ -247,6 +288,7 @@
     const mio = ++caricando;
     $("#riga-periodo").innerHTML = "Carico…";
     try {
+      const b = bordiDi(STATO.dal, STATO.al), niente = function () { return null; };
       const v = await Promise.all([
         D.riepilogo(PIN, STATO.dal, STATO.al),
         STATO.cmpDal ? D.riepilogo(PIN, STATO.cmpDal, STATO.cmpAl) : null,
@@ -254,9 +296,12 @@
         STATO.cmpDal ? D.clienti(PIN, STATO.cmpDal, STATO.cmpAl) : null,
         D.salute(PIN),
         D.campagne(PIN).catch(function () { return []; }),
+        D.riepilogo(PIN, b[0][0], b[0][1]).catch(niente),
+        b[1] ? D.riepilogo(PIN, b[1][0], b[1][1]).catch(niente) : null,
       ]);
       if (mio !== caricando) return;
       STATO.cur = v[0]; STATO.cmp = v[1]; STATO.cli = v[2]; STATO.cliCmp = v[3]; STATO.salute = v[4]; STATO.campagne = v[5] || [];
+      STATO.bordi = [].concat(v[6] ? v[6].giorni : [], v[7] ? v[7].giorni : []);
       disegnaTutto();
     } catch (e) { if (mio === caricando) { $("#riga-periodo").textContent = ""; problema(e); } }
   }
@@ -264,7 +309,7 @@
   function disegnaTutto() {
     const n = giorniTra(STATO.dal, STATO.al) + 1;
     $("#riga-periodo").innerHTML = "Periodo <b>" + dataLunga(STATO.dal) + " → " + dataLunga(STATO.al) + "</b> (" + n + (n === 1 ? " giorno" : " giorni") + ")" +
-      (STATO.cmp ? " · confronto con <b>" + dataLunga(STATO.cmpDal) + " → " + dataLunga(STATO.cmpAl) + "</b>" : " · nessun confronto") +
+      (STATO.cmp ? " · le % ▲▼ confrontano con <b>" + dataLunga(STATO.cmpDal) + " → " + dataLunga(STATO.cmpAl) + "</b>" : " · senza %") +
       (STATO.al >= D.oggiRoma() ? ' · <span class="dim">oggi è ancora in corso: l\'incasso di stasera arriva stanotte</span>' : "");
     disegnaAvvisi();
     disegnaKpi();
