@@ -135,6 +135,18 @@ table.tab { width: 100%; border-collapse: collapse; font-size: .88rem; }
 .tab tr.cliccabile { cursor: pointer; }
 .tab tr.cliccabile:hover td { background: rgba(230,178,74,.06); }
 .scorri { max-height: 460px; overflow: auto; }
+/* tabelle a tendine (categorie degli articoli, mesi delle sere) */
+.tab tr.gruppo-testa { cursor: pointer; }
+.tab tr.gruppo-testa td { font-weight: 600; background: rgba(230,178,74,.05); border-bottom-color: var(--line); }
+.tab tr.gruppo-testa:hover td { background: rgba(230,178,74,.11); }
+.tab tr.gruppo-testa:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+.tab tr.gruppo-testa .dim { font-weight: 400; }
+.tab .freccia { display: inline-block; width: 1.1em; color: var(--gold); transition: transform .15s; }
+.tab tr.gruppo-testa.aperto .freccia { transform: rotate(90deg); }
+.tab tbody.gruppo-righe td:first-child { padding-left: 26px; }
+.riga-strumenti { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px; font-size: .85rem; }
+.aiuto-tendine { font-size: .85rem; margin-bottom: 8px; }
+.tab select.sposta { margin-left: 8px; padding: 2px 6px; font-size: .78rem; width: auto; }
 
 .pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: .72rem; font-weight: 600; background: var(--card-2); color: var(--muted); }
 .pill.ok { background: rgba(134,182,74,.18); color: #b5dc84; }

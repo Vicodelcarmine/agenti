@@ -435,7 +435,53 @@
         return "<tr" + (r.attr || "") + ">" + r.c.map(function (v, i) { return '<td class="' + (intest[i] && intest[i][1] ? "n" : "") + '">' + v + "</td>"; }).join("") + "</tr>";
       }).join("") + "</tbody></table></div>";
   }
+  // tabella a tendine: ogni gruppo ha una riga coi totali (si tocca per aprirla) e sotto le sue righe
+  function tabellaGruppi(intest, gruppi, aperti, opz) {
+    opz = opz || {};
+    if (!gruppi.length) return '<p class="vuoto-dati">' + (opz.vuoto || "Ancora nessun dato in questo periodo.") + "</p>";
+    const cella = function (v, i) { return '<td class="' + (intest[i] && intest[i][1] ? "n" : "") + '">' + v + "</td>"; };
+    return '<div class="' + (opz.scorri ? "scorri" : "") + '"><table class="tab"><thead><tr>' + intest.map(function (h) {
+      return '<th class="' + (h[1] ? "n" : "") + '">' + h[0] + "</th>"; }).join("") + "</tr></thead>" +
+      gruppi.map(function (gr) {
+        const aperto = aperti.has(gr.chiave);
+        return '<tbody><tr class="gruppo-testa' + (aperto ? " aperto" : "") + '" data-gruppo="' + esc(gr.chiave) + '" tabindex="0" aria-expanded="' + aperto + '">' +
+          gr.testa.map(function (v, i) { return cella(i === 0 ? '<span class="freccia" aria-hidden="true">▸</span>' + v : v, i); }).join("") + "</tr></tbody>" +
+          '<tbody class="gruppo-righe"' + (aperto ? "" : " hidden") + ">" + gr.righe.map(function (r) {
+            return "<tr" + (r.attr || "") + ">" + r.c.map(cella).join("") + "</tr>"; }).join("") + "</tbody>";
+      }).join("") + "</table></div>";
+  }
+  // apre e chiude le tendine dentro box (una volta sola per box) e si ricorda quali sono aperte
+  function tendine(box, aperti) {
+    if (box.dataset.tendine) return;
+    box.dataset.tendine = "1";
+    const gira = function (tr) {
+      const k = tr.dataset.gruppo, aperto = !aperti.has(k);
+      if (aperto) aperti.add(k); else aperti.delete(k);
+      tr.classList.toggle("aperto", aperto);
+      tr.setAttribute("aria-expanded", String(aperto));
+      tr.parentNode.nextElementSibling.hidden = !aperto;
+    };
+    box.addEventListener("click", function (e) {
+      const tr = e.target.closest(".gruppo-testa");
+      if (tr && box.contains(tr)) gira(tr);
+    });
+    box.addEventListener("keydown", function (e) {
+      const tr = e.target.closest(".gruppo-testa");
+      if (tr && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); gira(tr); }
+    });
+  }
+  function nomeMese(k) {
+    const t = new Date(k + "-15T12:00:00").toLocaleDateString("it-IT", { month: "long", year: "numeric" });
+    return t.charAt(0).toUpperCase() + t.slice(1);
+  }
   const canvas = function (id, classe) { return '<div class="grafico ' + (classe || "") + '"><canvas id="' + id + '"></canvas></div>'; };
+
+  // il riquadro del collegamento automatico della cassa (la chiave) resta nascosto: scelta del titolare
+  // (26/10/2026). Per riaprirlo: MOSTRA_COLLEGAMENTO = true
+  const MOSTRA_COLLEGAMENTO = false;
+  // le tendine aperte (categorie degli articoli, mesi delle sere): restano aperte finché non si chiude la pagina
+  const APERTE_CAT = new Set(), APERTI_MESI = new Set();
+  let modificaCategorie = false;
 
   const DETTAGLI = {
     /* ---------- incassi ---------- */
@@ -452,19 +498,19 @@
         ["Scontrino medio", euro(perSc(c)), p ? delta(perSc(c), perSc(p)) : ""],
         ["Persone dal sistema", pct(c.prenotazioni.persone + g(c, "prPersone"), c.cassa.coperti), "", "prenotate + portate dagli agenti, sui coperti"],
       ]) +
-      '<div class="griglia">' + card("c8", "Incasso sera per sera", canvas("d-inc", "alto")) +
-      card("c4", "🔌 Collegamento automatico (cassa)",
+      '<div class="griglia">' + card(MOSTRA_COLLEGAMENTO ? "c8" : "c12", "Incasso sera per sera", canvas("d-inc", "alto")) +
+      (MOSTRA_COLLEGAMENTO ? card("c4", "🔌 Collegamento automatico (cassa)",
         '<p>' + (erp.collegato ? '<span class="pill ok">collegato</span> chiave creata il ' + quando(erp.creata) : '<span class="pill no">non collegato</span>') + "</p>" +
         '<p class="dim" style="margin-top:8px">Ultimo invio: ' + quando(erp.ultimoInvio) + (erp.ultimoEsito ? " · " + esc(erp.ultimoEsito) : "") + "</p>" +
         '<p class="dim" style="margin-top:8px">Le chiusure di cassa arrivano da sole da Google Drive (account chiusurevico, ogni mattina tra le 7 e le 8) con una chiave. Istruzioni: <b>MENU/collegamento-cassa/LEGGIMI.md</b>. Più avanti la stessa chiave servirà al gestionale o al POS.</p>' +
-        '<p style="margin-top:12px"><button class="btn ' + (erp.collegato ? "vuoto" : "oro") + '" id="b-chiave">' + (erp.collegato ? "Crea una chiave nuova" : "Crea la chiave del collegamento") + "</button></p>") +
+        '<p style="margin-top:12px"><button class="btn ' + (erp.collegato ? "vuoto" : "oro") + '" id="b-chiave">' + (erp.collegato ? "Crea una chiave nuova" : "Crea la chiave del collegamento") + "</button></p>") : "") +
       "</div>" +
       '<div id="cassa-articoli"></div>' +
-      card("c12", "Sera per sera · scrivi o correggi a mano", '<div id="tab-cassa"></div>');
+      card("c12", "Sera per sera · scrivi o correggi a mano", '<p class="dim aiuto-tendine">Tocca un mese per vedere le sue sere.</p><div id="tab-cassa"></div>');
       serieConfronto("d-inc", $("#d-inc"), "incasso", { euro: true });
       disegnaTabCassa();
       disegnaArticoliCassa();
-      $("#b-chiave").addEventListener("click", async function () {
+      if (MOSTRA_COLLEGAMENTO) $("#b-chiave").addEventListener("click", async function () {
         if (erp.collegato && !confirm("Creo una chiave nuova? Quella vecchia smette subito di funzionare: andrà cambiata anche nello script di Google (Proprietà script → VICO_CHIAVE).")) return;
         try {
           const r = await D.erpChiave(PIN);
@@ -773,6 +819,34 @@
       { vuoto: "Nessun piatto ordinato nel periodo." });
   }
 
+  // gli articoli divisi per categoria: chiusa la categoria mostra i suoi totali, aperta i suoi articoli.
+  // Le categorie vanno dalla più alla meno incassata; "Da sistemare" (articoli nuovi) sta in cima.
+  function tabellaArticoli(a, incasso) {
+    const per = {}, elenco = a.categorie || [];
+    a.articoli.forEach(function (x) { const k = x.categoria || "Da sistemare"; (per[k] = per[k] || []).push(x); });
+    const somma = function (lista, f) { return lista.reduce(function (s, x) { return s + (Number(x[f]) || 0); }, 0); };
+    const chiavi = Object.keys(per).sort(function (x, y) {
+      if (x === "Da sistemare" || y === "Da sistemare") return x === "Da sistemare" ? -1 : 1;
+      return somma(per[y], "euro") - somma(per[x], "euro");
+    });
+    const scegli = function (x) {
+      return '<select class="sposta" data-articolo="' + esc(x.nome) + '" aria-label="Categoria di ' + esc(x.nome) + '">' +
+        elenco.map(function (k) { return "<option" + (k === x.categoria ? " selected" : "") + ">" + esc(k) + "</option>"; }).join("") +
+        (elenco.indexOf(x.categoria) < 0 ? "<option selected disabled>" + esc(x.categoria || "Da sistemare") + "</option>" : "") + "</select>";
+    };
+    return tabellaGruppi([["Articolo"], ["Quantità", 1], ["Incasso", 1], ["Sconti", 1], ["% incasso", 1], ["Sere", 1]],
+      chiavi.map(function (k) {
+        const lista = per[k], sc = somma(lista, "sconti");
+        return { chiave: k,
+          testa: [esc(k) + (k === "Da sistemare" ? ' <span class="pill oro">nuovi</span>' : "") + ' <span class="dim">· ' + lista.length +
+              (lista.length === 1 ? " articolo" : " articoli") + "</span>",
+            num(somma(lista, "qta")), euro(somma(lista, "euro")), sc ? euro(sc) : "—", pct(somma(lista, "euro"), incasso), ""],
+          righe: lista.map(function (x) {
+            return { c: [esc(x.nome) + (modificaCategorie ? scegli(x) : ""), num(x.qta), euro(x.euro), x.sconti ? euro(x.sconti) : "—", pct(x.euro, incasso), x.sere] };
+          }) };
+      }), modificaCategorie ? new Set(chiavi) : APERTE_CAT, { scorri: true });
+  }
+
   // sconti e articoli venduti in sala, dal dettaglio delle chiusure di cassa
   async function disegnaArticoliCassa() {
     const box = $("#cassa-articoli");
@@ -789,23 +863,48 @@
       ["Sere con il dettaglio", num(a.conDettaglio) + " / " + num(a.sere)],
     ]) +
     '<div class="griglia">' + card("c5", "I 15 articoli che incassano di più", canvas("d-art", "alto")) +
-      card("c7", "Tutti gli articoli venduti in sala", tabella([["Articolo"], ["Quantità", 1], ["Incasso", 1], ["Sconti", 1], ["% incasso", 1], ["Sere", 1]],
-        a.articoli.map(function (x) { return { c: [esc(x.nome), num(x.qta), euro(x.euro), x.sconti ? euro(x.sconti) : "—", pct(x.euro, c.incasso), x.sere] }; }),
-        { scorri: true })) + "</div>";
+      card("c7", "Tutti gli articoli venduti in sala",
+        '<div class="riga-strumenti"><span class="dim">Tocca una categoria per vedere i suoi articoli.</span>' +
+        '<button class="btn vuoto piccolo" id="b-categorie">' + (modificaCategorie ? "✓ Fatto" : "✏️ Cambia le categorie") + "</button></div>" +
+        '<div id="tab-articoli">' + tabellaArticoli(a, c.incasso) + "</div>") + "</div>";
+    tendine($("#tab-articoli"), APERTE_CAT);
+    $("#b-categorie").addEventListener("click", function () { modificaCategorie = !modificaCategorie; disegnaArticoliCassa(); });
+    $("#tab-articoli").addEventListener("change", async function (e) {
+      const sel = e.target.closest("select[data-articolo]");
+      if (!sel) return;
+      sel.disabled = true;
+      try { await D.cassaCategoria(PIN, sel.dataset.articolo, sel.value); APERTE_CAT.add(sel.value); disegnaArticoliCassa(); }
+      catch (err) { sel.disabled = false; problema(err); }
+    });
     const primi = a.articoli.slice(0, 15);
     barre("d-art", $("#d-art"), primi.map(function (x) { return x.nome; }), [{ label: "Incasso €", data: primi.map(function (x) { return x.euro; }) }], { orizzontale: true });
   }
 
-  // la tabella degli incassi sera per sera, con la modifica a mano
+  // la tabella degli incassi sera per sera, a tendine mese per mese (chiuso: il totale del mese), con la modifica a mano
   function disegnaTabCassa() {
-    const righe = STATO.cur.giorni.slice().reverse();
-    $("#tab-cassa").innerHTML = tabella([["Sera"], ["Incasso", 1], ["Coperti", 1], ["Scontrini", 1], ["€ a coperto", 1], ["Da"], [""]],
-      righe.map(function (x) {
-        return { attr: ' data-sera="' + x.g + '"', c: [dataLunga(x.g), euro(x.incasso), num(x.coperti), num(x.scontrini),
-          euro(x.incasso != null && x.coperti ? x.incasso / x.coperti : null),
-          x.incasso == null ? "" : x.cassaFonte === "manuale" ? '<span class="pill oro">a mano</span>' : '<span class="pill ok">automatico</span>',
-          x.g <= D.oggiRoma() ? '<button class="btn vuoto piccolo" data-modifica="' + x.g + '">' + (x.incasso == null ? "＋ scrivi" : "✎") + "</button>" : ""] };
-      }), { scorri: true });
+    const mesi = {};
+    STATO.cur.giorni.forEach(function (x) { const k = x.g.slice(0, 7); (mesi[k] = mesi[k] || []).push(x); });
+    const gruppi = Object.keys(mesi).sort().reverse().map(function (k) {
+      const sere = mesi[k].filter(function (x) { return x.incasso != null; });
+      const somma = function (lista, f) {
+        const v = lista.filter(function (x) { return x[f] != null; });
+        return v.length ? v.reduce(function (s, x) { return s + x[f]; }, 0) : null;
+      };
+      const conCoperti = sere.filter(function (x) { return x.coperti; }), coperti = somma(conCoperti, "coperti");
+      return { chiave: k,
+        testa: [nomeMese(k) + ' <span class="dim">· ' + (sere.length ? sere.length + (sere.length === 1 ? " sera" : " sere") : "nessuna sera") + "</span>",
+          euro(somma(sere, "incasso")), num(somma(sere, "coperti")), num(somma(sere, "scontrini")),
+          euro(coperti ? somma(conCoperti, "incasso") / coperti : null), "", ""],
+        righe: mesi[k].slice().reverse().map(function (x) {
+          return { attr: ' data-sera="' + x.g + '"', c: [dataLunga(x.g), euro(x.incasso), num(x.coperti), num(x.scontrini),
+            euro(x.incasso != null && x.coperti ? x.incasso / x.coperti : null),
+            x.incasso == null ? "" : x.cassaFonte === "manuale" ? '<span class="pill oro">a mano</span>' : '<span class="pill ok">automatico</span>',
+            x.g <= D.oggiRoma() ? '<button class="btn vuoto piccolo" data-modifica="' + x.g + '">' + (x.incasso == null ? "＋ scrivi" : "✎") + "</button>" : ""] };
+        }) };
+    });
+    $("#tab-cassa").innerHTML = tabellaGruppi([["Sera"], ["Incasso", 1], ["Coperti", 1], ["Scontrini", 1], ["€ a coperto", 1], ["Da"], [""]],
+      gruppi, APERTI_MESI, { scorri: true });
+    tendine($("#tab-cassa"), APERTI_MESI);
     $$("[data-modifica]").forEach(function (b) {
       b.addEventListener("click", function () {
         const sera = b.dataset.modifica, x = STATO.cur.giorni.find(function (y) { return y.g === sera; });

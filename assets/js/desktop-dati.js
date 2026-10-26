@@ -54,6 +54,9 @@
     },
     erpChiave: function (pin) { return rpc("dash_erp_nuova_chiave", { p_pin: pin }); },
     cassaArticoli: function (pin, dal, al) { return rpc("dash_cassa_articoli", { p_pin: pin, p_dal: dal, p_al: al }); },
+    cassaCategoria: function (pin, articolo, categoria) {
+      return rpc("dash_cassa_categoria_salva", { p_pin: pin, p_articolo: articolo, p_categoria: categoria });
+    },
   };
 
   /* ================= la demo: dati finti ma credibili, sempre uguali per lo stesso giorno ================= */
@@ -196,6 +199,9 @@
     return NOMI.map(function (n, i) { return { telefono: "+39333" + String(1000000 + i * 7919).slice(-7), nome: n }; })
       .filter(function (x) { return x.nome.toLowerCase().indexOf(q) >= 0 || x.telefono.indexOf(q) >= 0; });
   }
+  const CATEGORIE_DEMO = ["Antipasti", "Primi", "Secondi", "Insalatone", "Contorni", "Pizze", "Dolci", "Birre", "Vini",
+    "Cocktail", "Bevande", "Caffè e amari", "Menu e altro"];
+  const categorieDemo = {};   // le categorie cambiate a mano nella demo
   let periodiDemo = [{ id: 1, nome: "Regalo a sorpresa · clienti TheFork", tipo: "campagna", dal: CAMPAGNA_DEMO, al: null, note: "Email a gruppi + WhatsApp" },
     { id: 2, nome: "Chiusura per ferie", tipo: "chiusura", dal: "2026-08-10", al: "2026-08-24", note: "" }];
   const cassaDemo = {};
@@ -270,6 +276,14 @@
       });
     },
     erpChiave: function (pin) { return attendi(function () { controlla(pin); return { chiave: "DEMO-questa-non-e-una-chiave-vera-0000" }; }); },
+    cassaCategoria: function (pin, articolo, categoria) {
+      return attendi(function () {
+        controlla(pin);
+        if (CATEGORIE_DEMO.indexOf(categoria) < 0) throw errore("categoria", "Categoria non valida");
+        categorieDemo[articolo] = categoria;
+        return { ok: true };
+      });
+    },
     cassaArticoli: function (pin, dal, al) {
       return attendi(function () {
         controlla(pin);
@@ -278,13 +292,16 @@
           "CHITARRA ALLO SCOGLIO", "CALICE VINO ROSSO", "HAMBURGER", "PATATINE FRITTE", "POSITANO", "COCA COLA", "APEROL SPRTZ",
           "ENTRECOTE AL CHIANTI", "BRANZINO", "CAPRESE", "TORTA CAPRESE", "CHIANTI CLASSICO"];
         const prezzi = [8, 3.5, 5.5, 12, 9, 6.5, 12.5, 14, 18, 6, 15, 7, 10.5, 4, 8, 22, 19, 13.5, 7, 25];
+        const categorie = ["Pizze", "Bevande", "Birre", "Pizze", "Pizze", "Dolci", "Pizze", "Primi", "Primi", "Vini", "Secondi",
+          "Contorni", "Pizze", "Bevande", "Cocktail", "Secondi", "Secondi", "Pizze", "Dolci", "Vini"];
         const sere = gg.length, coperti = gg.reduce(function (s, x) { return s + (x.coperti || 0); }, 0);
         const articoli = nomi.map(function (n, i) {
           const q = Math.round(coperti * (0.04 + r() * 0.25) * (i < 4 ? 1.8 : 1)); const lordo = q * prezzi[i], sc = Math.round(lordo * (0.02 + r() * 0.08) * 100) / 100;
-          return { nome: n, codice: String(10 + i), qta: q, euro: Math.round((lordo - sc) * 100) / 100, sconti: sc, sere: sere };
+          return { nome: n, codice: String(10 + i), qta: q, euro: Math.round((lordo - sc) * 100) / 100, sconti: sc, sere: sere,
+            categoria: categorieDemo[n] || categorie[i] };
         }).sort(function (a, b) { return b.euro - a.euro; });
         const incasso = gg.reduce(function (s, x) { return s + x.incasso; }, 0);
-        return { sere: sere, conDettaglio: sere, sconti: Math.round(incasso * 0.07), coperto: Math.round(coperti * 2.5), abbuono: -Math.round(sere * 1.3),
+        return { categorie: CATEGORIE_DEMO, sere: sere, conDettaglio: sere, sconti: Math.round(incasso * 0.07), coperto: Math.round(coperti * 2.5), abbuono: -Math.round(sere * 1.3),
           giorni: gg.map(function (x) { return { g: x.g, sconti: Math.round(x.incasso * 0.07), pezzi: Math.round(x.coperti * 3.6) }; }), articoli: articoli };
       });
     },

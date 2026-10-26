@@ -1047,14 +1047,16 @@
       $("#pr-chiuso").hidden = !d.chiuso;
       $("#pr-turni").innerHTML = d.turni.length ? d.turni.map(function (t) { return disegnaTurno(t, d.coperti); }).join("")
         : '<div class="card"><p class="vuoto">Nessun turno impostato.</p></div>';
-      $("#pr-prossimi").innerHTML = d.prossimi.map(function (g) {
+      // dei prossimi 14 giorni si vedono solo quelli con almeno una prenotazione
+      const conPren = d.prossimi.filter(function (g) { return g.prenotazioni > 0; });
+      $("#pr-prossimi").innerHTML = conPren.length ? conPren.map(function (g) {
         return '<li data-sera="' + g.sera + '" style="cursor:pointer"' + (g.sera === d.sera ? ' class="qui"' : "") + '>' +
           '<span class="cresce"><b>' + C.esc(nomeGiorno(g.sera)) + "</b>" +
           (nomeGiorno(g.sera) !== C.dataBreve(g.sera) ? ' <span class="dim">' + C.dataBreve(g.sera) + "</span>" : "") + "</span>" +
           (g.chiuso ? '<span class="pill">chiuso</span>'
             : g.prenotazioni ? '<span class="pill oro">' + g.prenotazioni + (g.prenotazioni === 1 ? " tavolo" : " tavoli") +
               " · " + persone(g.persone) + "</span>" : '<span class="dim">—</span>') + "</li>";
-      }).join("");
+      }).join("") : '<li class="vuoto">Nessuna prenotazione nei prossimi 14 giorni.</li>';
     } catch (e) { errore(e); }
   }
 
