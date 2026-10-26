@@ -53,6 +53,7 @@
       return rpc("dash_cassa_salva", { p_pin: pin, p_sera: sera, p_incasso: incasso, p_coperti: coperti, p_scontrini: scontrini });
     },
     erpChiave: function (pin) { return rpc("dash_erp_nuova_chiave", { p_pin: pin }); },
+    cassaArticoli: function (pin, dal, al) { return rpc("dash_cassa_articoli", { p_pin: pin, p_dal: dal, p_al: al }); },
   };
 
   /* ================= la demo: dati finti ma credibili, sempre uguali per lo stesso giorno ================= */
@@ -269,6 +270,24 @@
       });
     },
     erpChiave: function (pin) { return attendi(function () { controlla(pin); return { chiave: "DEMO-questa-non-e-una-chiave-vera-0000" }; }); },
+    cassaArticoli: function (pin, dal, al) {
+      return attendi(function () {
+        controlla(pin);
+        const gg = giorni(dal, al).map(giornoDemo).filter(function (x) { return x.incasso != null; }), r = caso("art" + dal + al);
+        const nomi = ["MARGHERITA", "ACQUA NATURALE", "CHIARA MEDIA", "PIZZA VICO", "DIAVOLA", "TIRAMISU", "4 FORMAGGI", "CARBONARA",
+          "CHITARRA ALLO SCOGLIO", "CALICE VINO ROSSO", "HAMBURGER", "PATATINE FRITTE", "POSITANO", "COCA COLA", "APEROL SPRTZ",
+          "ENTRECOTE AL CHIANTI", "BRANZINO", "CAPRESE", "TORTA CAPRESE", "CHIANTI CLASSICO"];
+        const prezzi = [8, 3.5, 5.5, 12, 9, 6.5, 12.5, 14, 18, 6, 15, 7, 10.5, 4, 8, 22, 19, 13.5, 7, 25];
+        const sere = gg.length, coperti = gg.reduce(function (s, x) { return s + (x.coperti || 0); }, 0);
+        const articoli = nomi.map(function (n, i) {
+          const q = Math.round(coperti * (0.04 + r() * 0.25) * (i < 4 ? 1.8 : 1)); const lordo = q * prezzi[i], sc = Math.round(lordo * (0.02 + r() * 0.08) * 100) / 100;
+          return { nome: n, codice: String(10 + i), qta: q, euro: Math.round((lordo - sc) * 100) / 100, sconti: sc, sere: sere };
+        }).sort(function (a, b) { return b.euro - a.euro; });
+        const incasso = gg.reduce(function (s, x) { return s + x.incasso; }, 0);
+        return { sere: sere, conDettaglio: sere, sconti: Math.round(incasso * 0.07), coperto: Math.round(coperti * 2.5), abbuono: -Math.round(sere * 1.3),
+          giorni: gg.map(function (x) { return { g: x.g, sconti: Math.round(x.incasso * 0.07), pezzi: Math.round(x.coperti * 3.6) }; }), articoli: articoli };
+      });
+    },
   };
 
   window.Dati = Object.assign({ DEMO: DEMO, oggiRoma: oggiRoma, piu: piu, giorni: giorni }, DEMO ? finto : vero);

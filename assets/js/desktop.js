@@ -281,7 +281,7 @@
       if (s.avvisiFermi) out.push("🔔 " + s.avvisiFermi + " avvisi delle prenotazioni non partiti.");
       if (s.clubCoda) out.push("💳 " + s.clubCoda + " messaggi del Club fermi in coda.");
       if (s.erp && s.erp.collegato && s.ultimaSeraCassa && giorniTra(s.ultimaSeraCassa, s.oggi) > 2)
-        out.push("💶 Il gestionale non manda l'incasso dal " + dataBreve(s.ultimaSeraCassa) + ".");
+        out.push("💶 Il collegamento della cassa non manda l'incasso dal " + dataBreve(s.ultimaSeraCassa) + ".");
     }
     const inizio = STATO.imp && STATO.imp.inizio;
     let info = "";
@@ -325,7 +325,7 @@
         return [[euro(c.cassa.incasso), "incasso", delta(c.cassa.incasso, p && p.cassa.incasso)],
           [euro(c.cassa.coperti ? c.cassa.incasso / c.cassa.coperti : null), "a coperto", ""],
           [euro(c.cassa.scontrini ? c.cassa.incasso / c.cassa.scontrini : null), "scontrino medio", ""]]; },
-      nota: function (c) { return c.cassa.sere ? c.cassa.daErp + " sere dal gestionale, " + (c.cassa.sere - c.cassa.daErp) + " a mano" : "Nessun incasso: collega il gestionale o scrivilo a mano."; } },
+      nota: function (c) { return c.cassa.sere ? c.cassa.daErp + " sere automatiche, " + (c.cassa.sere - c.cassa.daErp) + " a mano" : "Nessun incasso: collega la cassa o scrivilo a mano."; } },
     { id: "prenotazioni", ic: "📅", t: "Prenotazioni", s: "persone", n: function (c, p) {
         return [[num(c.prenotazioni.totale), "prenotazioni", delta(c.prenotazioni.totale, p && p.prenotazioni.totale)],
           [num(c.prenotazioni.persone), "persone", delta(c.prenotazioni.persone, p && p.prenotazioni.persone)],
@@ -453,20 +453,22 @@
         ["Persone dal sistema", pct(c.prenotazioni.persone + g(c, "prPersone"), c.cassa.coperti), "", "prenotate + portate dagli agenti, sui coperti"],
       ]) +
       '<div class="griglia">' + card("c8", "Incasso sera per sera", canvas("d-inc", "alto")) +
-      card("c4", "🔌 Gestionale (ERP)",
+      card("c4", "🔌 Collegamento automatico (cassa)",
         '<p>' + (erp.collegato ? '<span class="pill ok">collegato</span> chiave creata il ' + quando(erp.creata) : '<span class="pill no">non collegato</span>') + "</p>" +
         '<p class="dim" style="margin-top:8px">Ultimo invio: ' + quando(erp.ultimoInvio) + (erp.ultimoEsito ? " · " + esc(erp.ultimoEsito) : "") + "</p>" +
-        '<p class="dim" style="margin-top:8px">Il gestionale manda l\'incasso ogni sera con una chiave sua. Le istruzioni per chi lo programma sono nel file <b>MENU/erp-collegamento/LEGGIMI.md</b>.</p>' +
-        '<p style="margin-top:12px"><button class="btn ' + (erp.collegato ? "vuoto" : "oro") + '" id="b-chiave">' + (erp.collegato ? "Crea una chiave nuova" : "Crea la chiave del gestionale") + "</button></p>") +
+        '<p class="dim" style="margin-top:8px">Le chiusure di cassa arrivano da sole da Google Drive (account chiusurevico, controllo ogni ora) con una chiave. Istruzioni: <b>MENU/collegamento-cassa/LEGGIMI.md</b>. Più avanti la stessa chiave servirà al gestionale o al POS.</p>' +
+        '<p style="margin-top:12px"><button class="btn ' + (erp.collegato ? "vuoto" : "oro") + '" id="b-chiave">' + (erp.collegato ? "Crea una chiave nuova" : "Crea la chiave del collegamento") + "</button></p>") +
       "</div>" +
+      '<div id="cassa-articoli"></div>' +
       card("c12", "Sera per sera · scrivi o correggi a mano", '<div id="tab-cassa"></div>');
       serieConfronto("d-inc", $("#d-inc"), "incasso", { euro: true });
       disegnaTabCassa();
+      disegnaArticoliCassa();
       $("#b-chiave").addEventListener("click", async function () {
-        if (erp.collegato && !confirm("Creo una chiave nuova? Quella vecchia smette subito di funzionare: andrà cambiata anche nel gestionale.")) return;
+        if (erp.collegato && !confirm("Creo una chiave nuova? Quella vecchia smette subito di funzionare: andrà cambiata anche nello script di Google (Proprietà script → VICO_CHIAVE).")) return;
         try {
           const r = await D.erpChiave(PIN);
-          apriFinestra("<h2>🔑 Chiave del gestionale</h2><p class=\"muted\" style=\"margin-top:6px\">Copiala adesso e mettila nella configurazione del gestionale: <b>non si vedrà più</b>. Non mandarla per messaggio e non metterla nel codice.</p>" +
+          apriFinestra("<h2>🔑 Chiave del collegamento</h2><p class=\"muted\" style=\"margin-top:6px\">Copiala adesso e incollala nello script di Google (Proprietà script → <b>VICO_CHIAVE</b>): <b>non si vedrà più</b>. Non mandarla per messaggio e non metterla nel codice.</p>" +
             '<div class="chiave" id="la-chiave">' + esc(r.chiave) + '</div><button class="btn oro" id="b-copia">Copia</button> <span class="dim" id="copiata"></span>');
           $("#b-copia").addEventListener("click", function () {
             navigator.clipboard.writeText(r.chiave).then(function () { $("#copiata").textContent = "Copiata ✓"; }, function () { $("#copiata").textContent = "Selezionala e copia a mano"; });
@@ -757,7 +759,7 @@
         riga(true, "Ultimo WhatsApp partito", quando(s.waUltimoInvio) + (s.waAcceso ? " · conferme accese" : " · conferme spente")),
         riga(!s.avvisiFermi, "Avvisi delle prenotazioni al titolare", s.avvisiFermi ? s.avvisiFermi + " non partiti" : "tutti partiti"),
         riga(!s.clubCoda, "Messaggi del Club", s.clubCoda ? s.clubCoda + " fermi in coda" : "nessuno fermo"),
-        riga(!!erp.collegato, "Gestionale (incassi)", erp.collegato ? "ultimo invio " + quando(erp.ultimoInvio) + (erp.ultimoEsito ? " · " + esc(erp.ultimoEsito) : "") : "non collegato"),
+        riga(!!erp.collegato, "Collegamento cassa (incassi)", erp.collegato ? "ultimo invio " + quando(erp.ultimoInvio) + (erp.ultimoEsito ? " · " + esc(erp.ultimoEsito) : "") : "non collegato"),
         riga(true, "Ultima sera con l'incasso", dataLunga(s.ultimaSeraCassa)),
       ])) + '<div style="height:14px"></div>' +
       card("c12", "Orologi automatici", tabella([["Lavoro"], ["Ultimo giro"], ["Esito"]], (s.orologio || []).map(function (o) {
@@ -771,6 +773,29 @@
       { vuoto: "Nessun piatto ordinato nel periodo." });
   }
 
+  // sconti e articoli venduti in sala, dal dettaglio delle chiusure di cassa
+  async function disegnaArticoliCassa() {
+    const box = $("#cassa-articoli");
+    if (!box) return;
+    let a;
+    try { a = await D.cassaArticoli(PIN, STATO.dal, STATO.al); } catch (e) { box.innerHTML = ""; return; }   // non ancora installata
+    if (!$("#cassa-articoli")) return;
+    if (!a.conDettaglio) { box.innerHTML = '<p class="dim" style="margin:0 0 14px">Gli articoli venduti compariranno qui quando arrivano le chiusure dalla cassa.</p>'; return; }
+    const c = STATO.cur.cassa, lordo = c.incasso + a.sconti;
+    box.innerHTML = kpiRiga([
+      ["Sconti fatti", euro(a.sconti), "", pct(a.sconti, lordo) + " del lordo"],
+      ["Coperto", euro(a.coperto), "", pct(a.coperto, c.incasso) + " dell'incasso"],
+      ["Abbuoni", euro(a.abbuono), "", "arrotondamenti alla cassa"],
+      ["Sere con il dettaglio", num(a.conDettaglio) + " / " + num(a.sere)],
+    ]) +
+    '<div class="griglia">' + card("c5", "I 15 articoli che incassano di più", canvas("d-art", "alto")) +
+      card("c7", "Tutti gli articoli venduti in sala", tabella([["Articolo"], ["Quantità", 1], ["Incasso", 1], ["Sconti", 1], ["% incasso", 1], ["Sere", 1]],
+        a.articoli.map(function (x) { return { c: [esc(x.nome), num(x.qta), euro(x.euro), x.sconti ? euro(x.sconti) : "—", pct(x.euro, c.incasso), x.sere] }; }),
+        { scorri: true })) + "</div>";
+    const primi = a.articoli.slice(0, 15);
+    barre("d-art", $("#d-art"), primi.map(function (x) { return x.nome; }), [{ label: "Incasso €", data: primi.map(function (x) { return x.euro; }) }], { orizzontale: true });
+  }
+
   // la tabella degli incassi sera per sera, con la modifica a mano
   function disegnaTabCassa() {
     const righe = STATO.cur.giorni.slice().reverse();
@@ -778,7 +803,7 @@
       righe.map(function (x) {
         return { attr: ' data-sera="' + x.g + '"', c: [dataLunga(x.g), euro(x.incasso), num(x.coperti), num(x.scontrini),
           euro(x.incasso != null && x.coperti ? x.incasso / x.coperti : null),
-          x.incasso == null ? "" : x.cassaFonte === "manuale" ? '<span class="pill oro">a mano</span>' : '<span class="pill ok">gestionale</span>',
+          x.incasso == null ? "" : x.cassaFonte === "manuale" ? '<span class="pill oro">a mano</span>' : '<span class="pill ok">automatico</span>',
           x.g <= D.oggiRoma() ? '<button class="btn vuoto piccolo" data-modifica="' + x.g + '">' + (x.incasso == null ? "＋ scrivi" : "✎") + "</button>" : ""] };
       }), { scorri: true });
     $$("[data-modifica]").forEach(function (b) {

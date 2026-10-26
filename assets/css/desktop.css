@@ -75,6 +75,7 @@ input[type=date] { color-scheme: dark; }
 .periodi button.on { color: #2a1a08; background: var(--gold); }
 .date { display: flex; align-items: center; gap: 6px; }
 .date span { color: var(--dim); }
+.date select { max-width: 230px; }
 .azioni { margin-left: auto; display: flex; gap: 6px; }
 .riga-periodo { margin: 14px 0 4px; color: var(--muted); font-size: .9rem; }
 .riga-periodo b { color: var(--cream); }
