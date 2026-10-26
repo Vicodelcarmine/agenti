@@ -40,6 +40,7 @@ a { color: var(--gold); }
 .btn.vuoto { background: transparent; border: 1px solid var(--line); }
 .btn.vuoto:hover { border-color: var(--gold); }
 .btn.piccolo { padding: 4px 11px; font-size: .8rem; }
+a.btn { text-decoration: none; display: inline-flex; align-items: center; }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 input, select, textarea {
   font: .9rem var(--font-body); color: var(--cream); background: var(--bg-2);

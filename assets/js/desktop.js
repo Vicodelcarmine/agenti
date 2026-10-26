@@ -12,7 +12,8 @@
   /* ---------- memoria di questo computer ---------- */
   function leggi(k, d) { try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch (e) { return d; } }
   function scrivi(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
-  const K_PIN = D.DEMO ? "vdc_desk_pin_demo" : "vdc_desk_pin";
+  // lo stesso PIN della dashboard di tutti i giorni (titolare/): si entra una volta sola per tutte e due
+  const K_PIN = "vdcpr_pin";
   let PIN = (function () { try { return sessionStorage.getItem(K_PIN) || localStorage.getItem(K_PIN) || ""; } catch (e) { return ""; } })();
 
   /* ---------- formati ---------- */
@@ -951,5 +952,6 @@
   setInterval(function () { if (PIN && STATO.al && STATO.al >= D.oggiRoma() && !document.hidden && $("#velo").hidden) carica(); }, 5 * 60 * 1000);
 
   if (D.DEMO) $("#demo-bar").hidden = false;
+  $("#b-cruscotto").href = "../titolare/" + (D.DEMO ? "?demo=1" : "?demo=0");
   if (PIN) avvia(); else mostraLogin();
 })();

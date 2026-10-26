@@ -193,3 +193,6 @@ input[type=date] {
 .turni-scelta input { width: 130px; }
 /* sette schede: un filo più strette */
 .tabbar button { font-size: .66rem; padding-left: 0; padding-right: 0; }
+/* il tasto per la dashboard da computer: in testata solo sugli schermi larghi (in Altro c'è sempre) */
+.top .solo-largo { display: none; }
+@media (min-width: 900px) { .top .solo-largo { display: inline-flex; } }

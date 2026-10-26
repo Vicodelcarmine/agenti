@@ -1831,6 +1831,8 @@
 
   /* ---------- avvio ---------- */
   $("#demo-bar").hidden = !S.DEMO || C.VETRINA;
+  // la dashboard da computer: stessa app e stesso PIN (desktop.js legge lo stesso "vdcpr_pin")
+  $$("#vai-desktop, #vai-desktop-2").forEach(function (a) { a.href = "../desktop/" + (S.DEMO ? "?demo=1" : "?demo=0"); });
   if (C.VETRINA && !pinSalvato()) ricordaPin("1234", false);   // in vetrina si entra senza PIN (dati finti)
   (async function () {
     const p = pinSalvato();
