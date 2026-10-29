@@ -1415,6 +1415,25 @@
 
   /* ================= AGENTI ================= */
 
+  // i posti dove si pubblica l'annuncio "Lavora come PR": ognuno ha il suo link ?ref=
+  const CANALI_PR = [
+    ["fb-cerco-offro-lavoro", "Facebook · Firenze cerco/offro lavoro"],
+    ["fb-firenze-lavoro", "Facebook · Firenze Lavoro"],
+    ["fb-gruppi-lavoro", "Facebook · altri gruppi di lavoro"],
+    ["esn-florentia", "ESN Florentia (Erasmus)"],
+    ["aegee-firenze", "AEGEE Firenze (Erasmus)"],
+    ["erasmus-whatsapp", "Gruppi WhatsApp Erasmus"],
+    ["gruppi-studenti", "Gruppi studenti UniFi e accademie"],
+    ["subito", "Subito.it"],
+    ["bakeca", "Bakeca"],
+    ["instagram-ads", "Instagram sponsorizzato"],
+    ["tiktok-ads", "TikTok sponsorizzato"],
+  ];
+  const NOMI_CANALI = { diretto: "Senza link (diretto)", guide: "Pagina guide (senza link)" };
+  CANALI_PR.forEach(function (c) { NOMI_CANALI[c[0]] = c[1]; });
+  function nomeCanale(k) { return NOMI_CANALI[k] || k; }
+  function linkCanale(k) { return C.RADICE + "diventa/?ref=" + encodeURIComponent(k); }
+
   function linkChat(telefono, testo) {
     const num = String(telefono || "").replace(/\D/g, "");
     const intl = num ? (num.length <= 10 ? "39" + num : num) : "";
@@ -1432,7 +1451,8 @@
       lista.map(function (c) {
         return '<div class="card" data-richiesta="' + C.esc(c.id) + '">' +
           '<div class="riga"><div class="cresce"><h3 style="margin:0">' + C.esc(c.nome) + "</h3>" +
-          (c.ruolo ? '<span class="pill oro">' + C.esc(c.ruolo) + "</span>" : "") + "</div>" +
+          (c.ruolo ? '<span class="pill oro">' + C.esc(c.ruolo) + "</span>" : "") +
+          (c.canale ? ' <span class="pill ok">📣 ' + C.esc(nomeCanale(c.canale)) + "</span>" : "") + "</div>" +
           '<span class="dim fisso">' + C.esc(C.dataBreve(C.sera(c.creato))) + "</span></div>" +
           '<p class="small" style="margin-top:8px">📞 ' + C.esc(c.telefono) +
           ' · <a target="_blank" rel="noopener" href="' + linkChat(c.telefono, "Ciao " + c.nome.split(/\s+/)[0] + "! Abbiamo visto la tua richiesta per fare il PR.") +
@@ -1573,6 +1593,7 @@
     catch (e) { errore(e); return; }
     apriFoglio(
       "<h2>" + C.esc(a.nome) + "</h2>" +
+      (a.canale ? '<p class="dim">📣 Arrivato da: ' + C.esc(nomeCanale(a.canale)) + "</p>" : "") +
       (a.bonusPeriodo ? '<label class="riga bonus" style="margin-top:8px;gap:12px"><span class="cresce">🔥 <b>Settimana di benvenuto</b>' +
         '<span class="dim" style="display:block">' + (a.bonus !== false
           ? "Tariffe " + (Number(a.bonusPer) === 2 ? "doppie" : "×" + String(a.bonusPer).replace(".", ",")) +
@@ -1774,8 +1795,47 @@
       const primo = p.agenti.find(function (a) { return a.attivo; }) || p.agenti[0];
       const lg = $("#link-gioco");
       if (primo) { lg.href = C.urlGioca(primo.codice); lg.hidden = false; } else lg.hidden = true;
+      caricaCanali();
     } catch (e) { errore(e); }
   }
+
+  // ricerca PR: per ogni canale richieste, agenti e chi ha già fatto sedere il primo tavolo
+  async function caricaCanali() {
+    const box = $("#canali-numeri");
+    let lista = [];
+    try { lista = await conPin(S.canali); } catch (e) { box.innerHTML = ""; return; }
+    box.innerHTML = lista.length ? '<ul class="lista">' + lista.map(function (r) {
+      return '<li><div class="cresce"><b>' + C.esc(nomeCanale(r.canale)) + '</b><div class="dim">' +
+        r.richieste + (r.richieste === 1 ? " richiesta" : " richieste") + " · " +
+        r.agenti + (r.agenti === 1 ? " agente" : " agenti") + " · " +
+        r.persone + (r.persone === 1 ? " persona portata" : " persone portate") + "</div></div>" +
+        '<span class="pill ' + (r.conTavolo ? "ok" : "no") + ' fisso">' + r.conTavolo + " col 1° tavolo</span></li>";
+    }).join("") + "</ul>"
+      : '<p class="vuoto">Ancora nessuna richiesta arrivata da un link.</p>';
+  }
+  $("#canali-link").innerHTML = CANALI_PR.map(function (c) {
+    return '<li><span class="cresce">' + C.esc(c[1]) + '<span class="dim" style="display:block">?ref=' + C.esc(c[0]) + "</span></span>" +
+      '<button class="btn oro piccolo fisso" data-canale="' + C.esc(c[0]) + '">Copia</button></li>';
+  }).join("");
+  async function copiaCanale(k) {
+    const url = linkCanale(k);
+    try { await navigator.clipboard.writeText(url); C.toast("Link copiato: usalo solo per " + nomeCanale(k)); }
+    catch (e) { prompt("Il link per " + nomeCanale(k) + ":", url); }
+  }
+  $("#canali-link").addEventListener("click", function (e) {
+    const b = e.target.closest("[data-canale]");
+    if (b) copiaCanale(b.dataset.canale);
+  });
+  $("#canale-copia").addEventListener("click", function () {
+    const k = $("#canale-nuovo").value.trim().toLowerCase().replace(/\s+/g, "-");
+    if (!/^[a-z0-9][a-z0-9:._-]{0,39}$/.test(k)) {
+      C.toast("Scrivi un nome corto: lettere minuscole, numeri e trattini", true);
+      $("#canale-nuovo").focus();
+      return;
+    }
+    $("#canale-nuovo").value = k;
+    copiaCanale(k);
+  });
   legaFasce($("#fasce-standard"));
   $$("[data-copia]").forEach(function (b) {
     b.addEventListener("click", async function () {

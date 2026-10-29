@@ -93,6 +93,17 @@ create table if not exists public.pr_candidature (
   note     text not null default ''
 );
 alter table public.pr_candidature enable row level security;
+-- da quale canale (link ?ref=) è arrivata la richiesta; approvandola passa all'agente
+alter table public.pr_candidature add column if not exists canale text;
+alter table public.pr_agenti      add column if not exists canale text;
+-- quante richieste al giorno per canale (solo conteggi: restano anche dopo approva/scarta)
+create table if not exists public.pr_canali_richieste (
+  giorno    date not null,
+  canale    text not null,
+  richieste int  not null default 0,
+  primary key (giorno, canale)
+);
+alter table public.pr_canali_richieste enable row level security;
 
 -- chiavi delle notifiche: le crea e le legge solo la funzione pr-notifica
 create table if not exists public.pr_config (
@@ -718,11 +729,16 @@ end $$;
 -- ================= DIVENTA AGENTE =================
 
 -- chiunque dalla pagina "Diventa agente" può lasciare nome e telefono (con un limite contro lo spam)
-create or replace function public.pr_candidatura(p_nome text, p_telefono text, p_ruolo text, p_note text) returns boolean
+-- la versione a 4 parametri va tolta, se no le chiamate senza canale non saprebbero quale usare
+drop function if exists public.pr_candidatura(text, text, text, text);
+
+create or replace function public.pr_candidatura(p_nome text, p_telefono text, p_ruolo text, p_note text,
+                                                 p_canale text default null) returns boolean
 language plpgsql volatile security definer set search_path = public as $$
 declare
   n text := left(trim(coalesce(p_nome, '')), 80);
   t text := regexp_replace(coalesce(p_telefono, ''), '[^0-9+]', '', 'g');
+  k text := coalesce(public.dash_canale_pulito(p_canale), 'diretto');
 begin
   if length(n) < 2 then raise exception 'Scrivi il tuo nome' using hint = 'nome'; end if;
   if length(regexp_replace(t, '\D', '', 'g')) < 8 or length(t) > 16 then
@@ -732,8 +748,11 @@ begin
      or (select count(*) from public.pr_candidature where creato > now() - interval '1 day') >= 100 then
     raise exception 'Troppe richieste: riprova domani' using hint = 'troppe';
   end if;
-  insert into public.pr_candidature (nome, telefono, ruolo, note)
-  values (n, t, left(trim(coalesce(p_ruolo, '')), 40), left(trim(coalesce(p_note, '')), 500));
+  insert into public.pr_candidature (nome, telefono, ruolo, note, canale)
+  values (n, t, left(trim(coalesce(p_ruolo, '')), 40), left(trim(coalesce(p_note, '')), 500), k);
+  insert into public.pr_canali_richieste (giorno, canale, richieste)
+  values ((now() at time zone 'Europe/Rome')::date, k, 1)
+  on conflict (giorno, canale) do update set richieste = public.pr_canali_richieste.richieste + 1;
   return true;
 end $$;
 
@@ -744,7 +763,7 @@ begin
   return coalesce((select jsonb_agg(to_jsonb(c) order by c.creato desc) from public.pr_candidature c), '[]'::jsonb);
 end $$;
 
--- approvata: diventa un agente (i suoi dati restano solo nella scheda agente)
+-- approvata: diventa un agente (i suoi dati restano solo nella scheda agente, col canale da cui è arrivato)
 create or replace function public.pr_approva_candidatura(p_pin text, p_id uuid, p_bonus boolean) returns jsonb
 language plpgsql volatile security definer set search_path = public as $$
 declare c public.pr_candidature; a jsonb;
@@ -753,8 +772,9 @@ begin
   select * into c from public.pr_candidature where id = p_id for update;
   if not found then raise exception 'Richiesta non trovata' using hint = 'candidatura'; end if;
   a := public.pr_salva_agente(p_pin, jsonb_build_object('nome', c.nome, 'telefono', c.telefono, 'bonus', coalesce(p_bonus, true)));
+  update public.pr_agenti set canale = c.canale where id = (a->>'id')::uuid;
   delete from public.pr_candidature where id = c.id;
-  return a;
+  return a || jsonb_build_object('canale', c.canale);
 end $$;
 
 -- scartata: i dati si cancellano subito
@@ -767,6 +787,29 @@ begin
   return true;
 end $$;
 
+-- per ogni canale: richieste arrivate, agenti approvati, quanti hanno già fatto sedere un tavolo, persone portate
+create or replace function public.pr_canali(p_pin text) returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+begin
+  perform public.pr_controlla_pin(p_pin);
+  return coalesce((
+    with r as (select canale, sum(richieste) as n, min(giorno) as dal from public.pr_canali_richieste group by canale),
+         g as (select a.canale, count(*) as agenti,
+                      count(*) filter (where t.persone > 0) as con_tavolo,
+                      coalesce(sum(t.persone), 0) as persone
+                 from public.pr_agenti a
+                 left join lateral (select coalesce(sum(b.persone), 0) as persone from public.pr_buoni b
+                                     where b.agente = a.id and b.stato = 'riscattato') t on true
+                where a.canale is not null
+                group by a.canale),
+         k as (select canale from r union select canale from g)
+    select jsonb_agg(jsonb_build_object('canale', k.canale, 'richieste', coalesce(r.n, 0), 'dal', r.dal,
+                                        'agenti', coalesce(g.agenti, 0), 'conTavolo', coalesce(g.con_tavolo, 0),
+                                        'persone', coalesce(g.persone, 0))
+                     order by coalesce(g.con_tavolo, 0) desc, coalesce(g.agenti, 0) desc, coalesce(r.n, 0) desc, k.canale)
+      from k left join r using (canale) left join g using (canale)), '[]'::jsonb);
+end $$;
+
 -- le funzioni pubbliche si chiamano con la chiave publishable del sito
 grant execute on function
   public.pr_agente_pubblico(text), public.pr_gioca(text, text), public.pr_buono(text),
@@ -776,6 +819,7 @@ grant execute on function
   public.pr_salva_agente(text, jsonb), public.pr_nuova_chiave(text, uuid), public.pr_elimina_agente(text, uuid),
   public.pr_pagamento(text, uuid, text, text), public.pr_premi(text), public.pr_salva_premi(text, jsonb),
   public.pr_impostazioni(text), public.pr_salva_impostazioni(text, jsonb),
-  public.pr_candidatura(text, text, text, text), public.pr_candidature(text),
-  public.pr_approva_candidatura(text, uuid, boolean), public.pr_scarta_candidatura(text, uuid)
+  public.pr_candidatura(text, text, text, text, text), public.pr_candidature(text),
+  public.pr_approva_candidatura(text, uuid, boolean), public.pr_scarta_candidatura(text, uuid),
+  public.pr_canali(text)
 to anon, authenticated;

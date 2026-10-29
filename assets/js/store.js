@@ -538,16 +538,21 @@ const Store = (function () {
 
   /* ================= DIVENTA AGENTE ================= */
 
-  function candidatura(nome, telefono, ruolo, note) {
+  function candidatura(nome, telefono, ruolo, note, canale) {
     return rete(function () {
       const db = leggi();
       nome = String(nome || "").trim().slice(0, 80);
       const tel = String(telefono || "").replace(/[^0-9+]/g, "");
       if (nome.length < 2) throw errore("nome", "Scrivi il tuo nome");
       if (tel.replace(/\D/g, "").length < 8 || tel.length > 16) throw errore("telefono", "Numero di telefono non valido");
+      const k = String(canale || "").trim().toLowerCase();
+      const can = /^[a-z0-9][a-z0-9:._-]{0,39}$/.test(k) ? k : "diretto";
       db.candidature = db.candidature || [];
       db.candidature.push({ id: C.casuale(10), creato: Date.now(), nome: nome, telefono: tel,
-        ruolo: String(ruolo || "").slice(0, 40), note: String(note || "").trim().slice(0, 500) });
+        ruolo: String(ruolo || "").slice(0, 40), note: String(note || "").trim().slice(0, 500), canale: can });
+      db.canaliRichieste = db.canaliRichieste || {};
+      const r = db.canaliRichieste[can] || (db.canaliRichieste[can] = { n: 0, dal: C.sera() });
+      r.n++;
       scrivi(db);
       return true;
     });
@@ -575,8 +580,35 @@ const Store = (function () {
     const c = lista.find(function (x) { return x.id === id; });
     if (!c) throw errore("candidatura", "Richiesta non trovata");
     const a = await salvaAgente(pin, { nome: c.nome, telefono: c.telefono, bonus: bonus !== false });
+    const db = leggi();
+    agenteDa(db, a.id).canale = c.canale || null;
+    scrivi(db);
     await scartaCandidatura(pin, id);
-    return a;
+    return Object.assign({}, a, { canale: c.canale || null });
+  }
+  // per ogni canale: richieste arrivate, agenti approvati, quanti hanno già fatto sedere un tavolo, persone portate
+  function canali(pin) {
+    return rete(function () {
+      const db = leggi();
+      controllaPin(db, pin);
+      const per = {};
+      const di = function (k) { return per[k] || (per[k] = { canale: k, richieste: 0, dal: null, agenti: 0, conTavolo: 0, persone: 0 }); };
+      Object.keys(db.canaliRichieste || {}).forEach(function (k) {
+        di(k).richieste = db.canaliRichieste[k].n;
+        di(k).dal = db.canaliRichieste[k].dal;
+      });
+      db.agenti.filter(function (a) { return a.canale; }).forEach(function (a) {
+        const persone = db.buoni.filter(function (b) { return b.agente === a.id && b.stato === "riscattato"; })
+          .reduce(function (s, b) { return s + (b.persone || 0); }, 0);
+        const r = di(a.canale);
+        r.agenti++;
+        if (persone > 0) r.conTavolo++;
+        r.persone += persone;
+      });
+      return Object.keys(per).map(function (k) { return per[k]; }).sort(function (x, y) {
+        return y.conTavolo - x.conTavolo || y.agenti - x.agenti || y.richieste - x.richieste || (x.canale < y.canale ? -1 : 1);
+      });
+    });
   }
 
   /* ================= CLUB DEL VICO (demo) =================
@@ -1282,7 +1314,7 @@ const Store = (function () {
     notifica: function () { return Promise.resolve({ inviate: 0 }); },
     entra, leggiBuono, riscatta, annulla, panoramica, dettaglioAgente, salvaAgente, nuovaChiave, eliminaAgente,
     pagamento, premi, salvaPremi, impostazioni, salvaImpostazioni,
-    candidatura, candidature, approvaCandidatura, scartaCandidatura,
+    candidatura, candidature, approvaCandidatura, scartaCandidatura, canali,
     clubPanoramica, clubElenco, clubDettaglio, clubLeggiPremio, clubUsa, clubAnnulla, campPanoramica, campWaAttiva,
     clubImpostazioni, clubSalvaImpostazioni, clubElimina,
     clubOfferte, clubSalvaOfferte, clubMessaggi, clubGiroOra, clubProvaAvviso,
@@ -1388,14 +1420,17 @@ const Store = (function () {
     impostazioni: function (pin) { return rpc("pr_impostazioni", { p_pin: pin }); },
     salvaImpostazioni: function (pin, dati) { return rpc("pr_salva_impostazioni", { p_pin: pin, p_dati: dati }); },
 
-    candidatura: function (nome, telefono, ruolo, note) {
-      return rpc("pr_candidatura", { p_nome: nome, p_telefono: telefono, p_ruolo: ruolo || "", p_note: note || "" });
+    candidatura: function (nome, telefono, ruolo, note, canale) {
+      const corpo = { p_nome: nome, p_telefono: telefono, p_ruolo: ruolo || "", p_note: note || "" };
+      if (canale) corpo.p_canale = canale;
+      return rpc("pr_candidatura", corpo);
     },
     candidature: function (pin) { return rpc("pr_candidature", { p_pin: pin }); },
     approvaCandidatura: function (pin, id, bonus) {
       return rpc("pr_approva_candidatura", { p_pin: pin, p_id: id, p_bonus: bonus !== false });
     },
     scartaCandidatura: function (pin, id) { return rpc("pr_scarta_candidatura", { p_pin: pin, p_id: id }); },
+    canali: function (pin) { return rpc("pr_canali", { p_pin: pin }); },
 
     // Club del Vico (funzioni SQL: supabase/07-club.sql)
     clubPanoramica: function (pin) { return rpc("club_panoramica", { p_pin: pin }); },
