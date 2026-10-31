@@ -1109,6 +1109,7 @@
 
   /* ================= avvio ================= */
   async function avvia() {
+    controllaNovita();
     $("#login").hidden = true; $("#app").hidden = false;
     try { STATO.imp = await D.impostazioni(PIN); }
     catch (e) { if (e.codice === "pin") { esci(); return; } problema(e); return; }
@@ -1119,6 +1120,19 @@
   }
   // ogni 5 minuti, se il periodo arriva a oggi, i numeri si aggiornano da soli
   setInterval(function () { if (PIN && STATO.al && STATO.al >= D.oggiRoma() && !document.hidden && $("#velo").hidden) carica(); }, 5 * 60 * 1000);
+
+  // le novità delle prenotazioni (nuove, annullate, messaggi): anche qui il tasto per il cruscotto si accende e salta
+  async function controllaNovita() {
+    if (!PIN || document.hidden) return;
+    let n;
+    try { n = await D.novita(PIN); } catch (e) { return; }
+    const b = $("#b-cruscotto");
+    b.classList.toggle("salta", n.totale > 0);
+    b.textContent = n.totale > 0 ? "📅 " + n.totale + " novità" : "📱 Cruscotto";
+    b.href = "../titolare/" + (D.DEMO ? "?demo=1" : "?demo=0") + (n.totale > 0 ? "&tab=prenota" : "");
+  }
+  setInterval(controllaNovita, 30000);
+  document.addEventListener("visibilitychange", controllaNovita);
 
   if (D.DEMO) $("#demo-bar").hidden = false;
   $("#b-cruscotto").href = "../titolare/" + (D.DEMO ? "?demo=1" : "?demo=0");

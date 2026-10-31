@@ -6,6 +6,8 @@ self.addEventListener("activate", function (e) { e.waitUntil(self.clients.claim(
 self.addEventListener("push", function (e) {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch (er) { d = { body: e.data ? e.data.text() : "" }; }
+  // il segnale sull'icona dell'app: il numero giusto lo rimette la dashboard appena si apre
+  if (self.navigator.setAppBadge) self.navigator.setAppBadge().catch(function () {});
   e.waitUntil(self.registration.showNotification(d.title || "Vico Dashboard", {
     body: d.body || "",
     icon: "../assets/img/icona-titolare-192.png",

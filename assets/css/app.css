@@ -196,3 +196,34 @@ input[type=date] {
 /* il tasto per la dashboard da computer: in testata solo sugli schermi larghi (in Altro c'è sempre) */
 .top .solo-largo { display: none; }
 @media (min-width: 900px) { .top .solo-largo { display: inline-flex; } }
+
+/* ---------- novità nelle prenotazioni: l'icona si accende e salta finché non le guardi ---------- */
+.tabbar button.salta { color: #ffd23f; }
+.tabbar button.salta i {
+  display: inline-block; filter: none; opacity: 1; padding: 0 7px; border-radius: 12px;
+  background: linear-gradient(135deg, #ff8a00, #ff2d55); box-shadow: 0 0 14px rgba(255, 70, 40, .85);
+  animation: salta-icona 1.1s ease-in-out infinite;
+}
+.tabbar button.on.salta i { animation: none; }     /* sei già sulla scheda: basta il colore */
+.tabbar button[data-badge]::after { z-index: 1; }
+@keyframes salta-icona {
+  0%, 55%, 100% { transform: translateY(0) scale(1, 1); }
+  10% { transform: translateY(1px) scale(1.12, .88); }
+  28% { transform: translateY(-15px) scale(.96, 1.06); }
+  45% { transform: translateY(0) scale(1.1, .9); }
+  52% { transform: translateY(-4px) scale(1, 1); }
+}
+@media (prefers-reduced-motion: reduce) { .tabbar button.salta i { animation: none; } }
+
+.novita-card { border: 2px solid #ff8a00; box-shadow: 0 0 18px rgba(255, 120, 0, .25); }
+.novita-card .lista li { cursor: pointer; }
+.pill.nuova { background: linear-gradient(135deg, #ff8a00, #ff2d55); color: #fff; border: 0; font-weight: 700; flex: 0 0 auto; }
+.lista li.pren-nuova { border-left: 4px solid #ff8a00; padding-left: 10px; background: rgba(255, 138, 0, .10); border-radius: 8px; }
+.msg-riga { color: var(--gold-soft); font-size: .88rem; margin-top: 3px; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* la conversazione con il cliente, in cima alla prenotazione */
+.conv .bolla { width: fit-content; max-width: 88%; padding: 9px 12px; border-radius: 14px; margin: 8px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.conv .bolla small { display: block; margin-top: 3px; font-size: .72rem; opacity: .7; }
+.conv .bolla.sua { background: rgba(255, 255, 255, .08); border-bottom-left-radius: 4px; }
+.conv .bolla.sua.nuova { background: rgba(255, 138, 0, .18); border: 1px solid #ff8a00; }
+.conv .bolla.mia { background: rgba(134, 182, 74, .22); border-bottom-right-radius: 4px; margin-left: auto; }

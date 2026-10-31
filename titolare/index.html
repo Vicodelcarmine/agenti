@@ -82,6 +82,11 @@
     <!-- PRENOTA -->
     <section data-tab="prenota" hidden>
       <div class="sez-titolo"><h2>📅 Prenotazioni</h2><button class="btn oro piccolo" id="pr-nuova">＋ Aggiungi</button></div>
+      <div class="card novita-card" id="pr-novita" hidden>
+        <div class="riga"><h3 class="cresce" style="margin:0" id="pr-novita-titolo">🔔 Novità</h3>
+          <button class="btn vuoto piccolo fisso" id="pr-novita-viste" type="button">Segna tutto visto</button></div>
+        <ul class="lista" id="pr-novita-lista"></ul>
+      </div>
       <div class="riga giorno-nav">
         <button class="btn vuoto piccolo fisso" id="pr-prima" aria-label="Sera prima">‹</button>
         <label class="btn vuoto piccolo scegli-data"><span id="pr-sera">Oggi</span><input type="date" id="pr-data" aria-label="Scegli la sera"></label>

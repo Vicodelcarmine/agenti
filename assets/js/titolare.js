@@ -48,6 +48,7 @@
     $("#login").hidden = true;
     $("#app").hidden = false;
     document.body.classList.add("con-tab");
+    avviaNovita();
     const q = new URLSearchParams(location.search);
     const b = C.pulisciCodice(q.get("b")), c = C.pulisciCodice(q.get("c")), tab = q.get("tab");
     if (b || c) {
@@ -855,7 +856,72 @@
     caricaImpostazioniPren();
     caricaAsporto();
     caricaWhatsapp();
+    aggiornaNovita();
   }
+
+  /* --- le novità: prenotazioni nuove, annullate dal cliente, messaggi WhatsApp ---
+     Finché non vengono guardate l'icona Prenota è accesa e salta, con il numero sopra.
+     Si controlla ogni 30 secondi (solo a dashboard aperta) e quando si torna sull'app. */
+  let novitaPrima = null;   // quante erano al controllo prima (null = primo controllo: niente avviso)
+  let novitaAvviata = false;
+  function avviaNovita() {
+    aggiornaNovita();
+    if (novitaAvviata) return;
+    novitaAvviata = true;
+    setInterval(function () { if (!document.hidden) aggiornaNovita(); }, 30000);
+    document.addEventListener("visibilitychange", function () { if (!document.hidden) aggiornaNovita(); });
+  }
+  async function aggiornaNovita() {
+    if (!pin) return;
+    let n;
+    try { n = await S.prenNovita(pin); } catch (e) { return; }   // senza rete si riprova al giro dopo
+    segnaNovita(n.totale);
+    disegnaNovita(n);
+    if (novitaPrima !== null && n.totale > novitaPrima && n.lista.length) {
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+      C.toast(n.lista[0].titolo);
+      if (schedaAttiva === "prenota") caricaSeraPren();
+    }
+    novitaPrima = n.totale;
+  }
+  function segnaNovita(n) {
+    const b = $('.tabbar [data-vai="prenota"]');
+    b.classList.toggle("salta", n > 0);
+    if (n > 0) b.dataset.badge = n > 99 ? "99+" : n; else delete b.dataset.badge;
+    // il numerino anche sull'icona dell'app, sulla schermata Home
+    try {
+      const fatto = n > 0 ? navigator.setAppBadge && navigator.setAppBadge(n) : navigator.clearAppBadge && navigator.clearAppBadge();
+      if (fatto) fatto.catch(function () {});
+    } catch (e) {}
+  }
+  function disegnaNovita(n) {
+    $("#pr-novita").hidden = !n.totale;
+    $("#pr-novita-titolo").textContent = "🔔 Novità da guardare · " + n.totale;
+    $("#pr-novita-lista").innerHTML = n.lista.map(function (a) {
+      const giorno = a.sera ? C.esc(nomeGiorno(a.sera)) + (nomeGiorno(a.sera) === C.dataBreve(a.sera) ? "" : " " + C.dataBreve(a.sera)) + " alle " + C.esc(a.turno) : "";
+      return '<li data-avviso="' + C.esc(a.id) + '" data-pren="' + C.esc(a.prenotazione || "") + '" data-sera="' + C.esc(a.sera || "") + '">' +
+        '<div class="cresce"><b>' + C.esc(a.titolo) + (a.tipo === "whatsapp" ? "" : " · " + C.esc(a.nome)) + "</b>" +
+        (a.testo ? '<div class="msg-riga">«' + C.esc(a.testo) + "»</div>" : "") +
+        '<div class="dim">' + (giorno ? giorno + (a.persone ? " · " + persone(a.persone) : "") + " · " : "") + (a.tipo === "whatsapp" ? "arrivato " : "arrivata ") + quando(a.quando) + "</div></div>" +
+        '<span class="fisso muted">›</span></li>';
+    }).join("");
+  }
+  $("#pr-novita-lista").addEventListener("click", async function (e) {
+    const li = e.target.closest("[data-avviso]");
+    if (!li) return;
+    if (!li.dataset.pren) { apriMessaggiWa(); return; }     // un messaggio senza prenotazione
+    prSera = li.dataset.sera;
+    await caricaSeraPren();
+    apriPrenotazione(li.dataset.pren);
+  });
+  $("#pr-novita-viste").addEventListener("click", async function () {
+    try {
+      await conPin(function (p) { return S.prenVisto(p, null); });
+      aggiornaNovita();
+      caricaSeraPren();
+      caricaWhatsapp();
+    } catch (e) { errore(e); }
+  });
 
   /* --- WhatsApp di conferma delle prenotazioni (e prosecco di benvenuto) --- */
   async function caricaWhatsapp() {
@@ -902,7 +968,7 @@
       (lista.length ? '<ul class="lista" style="margin-top:10px">' + lista.map(function (m) {
         return '<li style="display:block' + (m.letto ? "" : ";border-left:3px solid var(--gold);padding-left:10px") + '">' +
           "<b>" + C.esc(m.nome) + "</b>" + (m.voto ? ' <span class="pill oro">⭐ ' + m.voto + "</span>" : "") +
-          ' <span class="dim small">' + quando(m.quando) + "</span>" +
+          ' <span class="dim small">' + quando(m.quando) + (m.sera ? " · 📅 " + C.esc(nomeGiorno(m.sera)) + " alle " + C.esc(m.turno) : "") + "</span>" +
           '<div style="margin-top:4px;white-space:pre-wrap">' + C.esc(m.testo) + "</div>" +
           (m.aperta ? '<div class="riga" style="margin-top:8px"><input type="text" class="cresce wa-risposta" maxlength="1000" placeholder="Rispondi…">' +
             '<button class="btn oro piccolo fisso" data-wa-tel="' + C.esc(m.telefono) + '" type="button">Invia</button></div>' : "") +
@@ -923,6 +989,8 @@
       });
     });
     caricaWhatsapp();
+    aggiornaNovita();
+    caricaSeraPren();
   }
   $("#wa-messaggi").addEventListener("click", apriMessaggiWa);
   $("#wa-attivo").addEventListener("change", async function () {
@@ -1071,14 +1139,21 @@
       (t.previsto ? '<div class="barra-coperti"><i style="width:' + pieno + '%"></i></div>' : "") +
       '<ul class="lista">' + (t.lista.length ? t.lista.map(function (x) {
         const st = STATO_PREN[x.stato] || ["", x.stato];
-        return '<li data-pren="' + C.esc(x.id) + '" class="' + (x.stato === "annullata" ? "spenta" : "") + '" style="cursor:pointer">' +
+        const nov = x.novita || {};
+        const suoi = (x.conversazione || []).filter(function (m) { return m.da === "cliente"; });
+        const ultimo = suoi[suoi.length - 1];
+        return '<li data-pren="' + C.esc(x.id) + '" class="' + (x.stato === "annullata" ? "spenta" : "") +
+          (nov.nuova || nov.annullata || nov.messaggi ? " pren-nuova" : "") + '" style="cursor:pointer">' +
           '<span class="persone-tondo">' + x.persone + "</span>" +
           '<div class="cresce"><b><span class="ora-arrivo">' + C.esc(x.turno) + "</span> " + C.esc(x.nome) + "</b>" +
           '<div class="dim">' + (FONTI[x.fonte] || C.esc(x.fonte)) + (x.socio ? " · 💳 socio" : "") +
           (x.benvenuto ? " · 🥂 prosecco per " + x.benvenuto + (x.waAttivato ? " attivato" : x.whatsapp ? " (attende il CIAO)" : "") : "") +
           (x.regalo ? " · " + C.esc(x.regalo.emoji) + " regalo" + (x.regalo.usato ? " usato" : "") : "") +
           (x.whatsapp ? " · " + (WA_BREVE[x.whatsapp] || "") : "") + (x.voto ? " · ⭐ " + x.voto : "") +
-          (x.nota ? " · «" + C.esc(x.nota) + "»" : "") + "</div></div>" +
+          (x.nota ? " · «" + C.esc(x.nota) + "»" : "") + "</div>" +
+          (ultimo ? '<div class="msg-riga">💬 «' + C.esc(ultimo.testo) + "»</div>" : "") + "</div>" +
+          (nov.nuova ? '<span class="pill nuova">NUOVA</span>' : "") +
+          (nov.messaggi ? '<span class="pill nuova">💬 ' + nov.messaggi + "</span>" : "") +
           (x.stato === "confermata" ? "" : '<span class="pill ' + st[0] + '">' + st[1] + "</span>") + "</li>";
       }).join("") : '<li class="vuoto">Nessuna prenotazione.</li>') + "</ul></div>";
   }
@@ -1106,6 +1181,39 @@
     return null;
   }
 
+  // la conversazione su WhatsApp con il cliente: in cima alla scheda, e si risponde da lì
+  function htmlConversazione(x) {
+    const conv = x.conversazione || [];
+    if (!conv.length && !x.finestra) return "";
+    return '<div class="card conv" id="pr-conv"><h3>💬 Messaggi del cliente</h3>' +
+      conv.map(function (m) {
+        return '<div class="bolla ' + (m.da === "cliente" ? "sua" : "mia") + (m.da === "cliente" && !m.letto ? " nuova" : "") + '">' + C.esc(m.testo) +
+          "<small>" + (m.da === "cliente" ? "" : "tu · ") + quando(m.quando) + (m.stato === "errore" ? " · ⚠️ non arrivato" : "") + "</small></div>";
+      }).join("") +
+      (x.finestra && x.telefono
+        ? '<div class="riga" style="margin-top:10px"><input type="text" id="pr-conv-testo" maxlength="1000" placeholder="Rispondi su WhatsApp…">' +
+          '<button class="btn oro piccolo fisso" id="pr-conv-invia" type="button">Invia</button></div>'
+        : '<p class="dim small" style="margin-top:8px">WhatsApp lascia rispondere da qui solo entro 24 ore dal suo ultimo messaggio: ora è meglio chiamarlo.</p>') +
+      "</div>";
+  }
+  function legaConversazione(x) {
+    const invia = $("#pr-conv-invia");
+    if (!invia) return;
+    invia.addEventListener("click", async function () {
+      const testo = $("#pr-conv-testo").value.trim();
+      if (!testo) return;
+      invia.disabled = true;
+      try {
+        await conPin(function (p) { return S.waRispondi(p, x.telefono, testo); });
+        C.toast("Inviato");
+        x.conversazione = (x.conversazione || []).map(function (m) { return Object.assign({}, m, { letto: true }); })
+          .concat([{ da: "titolare", testo: testo, quando: Date.now(), letto: true, stato: "in_coda" }]);
+        $("#pr-conv").outerHTML = htmlConversazione(x);
+        legaConversazione(x);
+      } catch (e) { invia.disabled = false; errore(e); }
+    });
+  }
+
   function apriPrenotazione(id) {
     const x = trovaPrenotazione(id);
     if (!x) return;
@@ -1121,6 +1229,7 @@
       "<h2>" + C.esc(x.nome) + "</h2>" +
       '<p class="dim">' + C.esc(nomeGiorno(x.sera)) + (nomeGiorno(x.sera) !== C.dataBreve(x.sera) ? " " + C.dataBreve(x.sera) : "") +
         " alle " + C.esc(x.turno) + " · " + persone(x.persone) + ' · <span class="pill ' + st[0] + '">' + st[1] + "</span></p>" +
+      htmlConversazione(x) +
       '<ul class="lista" style="margin-top:8px">' +
       (x.telefono ? '<li><span class="cresce">📞 ' + C.esc(telBello(x.telefono)) + "</span>" +
         '<a class="btn vuoto piccolo" target="_blank" rel="noopener" href="' + linkChat(x.telefono, "Ciao " + nome1 + "!") + '">💬</a>' +
@@ -1151,6 +1260,13 @@
       '<label class="campo"><span>Nota</span><textarea id="pm-nota" rows="2" maxlength="300">' + C.esc(x.nota) + "</textarea></label>" +
       '<button class="btn oro pieno" id="pm-salva">Salva le modifiche</button></div>'
     );
+    legaConversazione(x);
+    // aperta = vista: l'icona Prenota si calma (e i messaggi risultano letti)
+    const nov = x.novita || {};
+    if (nov.nuova || nov.annullata || nov.messaggi) {
+      x.novita = {};
+      S.prenVisto(pin, x.id).then(function () { aggiornaNovita(); caricaSeraPren(); }).catch(function () {});
+    }
     $$("[data-stato]", $("#foglio-corpo")).forEach(function (b) {
       b.addEventListener("click", async function () {
         const stato = b.dataset.stato;

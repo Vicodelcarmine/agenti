@@ -37,6 +37,7 @@
 
   const vero = {
     entra: function (pin) { return rpc("pr_entra", { p_pin: pin }); },
+    novita: function (pin) { return rpc("pren_novita", { p_pin: pin }); },
     riepilogo: function (pin, dal, al) { return rpc("dash_riepilogo", { p_pin: pin, p_dal: dal, p_al: al }); },
     clienti: function (pin, dal, al) { return rpc("dash_clienti", { p_pin: pin, p_dal: dal, p_al: al }); },
     cerca: function (pin, q) { return rpc("dash_cerca", { p_pin: pin, p_cerca: q }); },
@@ -210,6 +211,7 @@
 
   const finto = {
     entra: function (pin) { return attendi(function () { controlla(pin); return true; }); },
+    novita: function (pin) { return attendi(function () { controlla(pin); return { totale: 2, lista: [] }; }); },
     riepilogo: function (pin, dal, al) {
       return attendi(function () {
         controlla(pin);

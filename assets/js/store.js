@@ -977,7 +977,7 @@ const Store = (function () {
   }
 
   /* ---------- prenotazioni (demo) ---------- */
-  const PREN = "vdcpren_demo_v4";
+  const PREN = "vdcpren_demo_v5";
   // per le prenotazioni conta il giorno di calendario a Firenze, non la "sera" degli agenti
   function prenOggi() { return C.sera(Date.now() + 6 * 3600e3); }
   function prenImpostazioniBase() {
@@ -1002,6 +1002,15 @@ const Store = (function () {
     p(1, "21:00", 8, "Gruppo Ferretti", "+393331234000", "telefono", "Tavolo lungo", "confermata", 40);
     p(3, "21:30", 2, "Paolo Riva", "+393381112222", "sito", "", "confermata", 2,
       { socio: false, benvenuto: 2, whatsapp: "errore", waErrore: "Il numero non ha WhatsApp" });
+    // un messaggio e una prenotazione nuova ancora da guardare: l'icona Prenota salta
+    const giulia = db.prenotazioni[0], marco = db.prenotazioni[3];
+    const ritardo = "Buonasera, siamo in ritardo di una ventina di minuti: arriviamo verso le 19:50";
+    giulia.conversazione = [{ da: "cliente", testo: ritardo, quando: Date.now() - 12 * 60e3, letto: false }];
+    giulia.finestra = true;
+    db.avvisi = [
+      { id: C.casuale(8), prenotazione: giulia.id, tipo: "whatsapp", titolo: "💬 WhatsApp da Giulia Rossi", testo: ritardo, creato: Date.now() - 12 * 60e3, visto: null },
+      { id: C.casuale(8), prenotazione: marco.id, tipo: "nuova", titolo: null, testo: null, creato: Date.now() - 4 * 60e3, visto: null },
+    ];
     return db;
   }
   function prenLeggi() {
@@ -1009,6 +1018,7 @@ const Store = (function () {
     try { db = JSON.parse(localStorage.getItem(PREN)); } catch (e) {}
     if (!db) { db = prenDatiIniziali(); prenScrivi(db); }
     db.impostazioni = Object.assign(prenImpostazioniBase(), db.impostazioni);
+    db.avvisi = db.avvisi || [];
     return db;
   }
   function prenScrivi(db) { try { localStorage.setItem(PREN, JSON.stringify(db)); } catch (e) {} }
@@ -1032,7 +1042,38 @@ const Store = (function () {
     imp.fasce.forEach(function (f) { for (let m = min(f.dalle); m <= min(f.alle); m += imp.passo) l.push(hhmm(m)); });
     return l;
   }
-  function prenVista(x) { return Object.assign({}, x); }
+  function prenVista(x) {
+    const av = prenLeggi().avvisi.filter(function (a) { return a.prenotazione === x.id && !a.visto; });
+    const di = function (tipo) { return av.filter(function (a) { return a.tipo === tipo; }).length; };
+    return Object.assign({ conversazione: [], finestra: false }, x,
+      { novita: { nuova: di("nuova") > 0, annullata: di("annullata") > 0, messaggi: di("whatsapp") } });
+  }
+  // le novità da guardare (come pren_novita nel database): fanno saltare l'icona Prenota
+  function prenNovita(pin) {
+    return rete(function () {
+      controllaPin(leggi(), pin);
+      const db = prenLeggi();
+      const aperti = db.avvisi.filter(function (a) { return !a.visto; }).sort(function (x, y) { return y.creato - x.creato; });
+      return { totale: aperti.length, lista: aperti.slice(0, 30).map(function (a) {
+        const p = db.prenotazioni.find(function (x) { return x.id === a.prenotazione; }) || {};
+        return { id: a.id, tipo: a.tipo, quando: a.creato, prenotazione: p.id || null, sera: p.sera || null, turno: p.turno || null,
+          nome: p.nome || null, persone: p.persone || null, testo: a.testo,
+          titolo: a.titolo || (a.tipo === "nuova" ? "📅 Nuova prenotazione" : "❌ Annullata dal cliente") };
+      }) };
+    });
+  }
+  function prenVisto(pin, id) {
+    return rete(function () {
+      controllaPin(leggi(), pin);
+      const db = prenLeggi();
+      db.avvisi.forEach(function (a) { if (!a.visto && (!id || a.prenotazione === id)) a.visto = Date.now(); });
+      db.prenotazioni.forEach(function (x) {
+        if (!id || x.id === id) (x.conversazione || []).forEach(function (m) { m.letto = true; });
+      });
+      prenScrivi(db);
+      return db.avvisi.filter(function (a) { return !a.visto; }).length;
+    });
+  }
   const ORARIO = /^([01]\d|2[0-3]):[0-5]\d$/;
 
   function prenGiorno(pin, sera) {
@@ -1253,7 +1294,9 @@ const Store = (function () {
   function waMessaggi(pin) {
     return rete(function () {
       controllaPin(leggi(), pin);
-      const ora = Date.now();
+      const ora = Date.now(), db = prenLeggi();
+      db.avvisi.forEach(function (a) { if (!a.visto && a.tipo === "whatsapp") a.visto = ora; });
+      prenScrivi(db);
       return [
         { id: 1, telefono: "+393474455667", nome: "Marco Bianchi", testo: "Ciao!", tipo: "attiva", quando: ora - 3600e3, letto: false, aperta: true },
         { id: 2, telefono: "+393381112222", nome: "Paolo Riva", testo: "Il servizio è stato lento, abbiamo aspettato 40 minuti la pizza.", tipo: "testo",
@@ -1266,6 +1309,8 @@ const Store = (function () {
     return rete(function () {
       controllaPin(leggi(), pin);
       if (!String(testo || "").trim()) throw errore("vuoto", "Scrivi il messaggio");
+      const db = prenLeggi(), x = db.prenotazioni.find(function (p) { return p.telefono === telefono && p.conversazione; });
+      if (x) { x.conversazione.push({ da: "titolare", testo: testo, quando: Date.now(), letto: true, stato: "in_coda" }); prenScrivi(db); }
       return { ok: true };
     });
   }
@@ -1320,7 +1365,7 @@ const Store = (function () {
     clubOfferte, clubSalvaOfferte, clubMessaggi, clubGiroOra, clubProvaAvviso,
     clubStatoInvii: function () { return Promise.resolve({ email: false }); },
     clubInvia: function () { return Promise.resolve({ inviati: 0 }); },
-    prenGiorno, prenAggiungi, prenModifica, prenImpostazioni, prenSalvaImpostazioni,
+    prenGiorno, prenAggiungi, prenModifica, prenImpostazioni, prenSalvaImpostazioni, prenNovita, prenVisto,
     prenSalvaPush: function () { return Promise.reject(errore("demo", "Nella demo le notifiche non partono")); },
     prenProvaAvviso: function () { return Promise.reject(errore("demo", "Nella demo le notifiche non partono")); },
     aspImpostazioni, aspSalvaImpostazioni, aspStorico, waImpostazioni, waSalva, waMessaggi, waRispondi,
@@ -1461,6 +1506,9 @@ const Store = (function () {
     prenModifica: function (pin, id, dati) { return rpc("pren_modifica", { p_pin: pin, p_id: id, p_dati: dati }); },
     prenImpostazioni: function (pin) { return rpc("pren_impostazioni", { p_pin: pin }); },
     prenSalvaImpostazioni: function (pin, dati) { return rpc("pren_salva_impostazioni", { p_pin: pin, p_dati: dati }); },
+    // le novità da guardare e "l'ho visto" (supabase/27-novita-prenotazioni.sql; senza id = tutte)
+    prenNovita: function (pin) { return rpc("pren_novita", { p_pin: pin }); },
+    prenVisto: function (pin, id) { return rpc("pren_visto", { p_pin: pin, p_prenotazione: id || null }); },
     prenSalvaPush: function (pin, sub) { return rpc("pren_salva_push", { p_pin: pin, p_sub: sub }); },
     // mette in coda un avviso di prova e lo manda subito; false = non c'è ancora nessuna prenotazione da usare
     prenProvaAvviso: async function (pin) {
