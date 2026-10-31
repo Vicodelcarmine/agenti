@@ -500,15 +500,22 @@
     $$("[data-camp-wa]", $("#cl-camp")).forEach(function (btn) {
       btn.addEventListener("click", async function () {
         const accendi = btn.dataset.campWa === "1";
-        const domanda = btn.dataset.camp === CAMP_DIRETTO
-          ? "Accendo i WhatsApp di «Prenota diretto»? Da ora chi prenota su TheFork (tranne chi ha usato il 50%) riceve il messaggio, " +
-            "se Meta ha approvato il modello. I rischi con TheFork, Meta e privacy restano: meglio sentire prima il consulente."
-          : "Accendo il WhatsApp di richiamo? Parte solo se Meta ha approvato il modello, " +
-            "ai clienti che non hanno ancora scoperto il regalo, " + "qualche giorno dopo l'email del loro gruppo.";
-        if (accendi && !confirm(domanda)) return;
-        btn.disabled = true;
-        try { await conPin(function (pp) { return S.campWaAttiva(pp, btn.dataset.camp, accendi); }); caricaCampagne(); }
-        catch (e) { errore(e); btn.disabled = false; }
+        const cambia = async function () {
+          btn.disabled = true;
+          try { await conPin(function (pp) { return S.campWaAttiva(pp, btn.dataset.camp, accendi); }); caricaCampagne(); }
+          catch (e) { errore(e); btn.disabled = false; }
+        };
+        if (accendi && btn.dataset.camp === CAMP_DIRETTO) {
+          apriFoglio("<h2>📲 Accendo Prenota diretto?</h2>" +
+            '<p class="dim" style="margin-top:6px">Da ora chi prenota su TheFork (tranne chi ha usato il 50%) riceve il messaggio, se Meta ha approvato il modello. ' +
+            "I rischi con TheFork, Meta e privacy restano: meglio sentire prima il consulente.</p>" +
+            '<button class="btn oro" id="tf-accendi" style="margin-top:12px">Sì, accendi</button>');
+          $("#tf-accendi").addEventListener("click", function () { chiudiFoglio(); cambia(); });
+          return;
+        }
+        if (accendi && !confirm("Accendo il WhatsApp di richiamo? Parte solo se Meta ha approvato il modello, " +
+          "ai clienti che non hanno ancora scoperto il regalo, " + "qualche giorno dopo l'email del loro gruppo.")) return;
+        cambia();
       });
     });
   }
@@ -566,28 +573,49 @@
       }).join("") + "</ul>" : '<p class="dim" style="margin-top:10px">Ancora nessuna email letta.</p>'));
     } catch (e) { errore(e); }
   }
-  async function creaChiaveTf() {
-    if (!confirm("Creo una chiave nuova per la posta? Se ce n'era già una, smette subito di funzionare e va cambiata nello script di Google.")) return;
-    try {
-      const r = await conPin(S.tfNuovaChiave);
-      apriFoglio("<h2>🔑 Chiave della posta</h2>" +
-        '<p class="dim" style="margin-top:6px">Copiala adesso e incollala nello script di Google (Proprietà script → VICO_CHIAVE). Si vede una volta sola. Non mandarla per messaggio.</p>' +
-        '<input id="tf-chiave" readonly style="width:100%;margin-top:10px" value="' + C.esc(r.chiave) + '">' +
-        '<button class="btn oro" id="tf-copia" style="margin-top:10px">Copia</button>');
-      $("#tf-copia").addEventListener("click", function () {
-        $("#tf-chiave").select();
-        navigator.clipboard.writeText(r.chiave).then(function () { C.toast("Copiata"); }, function () { C.toast("Copiala a mano", true); });
-      });
-      caricaCampagne();
-    } catch (e) { errore(e); }
+  // qui le domande stanno nel foglio e non in confirm()/prompt(): alcuni browser le bloccano senza dire niente
+  function creaChiaveTf() {
+    apriFoglio("<h2>🔑 Chiave della posta</h2>" +
+      '<p class="dim" style="margin-top:6px">Serve allo script di Google per mandare qui le email di TheFork. Se ce n\'era già una, smette subito di funzionare e va cambiata nello script.</p>' +
+      '<button class="btn oro" id="tf-crea" style="margin-top:12px">Crea la chiave</button>');
+    $("#tf-crea").addEventListener("click", async function () {
+      const b = this;
+      b.disabled = true;
+      try {
+        const r = await conPin(S.tfNuovaChiave);
+        apriFoglio("<h2>🔑 Chiave della posta</h2>" +
+          '<p class="dim" style="margin-top:6px">Copiala adesso e incollala nello script di Google (Proprietà script → VICO_CHIAVE). Si vede una volta sola. Non mandarla per messaggio.</p>' +
+          '<input id="tf-chiave" type="text" readonly style="width:100%;margin-top:10px;font-family:monospace;font-size:.85rem" value="' + C.esc(r.chiave) + '">' +
+          '<button class="btn oro" id="tf-copia" style="margin-top:10px">Copia</button>');
+        $("#tf-copia").addEventListener("click", function () {
+          $("#tf-chiave").select();
+          const aMano = function () {
+            let fatto = false;
+            try { fatto = document.execCommand("copy"); } catch (e) { /* resta selezionata: si copia a mano */ }
+            C.toast(fatto ? "Copiata" : "È selezionata: premi ⌘C", !fatto);
+          };
+          if (navigator.clipboard) navigator.clipboard.writeText(r.chiave).then(function () { C.toast("Copiata"); }, aMano);
+          else aMano();
+        });
+        caricaCampagne();
+      } catch (e) { errore(e); b.disabled = false; }
+    });
   }
-  async function mandaProvaTf() {
-    const tel = prompt("A quale numero mando la prova? (il tuo, col prefisso se non è italiano)");
-    if (!tel) return;
-    try {
-      await conPin(function (pp) { return S.tfProva(pp, tel, true); });
-      C.toast("Prova in coda: arriva entro 2 minuti, se Meta ha approvato il modello");
-    } catch (e) { errore(e); }
+  function mandaProvaTf() {
+    apriFoglio("<h2>📲 Manda una prova</h2>" +
+      '<p class="dim" style="margin-top:6px">Arriva il messaggio vero, con il link vero. Parte solo se Meta ha approvato il modello.</p>' +
+      '<label style="display:block;margin-top:10px">Il tuo numero<input id="tf-numero" type="tel" inputmode="tel" style="width:100%;margin-top:4px"></label>' +
+      '<button class="btn oro" id="tf-manda" style="margin-top:12px">Manda la prova</button>');
+    $("#tf-manda").addEventListener("click", async function () {
+      const b = this, tel = $("#tf-numero").value.trim();
+      if (!tel) return C.toast("Scrivi il tuo numero", true);
+      b.disabled = true;
+      try {
+        await conPin(function (pp) { return S.tfProva(pp, tel, true); });
+        chiudiFoglio();
+        C.toast("Prova in coda: arriva entro 2 minuti, se Meta ha approvato il modello");
+      } catch (e) { errore(e); b.disabled = false; }
+    });
   }
   $("#cl-camp").addEventListener("click", function (e) {
     const b = e.target.closest("[data-tf]");
