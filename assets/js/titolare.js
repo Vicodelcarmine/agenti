@@ -1109,9 +1109,13 @@
       const d = await conPin(function (p) { return S.prenGiorno(p, prSera); });
       prDati = d;
       prSera = d.sera;
-      $("#pr-sera").textContent = nomeGiorno(d.sera) + (nomeGiorno(d.sera) === C.dataBreve(d.sera) ? "" : " · " + C.dataBreve(d.sera));
+      $("#pr-sera").textContent = nomeGiorno(d.sera) + (nomeGiorno(d.sera) === C.dataBreve(d.sera) ? "" : " · " + C.dataBreve(d.sera)) +
+        (d.sera.slice(0, 4) === d.oggi.slice(0, 4) ? "" : " " + d.sera.slice(0, 4));
       $("#pr-data").value = d.sera;
-      $("#pr-prima").disabled = d.sera <= C.piuGiorni(d.oggi, -1);
+      // le frecce saltano alla sera più vicina con prenotazioni: quelle vuote si saltano
+      $("#pr-prima").disabled = !d.prima;
+      $("#pr-dopo").disabled = !d.dopo;
+      $("#pr-oggi").hidden = d.sera === d.oggi;
       $("#pr-chiuso").hidden = !d.chiuso;
       $("#pr-turni").innerHTML = d.turni.length ? d.turni.map(function (t) { return disegnaTurno(t, d.coperti); }).join("")
         : '<div class="card"><p class="vuoto">Nessun turno impostato.</p></div>';
@@ -1169,8 +1173,9 @@
     caricaSeraPren();
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
-  $("#pr-prima").addEventListener("click", function () { prSera = C.piuGiorni(prSera || oggiCalendario(), -1); caricaSeraPren(); });
-  $("#pr-dopo").addEventListener("click", function () { prSera = C.piuGiorni(prSera || oggiCalendario(), 1); caricaSeraPren(); });
+  $("#pr-prima").addEventListener("click", function () { if (prDati && prDati.prima) { prSera = prDati.prima; caricaSeraPren(); } });
+  $("#pr-dopo").addEventListener("click", function () { if (prDati && prDati.dopo) { prSera = prDati.dopo; caricaSeraPren(); } });
+  $("#pr-oggi").addEventListener("click", function () { prSera = null; caricaSeraPren(); });
   $("#pr-data").addEventListener("change", function () { if (this.value) { prSera = this.value; caricaSeraPren(); } });
 
   function trovaPrenotazione(id) {
@@ -1318,7 +1323,7 @@
       '<label class="campo"><span>Da dove arriva</span><select id="pn-fonte">' +
         '<option value="telefono">📞 Telefono</option><option value="thefork">🍴 TheFork</option>' +
         '<option value="google">🔎 Google</option><option value="altro">✍️ Altro</option></select></label>' +
-      '<label class="campo"><span>Sera</span><input type="date" id="pn-sera" value="' + (prSera || oggiCalendario()) + '"></label>' +
+      '<label class="campo"><span>Sera</span><input type="date" id="pn-sera" value="' + (prSera && prSera > oggiCalendario() ? prSera : oggiCalendario()) + '"></label>' +
       '<p class="muted small">Ora di arrivo</p><div class="turni-scelta" id="pn-turni">' +
         turni.map(function (t, i) { return '<button type="button" data-ora="' + t + '" class="' + (i ? "" : "on") + '">' + t + "</button>"; }).join("") +
         '<input type="time" id="pn-altro" aria-label="Altro orario"></div>' +

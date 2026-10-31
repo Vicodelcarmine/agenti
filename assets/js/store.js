@@ -977,7 +977,7 @@ const Store = (function () {
   }
 
   /* ---------- prenotazioni (demo) ---------- */
-  const PREN = "vdcpren_demo_v5";
+  const PREN = "vdcpren_demo_v6";
   // per le prenotazioni conta il giorno di calendario a Firenze, non la "sera" degli agenti
   function prenOggi() { return C.sera(Date.now() + 6 * 3600e3); }
   function prenImpostazioniBase() {
@@ -998,6 +998,8 @@ const Store = (function () {
     p(0, "20:30", 6, "Famiglia Conti", "+393385551212", "thefork", "Compleanno della nonna", "confermata", 50);
     p(0, "21:30", 3, "Marco Bianchi", "+393474455667", "sito", "", "confermata", 3, { socio: false, benvenuto: 3, whatsapp: "letto", waAttivato: Date.now() - 2 * 3600e3 });
     p(0, "22:00", 2, "Anna Galli", "+393299988776", "google", "", "annullata", 8);
+    p(-9, "20:30", 2, "Elena Moretti", "+393471230000", "telefono", "", "arrivati", 240);
+    p(-3, "19:30", 6, "Tavolo Rinaldi", "+393331230001", "sito", "", "arrivati", 90);
     p(1, "20:00", 5, "Sara Verdi", "+393201234567", "sito", "Allergia alle noci", "confermata", 12);
     p(1, "21:00", 8, "Gruppo Ferretti", "+393331234000", "telefono", "Tavolo lungo", "confermata", 40);
     p(3, "21:30", 2, "Paolo Riva", "+393381112222", "sito", "", "confermata", 2,
@@ -1092,6 +1094,8 @@ const Store = (function () {
       }
       return {
         sera: s, oggi: oggi, coperti: db.impostazioni.coperti, chiuso: prenChiusa(db, s), prossimi: prossimi,
+        prima: db.prenotazioni.map(function (x) { return x.sera; }).filter(function (d) { return d < s; }).sort().pop() || null,
+        dopo: db.prenotazioni.map(function (x) { return x.sera; }).filter(function (d) { return d > s; }).sort()[0] || null,
         turni: db.impostazioni.fasce.map(function (f, k) {
           return { ora: f.dalle + " – " + f.alle, dalle: f.dalle, alle: f.alle, numero: k + 1, previsto: true,
             prenotati: prenOccupati(db, s, k),
