@@ -779,9 +779,12 @@ const Store = (function () {
     });
   }
   // la campagna "regalo a sorpresa" della demo: numeri finti, per vedere il riquadro
-  let campWaDemo = false;
+  let campWaDemo = false, campWaDiretto = false;
   function campWaAttiva(pin, id, attivo) {
-    return rete(function () { controllaPin(leggi(), pin); campWaDemo = !!attivo; }).then(function () { return campPanoramica(pin); });
+    return rete(function () {
+      controllaPin(leggi(), pin);
+      if (id === "diretto-thefork") campWaDiretto = !!attivo; else campWaDemo = !!attivo;
+    }).then(function () { return campPanoramica(pin); });
   }
   function campPanoramica(pin) {
     return rete(function () {
@@ -804,8 +807,41 @@ const Store = (function () {
           { id: "PROSECCO", emoji: "🥂", nome: "Prosecco di benvenuto per il tavolo", peso: 15, limite: null, usciti: 7 },
           { id: "DOLCE", emoji: "🍰", nome: "Dolce della casa offerto", peso: 15, limite: null, usciti: 6 },
           { id: "SPRITZ", emoji: "🍹", nome: "Spritz offerto", peso: 10, limite: null, usciti: 3 },
-        ] }];
+        ] },
+        { id: "diretto-thefork", nome: "Prenota diretto · clienti TheFork", attiva: true, sere: 15, scopriEntro: null,
+          contatti: 2, aperti: 2, scoperti: 1, prenotati: 1, usati: 0, disiscritti: 0,
+          wa: { attivo: campWaDiretto, modello: "prenota_diretto", giorni: 3, inviati: 2, letti: 2, errori: 0, scopertiDopo: 1, ultimoErrore: null },
+          gruppi: null, senzaGruppo: 2, premi: [] }];
     });
+  }
+  // "Prenota diretto" della demo: email TheFork finte, per vedere il riquadro e l'elenco
+  let tfChiaveDemo = false;
+  function tfPanoramica(pin) {
+    return rete(function () {
+      controllaPin(leggi(), pin);
+      return { collegata: tfChiaveDemo, ultimoGiro: tfChiaveDemo ? new Date(Date.now() - 180000).toISOString() : null,
+               lette: 12, trenta: 3, senza: 1, cinquanta: 8, esclusi: 8, pronte: 2, inviate: 2, saltate: 0, impronte: 214,
+               motivi: [{ motivo: "ha prenotato col 50%", n: 8 }], spostati: 1, doppioni: 1 };
+    });
+  }
+  function tfElenco(pin) {
+    return rete(function () {
+      controllaPin(leggi(), pin);
+      const r = function (nome, tel, g, n, sc, stato, motivo, extra) {
+        return Object.assign({ id: nome, ricevuta: new Date().toISOString(), nome: nome, telefono: tel, email: nome.split(" ")[0].toLowerCase() + "@example.com",
+                               persone: n, sconto: sc, promo: sc ? sc + "% di sconto" : "", sera: C.piuGiorni(C.sera(Date.now()), g), stato: stato, motivo: motivo }, extra || {});
+      };
+      return [r("Laura Conti", "+393351122334", 2, 4, 30, "pronta", null),
+              r("Paolo Ferri", "+393392233445", 3, 2, 0, "inviata", null, { attivata: true, prenotato: true }),
+              r("Sara Neri", "+393403344556", 2, 2, 50, "esclusa", "ha prenotato col 50%"),
+              r("Tom Baker", "+447700900123", 4, 2, 30, "esclusa", "non è un cellulare italiano")];
+    });
+  }
+  function tfNuovaChiave(pin) {
+    return rete(function () { controllaPin(leggi(), pin); tfChiaveDemo = true; return { chiave: "DEMO-questa-non-e-una-chiave-vera-0000" }; });
+  }
+  function tfProva(pin) {
+    return rete(function () { controllaPin(leggi(), pin); return { codice: "DEMO" }; });
   }
   function clubAnnulla(pin, codice) {
     return rete(function () {
@@ -977,7 +1013,7 @@ const Store = (function () {
   }
 
   /* ---------- prenotazioni (demo) ---------- */
-  const PREN = "vdcpren_demo_v6";
+  const PREN = "vdcpren_demo_v7";
   // per le prenotazioni conta il giorno di calendario a Firenze, non la "sera" degli agenti
   function prenOggi() { return C.sera(Date.now() + 6 * 3600e3); }
   function prenImpostazioniBase() {
@@ -996,7 +1032,7 @@ const Store = (function () {
     p(0, "19:30", 4, "Giulia Rossi", "+393331112233", "sito", "Un seggiolone, grazie", "confermata", 26);
     p(0, "19:00", 2, "Luca Neri", "+393409876543", "telefono", "", "confermata", 30);
     p(0, "20:30", 6, "Famiglia Conti", "+393385551212", "thefork", "Compleanno della nonna", "confermata", 50);
-    p(0, "21:30", 3, "Marco Bianchi", "+393474455667", "sito", "", "confermata", 3, { socio: false, benvenuto: 3, whatsapp: "letto", waAttivato: Date.now() - 2 * 3600e3 });
+    p(0, "21:30", 3, "Marco Bianchi", "+393474455667", "sito", "", "confermata", 3, { socio: false, suThefork: true, benvenuto: 3, whatsapp: "letto", waAttivato: Date.now() - 2 * 3600e3 });
     p(0, "22:00", 2, "Anna Galli", "+393299988776", "google", "", "annullata", 8);
     p(-9, "20:30", 2, "Elena Moretti", "+393471230000", "telefono", "", "arrivati", 240);
     p(-3, "19:30", 6, "Tavolo Rinaldi", "+393331230001", "sito", "", "arrivati", 90);
@@ -1364,7 +1400,7 @@ const Store = (function () {
     entra, leggiBuono, riscatta, annulla, panoramica, dettaglioAgente, salvaAgente, nuovaChiave, eliminaAgente,
     pagamento, premi, salvaPremi, impostazioni, salvaImpostazioni,
     candidatura, candidature, approvaCandidatura, scartaCandidatura, canali,
-    clubPanoramica, clubElenco, clubDettaglio, clubLeggiPremio, clubUsa, clubAnnulla, campPanoramica, campWaAttiva,
+    clubPanoramica, clubElenco, clubDettaglio, clubLeggiPremio, clubUsa, clubAnnulla, campPanoramica, campWaAttiva, tfPanoramica, tfElenco, tfNuovaChiave, tfProva,
     clubImpostazioni, clubSalvaImpostazioni, clubElimina,
     clubOfferte, clubSalvaOfferte, clubMessaggi, clubGiroOra, clubProvaAvviso,
     clubStatoInvii: function () { return Promise.resolve({ email: false }); },
@@ -1492,6 +1528,11 @@ const Store = (function () {
     campPanoramica: function (pin) { return rpc("camp_panoramica", { p_pin: pin }); },
     // il WhatsApp di richiamo della campagna (supabase/19-campagna-whatsapp.sql)
     campWaAttiva: function (pin, id, attivo) { return rpc("camp_wa_attiva", { p_pin: pin, p_campagna: id, p_attivo: !!attivo }); },
+    // "Prenota diretto": le email di TheFork lette dallo script di Google (supabase/29-prenota-diretto.sql)
+    tfPanoramica: function (pin) { return rpc("tf_panoramica", { p_pin: pin }); },
+    tfElenco: function (pin) { return rpc("tf_elenco", { p_pin: pin }); },
+    tfNuovaChiave: function (pin) { return rpc("tf_nuova_chiave", { p_pin: pin }); },
+    tfProva: function (pin, tel, sconto) { return rpc("tf_prova", { p_pin: pin, p_telefono: tel, p_sconto: !!sconto }); },
     clubImpostazioni: function (pin) { return rpc("club_impostazioni", { p_pin: pin }); },
     clubSalvaImpostazioni: function (pin, dati) { return rpc("club_salva_impostazioni", { p_pin: pin, p_dati: dati }); },
     clubElimina: function (pin, id) { return rpc("club_elimina_iscritto", { p_pin: pin, p_id: id }); },

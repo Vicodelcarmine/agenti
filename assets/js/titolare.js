@@ -471,11 +471,13 @@
 
   // le campagne "regalo a sorpresa" (supabase/18-campagna-regalo.sql): come stanno andando
   async function caricaCampagne() {
-    let lista = null;
+    let lista = null, tf = null;
     try { lista = await conPin(S.campPanoramica); } catch (e) { /* non ancora installate: il riquadro resta nascosto */ }
     $("#cl-camp-box").hidden = !(lista && lista.length);
     if (!lista) return;
+    try { tf = await conPin(S.tfPanoramica); } catch (e) { /* 29-prenota-diretto.sql non ancora installato */ }
     $("#cl-camp").innerHTML = lista.map(function (k) {
+      if (k.id === CAMP_DIRETTO) return campDiretto(k, tf);
       return '<p style="margin-top:4px"><b>' + C.esc(k.nome) + "</b>" + (k.attiva ? "" : ' <span class="pill">ferma</span>') + "</p>" +
         '<div class="kpi" style="margin-top:8px">' +
           "<div><b>" + k.contatti + "</b><span>contatti</span></div>" +
@@ -498,14 +500,100 @@
     $$("[data-camp-wa]", $("#cl-camp")).forEach(function (btn) {
       btn.addEventListener("click", async function () {
         const accendi = btn.dataset.campWa === "1";
-        if (accendi && !confirm("Accendo il WhatsApp di richiamo? Parte solo se Meta ha approvato il modello, " +
-          "ai clienti che non hanno ancora scoperto il regalo, " + "qualche giorno dopo l'email del loro gruppo.")) return;
+        const domanda = btn.dataset.camp === CAMP_DIRETTO
+          ? "Accendo i WhatsApp di «Prenota diretto»? Da ora chi prenota su TheFork (tranne chi ha usato il 50%) riceve il messaggio, " +
+            "se Meta ha approvato il modello. I rischi con TheFork, Meta e privacy restano: meglio sentire prima il consulente."
+          : "Accendo il WhatsApp di richiamo? Parte solo se Meta ha approvato il modello, " +
+            "ai clienti che non hanno ancora scoperto il regalo, " + "qualche giorno dopo l'email del loro gruppo.";
+        if (accendi && !confirm(domanda)) return;
         btn.disabled = true;
         try { await conPin(function (pp) { return S.campWaAttiva(pp, btn.dataset.camp, accendi); }); caricaCampagne(); }
         catch (e) { errore(e); btn.disabled = false; }
       });
     });
   }
+  // "Prenota diretto" (supabase/29-prenota-diretto.sql): le email di TheFork lette, l'interruttore, come va
+  const CAMP_DIRETTO = "diretto-thefork";
+  function campDiretto(k, t) {
+    const w = k.wa || {};
+    t = t || { lette: 0, trenta: 0, senza: 0, esclusi: 0, inviate: 0, spostati: 0, doppioni: 0, motivi: [] };
+    const giro = t.ultimoGiro ? C.dataBreve(C.sera(t.ultimoGiro)) + " " + C.ora(t.ultimoGiro) : "";
+    return '<p style="margin-top:18px"><b>' + C.esc(k.nome) + "</b></p>" +
+      '<p class="dim">Dalle email di TheFork: un solo WhatsApp a chi prenota per un\'altra sera, con l\'offerta per prenotare dal sito. ' +
+      "Mai a chi ha usato il 50%, mai di sabato, dalle 10 alle 20. Chi scrive STOP non lo riceve.</p>" +
+      '<div class="riga" style="margin-top:8px;align-items:center">' +
+        '<span class="pill fisso ' + (w.attivo ? "ok" : "no") + '">' + (w.attivo ? "acceso" : "spento") + "</span>" +
+        '<button class="btn fisso ' + (w.attivo ? "vuoto " : "oro ") + 'piccolo" data-camp="' + C.esc(k.id) + '" data-camp-wa="' +
+          (w.attivo ? "0" : "1") + '">' + (w.attivo ? "Spegni" : "Accendi") + "</button></div>" +
+      '<div class="kpi" style="margin-top:8px">' +
+        "<div><b>" + t.lette + "</b><span>email lette</span></div>" +
+        "<div><b>" + t.trenta + "</b><span>con sconto</span></div>" +
+        "<div><b>" + t.senza + "</b><span>senza sconto</span></div></div>" +
+      '<div class="kpi" style="margin-top:8px">' +
+        "<div><b>" + t.esclusi + "</b><span>esclusi</span></div>" +
+        "<div><b>" + (w.inviati || 0) + "</b><span>WhatsApp partiti</span></div>" +
+        "<div><b>" + (w.letti || 0) + "</b><span>letti</span></div></div>" +
+      '<div class="kpi" style="margin-top:8px">' +
+        "<div><b>" + k.aperti + "</b><span>hanno aperto il link</span></div>" +
+        '<div class="euro"><b>' + k.scoperti + "</b><span>offerte attivate</span></div>" +
+        '<div class="euro"><b>' + (t.spostati || 0) + "</b><span>hanno prenotato dal sito</span></div></div>" +
+      (t.doppioni ? '<p class="dim" style="margin-top:8px">⚠️ ' + t.doppioni + " con la stessa sera anche su TheFork: " +
+        "controlla che l'abbiano annullata. Non annullarla tu: il contratto lo cita come trattamento scorretto.</p>" : "") +
+      (w.errori ? '<p class="dim" style="margin-top:6px">⚠️ ' + w.errori + " non partiti" +
+        (w.ultimoErrore ? ": " + C.esc(w.ultimoErrore) : "") + "</p>" : "") +
+      '<p class="dim" style="margin-top:8px">📧 Posta: ' + (t.collegata ? (giro ? "ultimo controllo " + giro : "chiave creata, lo script non ha ancora chiamato") : "non collegata") + "</p>" +
+      '<div class="riga" style="margin-top:8px;flex-wrap:wrap;gap:8px">' +
+        '<button class="btn vuoto piccolo fisso" data-tf="elenco">📋 Elenco clienti</button>' +
+        '<button class="btn vuoto piccolo fisso" data-tf="prova">📲 Manda una prova</button>' +
+        '<button class="btn vuoto piccolo fisso" data-tf="chiave">🔑 Chiave della posta</button></div>';
+  }
+  const STATI_TF = { pronta: ["da inviare", "oro"], inviata: ["inviata", "ok"], esclusa: ["esclusa", "no"], saltata: ["saltata", ""], passata: ["passata", ""] };
+  async function apriElencoTf() {
+    try {
+      const l = await conPin(S.tfElenco);
+      apriFoglio("<h2>📧 Clienti dalle email TheFork</h2>" + (l.length ? '<ul class="lista" style="margin-top:10px">' + l.map(function (x) {
+        const st = STATI_TF[x.stato] || [x.stato, ""];
+        return '<li><div class="cresce"><b>' + C.esc(x.nome || "—") + "</b>" +
+          '<div class="dim">' + (x.sera ? C.esc(C.dataBreve(x.sera)) + " · " : "") + persone(x.persone) + " · " + (x.sconto ? x.sconto + "%" : "senza sconto") +
+          (x.attivata ? " · 🥂 offerta attivata" : "") + (x.prenotato ? " · 📅 ha prenotato dal sito" : "") + "</div>" +
+          '<div class="dim"><a href="tel:' + C.esc(x.telefono || "") + '">' + C.esc(telBello(x.telefono)) + "</a>" +
+          (x.email ? " · " + C.esc(x.email) : "") + "</div>" +
+          (x.motivo ? '<div class="dim">' + C.esc(x.motivo) + "</div>" : "") + "</div>" +
+          '<span class="pill ' + st[1] + '">' + C.esc(st[0]) + "</span></li>";
+      }).join("") + "</ul>" : '<p class="dim" style="margin-top:10px">Ancora nessuna email letta.</p>'));
+    } catch (e) { errore(e); }
+  }
+  async function creaChiaveTf() {
+    if (!confirm("Creo una chiave nuova per la posta? Se ce n'era già una, smette subito di funzionare e va cambiata nello script di Google.")) return;
+    try {
+      const r = await conPin(S.tfNuovaChiave);
+      apriFoglio("<h2>🔑 Chiave della posta</h2>" +
+        '<p class="dim" style="margin-top:6px">Copiala adesso e incollala nello script di Google (Proprietà script → VICO_CHIAVE). Si vede una volta sola. Non mandarla per messaggio.</p>' +
+        '<input id="tf-chiave" readonly style="width:100%;margin-top:10px" value="' + C.esc(r.chiave) + '">' +
+        '<button class="btn oro" id="tf-copia" style="margin-top:10px">Copia</button>');
+      $("#tf-copia").addEventListener("click", function () {
+        $("#tf-chiave").select();
+        navigator.clipboard.writeText(r.chiave).then(function () { C.toast("Copiata"); }, function () { C.toast("Copiala a mano", true); });
+      });
+      caricaCampagne();
+    } catch (e) { errore(e); }
+  }
+  async function mandaProvaTf() {
+    const tel = prompt("A quale numero mando la prova? (il tuo, col prefisso se non è italiano)");
+    if (!tel) return;
+    try {
+      await conPin(function (pp) { return S.tfProva(pp, tel, true); });
+      C.toast("Prova in coda: arriva entro 2 minuti, se Meta ha approvato il modello");
+    } catch (e) { errore(e); }
+  }
+  $("#cl-camp").addEventListener("click", function (e) {
+    const b = e.target.closest("[data-tf]");
+    if (!b) return;
+    if (b.dataset.tf === "elenco") apriElencoTf();
+    else if (b.dataset.tf === "chiave") creaChiaveTf();
+    else if (b.dataset.tf === "prova") mandaProvaTf();
+  });
+
   // il WhatsApp di richiamo (supabase/19-campagna-whatsapp.sql): acceso o no, i gruppi e quando parte
   function campWhatsapp(k) {
     const w = k.wa;
@@ -1153,6 +1241,7 @@
           '<div class="dim">' + (FONTI[x.fonte] || C.esc(x.fonte)) + (x.socio ? " · 💳 socio" : "") +
           (x.benvenuto ? " · 🥂 prosecco per " + x.benvenuto + (x.waAttivato ? " attivato" : x.whatsapp ? " (attende il CIAO)" : "") : "") +
           (x.regalo ? " · " + C.esc(x.regalo.emoji) + " regalo" + (x.regalo.usato ? " usato" : "") : "") +
+          (x.suThefork ? " · ⚠️ anche su TheFork" : "") +
           (x.whatsapp ? " · " + (WA_BREVE[x.whatsapp] || "") : "") + (x.voto ? " · ⭐ " + x.voto : "") +
           (x.nota ? " · «" + C.esc(x.nota) + "»" : "") + "</div>" +
           (ultimo ? '<div class="msg-riga">💬 «' + C.esc(ultimo.testo) + "»</div>" : "") + "</div>" +
@@ -1249,7 +1338,9 @@
       (x.benvenuto ? '<li><span class="cresce">🥂 Cliente nuovo: prosecco di benvenuto per ' + persone(x.benvenuto) +
         '<span class="dim" style="display:block">' + (x.waAttivato ? "Attivato: ha risposto su WhatsApp " + quando(x.waAttivato)
           : x.whatsapp ? "Vale quando risponde CIAO al WhatsApp di conferma" : "Lo vede sulla conferma del sito") + "</span></span></li>" : "") +
-      (x.regalo ? '<li><span class="cresce">' + C.esc(x.regalo.emoji) + " Regalo a sorpresa: " + C.esc(x.regalo.nome.it) +
+      (x.suThefork ? '<li><span class="cresce">⚠️ Questo numero ha anche una prenotazione TheFork per questa sera' +
+        '<span class="dim" style="display:block">Controlla che il cliente l\'abbia annullata. Non annullarla tu da TheFork.</span></span></li>' : "") +
+      (x.regalo ? '<li><span class="cresce">' + C.esc(x.regalo.emoji) + " Regalo della campagna: " + C.esc(x.regalo.nome.it) +
         '<span class="dim" style="display:block">' + (x.regalo.usato ? "Già usato " + quando(x.regalo.usato)
           : "Codice " + codiceClub(x.regalo.codice) + " · si usa come i premi del Club") + "</span></span>" +
         (x.regalo.usato ? "" : '<button class="btn oro piccolo" data-azione="regalo" data-codice="' + C.esc(x.regalo.codice) + '">Apri</button>') +

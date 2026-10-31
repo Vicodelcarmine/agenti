@@ -41,7 +41,7 @@
     google: "Google", "google-maps": "Google Maps", instagram: "Instagram", facebook: "Facebook", tiktok: "TikTok",
     thefork: "TheFork", tripadvisor: "Tripadvisor", telefono: "Telefono", sito: "Sito (origine sconosciuta)",
     "manuale:telefono": "Telefono", "manuale:thefork": "TheFork", "manuale:google": "Google (segnata a mano)", "manuale:altro": "Altro (segnata a mano)",
-    diretto: "Diretto", "campagna:regalo": "Campagna regalo", "campagna:regalo-thefork": "Campagna regalo", menu: "Menu",
+    diretto: "Diretto", "campagna:regalo": "Campagna regalo", "campagna:regalo-thefork": "Campagna regalo", "campagna:diretto": "Campagna prenota diretto", menu: "Menu",
     whatsapp: "WhatsApp", ricerca: "Altri motori di ricerca", "altro-sito": "Altri siti", prenotazione: "Prenotando dal sito",
     asporto: "Ordinando l'asporto", fortuna: "Gioco Fortuna", "menu-qr": "Menu o QR in sala", altro: "Altro", volantino: "Volantino",
   };
