@@ -1185,7 +1185,7 @@
   function htmlConversazione(x) {
     const conv = x.conversazione || [];
     if (!conv.length && !x.finestra) return "";
-    return '<div class="card conv" id="pr-conv"><h3>💬 Messaggi del cliente</h3>' +
+    return '<div class="card conv" id="pr-conv"><h3>' + (conv.length ? "💬 Messaggi del cliente" : "💬 Scrivi al cliente") + "</h3>" +
       conv.map(function (m) {
         return '<div class="bolla ' + (m.da === "cliente" ? "sua" : "mia") + (m.da === "cliente" && !m.letto ? " nuova" : "") + '">' + C.esc(m.testo) +
           "<small>" + (m.da === "cliente" ? "" : "tu · ") + quando(m.quando) + (m.stato === "errore" ? " · ⚠️ non arrivato" : "") + "</small></div>";
@@ -1193,7 +1193,7 @@
       (x.finestra && x.telefono
         ? '<div class="riga" style="margin-top:10px"><input type="text" id="pr-conv-testo" maxlength="1000" placeholder="Rispondi su WhatsApp…">' +
           '<button class="btn oro piccolo fisso" id="pr-conv-invia" type="button">Invia</button></div>'
-        : '<p class="dim small" style="margin-top:8px">WhatsApp lascia rispondere da qui solo entro 24 ore dal suo ultimo messaggio: ora è meglio chiamarlo.</p>') +
+        : '<p class="dim small" style="margin-top:8px">Sono passate più di 24 ore dal suo ultimo messaggio: WhatsApp non lascia più rispondere dal numero del Vico. Usa il tasto 📱 qui sotto o chiamalo.</p>') +
       "</div>";
   }
   function legaConversazione(x) {
@@ -1231,8 +1231,15 @@
         " alle " + C.esc(x.turno) + " · " + persone(x.persone) + ' · <span class="pill ' + st[0] + '">' + st[1] + "</span></p>" +
       htmlConversazione(x) +
       '<ul class="lista" style="margin-top:8px">' +
-      (x.telefono ? '<li><span class="cresce">📞 ' + C.esc(telBello(x.telefono)) + "</span>" +
-        '<a class="btn vuoto piccolo" target="_blank" rel="noopener" href="' + linkChat(x.telefono, "Ciao " + nome1 + "!") + '">💬</a>' +
+      // il tasto del messaggio fa due cose: se il cliente ha scritto nelle ultime 24 ore si risponde
+      // da qui, dal numero del Vico; altrimenti WhatsApp non lo permette e si apre quello di questo telefono
+      (x.telefono ? '<li><span class="cresce">📞 ' + C.esc(telBello(x.telefono)) +
+        '<span class="dim small" style="display:block">' + (x.finestra
+          ? "💬 Ti ha scritto nelle ultime 24 ore: il messaggio parte dal " + C.esc(telBello("+" + C.RISTORANTE.whatsapp))
+          : "📱 Non ti ha scritto nelle ultime 24 ore: il messaggio parte dal WhatsApp di questo telefono") + "</span></span>" +
+        (x.finestra
+          ? '<button class="btn oro piccolo" id="pr-scrivi" type="button" aria-label="Scrivi dal numero del Vico">💬</button>'
+          : '<a class="btn vuoto piccolo" target="_blank" rel="noopener" aria-label="Scrivi dal WhatsApp di questo telefono" href="' + linkChat(x.telefono, "Ciao " + nome1 + "!") + '">📱</a>') +
         '<a class="btn vuoto piccolo" href="tel:' + C.esc(x.telefono) + '">Chiama</a></li>' : "") +
       (x.benvenuto ? '<li><span class="cresce">🥂 Cliente nuovo: prosecco di benvenuto per ' + persone(x.benvenuto) +
         '<span class="dim" style="display:block">' + (x.waAttivato ? "Attivato: ha risposto su WhatsApp " + quando(x.waAttivato)
@@ -1261,6 +1268,12 @@
       '<button class="btn oro pieno" id="pm-salva">Salva le modifiche</button></div>'
     );
     legaConversazione(x);
+    const scrivi = $("#pr-scrivi");
+    if (scrivi) scrivi.addEventListener("click", function () {
+      const campo = $("#pr-conv-testo");
+      campo.scrollIntoView({ block: "center" });
+      campo.focus();
+    });
     // aperta = vista: l'icona Prenota si calma (e i messaggi risultano letti)
     const nov = x.novita || {};
     if (nov.nuova || nov.annullata || nov.messaggi) {
