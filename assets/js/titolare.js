@@ -516,15 +516,18 @@
   const CAMP_DIRETTO = "diretto-thefork";
   function campDiretto(k, t) {
     const w = k.wa || {};
-    t = t || { lette: 0, trenta: 0, senza: 0, esclusi: 0, inviate: 0, spostati: 0, doppioni: 0, motivi: [] };
+    t = t || { lette: 0, trenta: 0, senza: 0, esclusi: 0, inviate: 0, spostati: 0, doppioni: 0, impronte: 0, motivi: [] };
     const giro = t.ultimoGiro ? C.dataBreve(C.sera(t.ultimoGiro)) + " " + C.ora(t.ultimoGiro) : "";
+    // finché non c'è l'elenco storico di chi ha usato il 50% non si accende: scriverebbe anche a loro
+    const senzaElenco = !w.attivo && t.impronte < 50;
     return '<p style="margin-top:18px"><b>' + C.esc(k.nome) + "</b></p>" +
       '<p class="dim">Dalle email di TheFork: un solo WhatsApp a chi prenota per un\'altra sera, con l\'offerta per prenotare dal sito. ' +
       "Mai a chi ha usato il 50%. Parte dalle 10 alle 20, anche di sabato. Chi scrive STOP non lo riceve.</p>" +
       '<div class="riga" style="margin-top:8px;align-items:center">' +
         '<span class="pill fisso ' + (w.attivo ? "ok" : "no") + '">' + (w.attivo ? "acceso" : "spento") + "</span>" +
-        '<button class="btn fisso ' + (w.attivo ? "vuoto " : "oro ") + 'piccolo" data-camp="' + C.esc(k.id) + '" data-camp-wa="' +
-          (w.attivo ? "0" : "1") + '">' + (w.attivo ? "Spegni" : "Accendi") + "</button></div>" +
+        (senzaElenco ? '<span class="dim">Si potrà accendere quando è caricato l\'elenco di chi ha usato il 50%</span>'
+          : '<button class="btn fisso ' + (w.attivo ? "vuoto " : "oro ") + 'piccolo" data-camp="' + C.esc(k.id) + '" data-camp-wa="' +
+            (w.attivo ? "0" : "1") + '">' + (w.attivo ? "Spegni" : "Accendi") + "</button>") + "</div>" +
       '<div class="kpi" style="margin-top:8px">' +
         "<div><b>" + t.lette + "</b><span>email lette</span></div>" +
         "<div><b>" + t.trenta + "</b><span>con sconto</span></div>" +
