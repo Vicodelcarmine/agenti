@@ -520,7 +520,7 @@
     const giro = t.ultimoGiro ? C.dataBreve(C.sera(t.ultimoGiro)) + " " + C.ora(t.ultimoGiro) : "";
     return '<p style="margin-top:18px"><b>' + C.esc(k.nome) + "</b></p>" +
       '<p class="dim">Dalle email di TheFork: un solo WhatsApp a chi prenota per un\'altra sera, con l\'offerta per prenotare dal sito. ' +
-      "Mai a chi ha usato il 50%, mai di sabato, dalle 10 alle 20. Chi scrive STOP non lo riceve.</p>" +
+      "Mai a chi ha usato il 50%. Parte dalle 10 alle 20, anche di sabato. Chi scrive STOP non lo riceve.</p>" +
       '<div class="riga" style="margin-top:8px;align-items:center">' +
         '<span class="pill fisso ' + (w.attivo ? "ok" : "no") + '">' + (w.attivo ? "acceso" : "spento") + "</span>" +
         '<button class="btn fisso ' + (w.attivo ? "vuoto " : "oro ") + 'piccolo" data-camp="' + C.esc(k.id) + '" data-camp-wa="' +

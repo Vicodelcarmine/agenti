@@ -4,15 +4,17 @@
 -- le email "Nuova prenotazione" di TheFork e le manda qui (tf_ricevi, con una chiave sua):
 -- nome, telefono, email, persone, promozione, sera. La lista si riempie sempre.
 -- Il WhatsApp parte SOLO con l'interruttore acceso (camp_campagne.wa_attivo, di base spento) e il
--- modello approvato da Meta, una volta sola per numero, dalle 10 alle 20, mai di sabato, a chi:
+-- modello approvato da Meta, una volta sola per numero, dalle 10 alle 20, anche di sabato, a chi:
 --   · non ha mai usato il 50%                 · ha un cellulare italiano
---   · ha prenotato per un'altra sera (non per stasera, e mai per un sabato)
+--   · ha prenotato per un'altra sera (non per stasera)
 --   · non ha scritto STOP                     · non ha già ricevuto una campagna
 --   · non ha già prenotato dal sito           · quella sera sul sito trova posto
 -- Dal bottone arriva alla sua pagina (vicodelcarmine.it/regalo/?c=CODICE): entra nel Club, ha
 -- l'offerta (camp_contatti.premio_fisso, senza sorteggio) e prenota con sera e persone già pronte.
 -- Dopo la prenotazione per la stessa sera la pagina gli chiede di annullare l'altra.
 -- Il ristorante NON annulla mai su TheFork (contratto, Offerte Speciali 2.1).
+-- Il sabato (scelta del titolare, 31/10/2026): questa campagna scrive anche di sabato e l'offerta vale
+-- anche di sabato (camp_campagne.sabato_si); nel numero di sere per cui vale il sabato non si conta mai.
 -- Si può rieseguire: non cancella niente e non riaccende l'interruttore.
 -- =============================================================================
 
@@ -54,6 +56,8 @@ alter table public.tf_config  enable row level security;
 alter table public.tf_email   enable row level security;
 alter table public.tf_esclusi enable row level security;
 
+alter table public.camp_campagne add column if not exists sabato_si boolean not null default false;
+
 -- l'offerta decisa da noi (niente sorteggio) e la sera già pronta nel modulo
 alter table public.camp_contatti
   add column if not exists premio_fisso text,
@@ -62,8 +66,8 @@ alter table public.camp_contatti
 
 
 -- ---------- la campagna: spenta finché non la accende il titolare ----------
-insert into public.camp_campagne (id, nome, sere, scopri_entro, sostituisce_benvenuto, wa_attivo, wa_modello, wa_giorni, wa_max_giorno)
-values ('diretto-thefork', 'Prenota diretto · clienti TheFork', 15, null, true, false, 'prenota_diretto', 3, 20)
+insert into public.camp_campagne (id, nome, sere, scopri_entro, sostituisce_benvenuto, wa_attivo, wa_modello, wa_giorni, wa_max_giorno, sabato_si)
+values ('diretto-thefork', 'Prenota diretto · clienti TheFork', 15, null, true, false, 'prenota_diretto', 3, 20, true)
 on conflict (id) do nothing;
 
 insert into public.camp_premi (campagna, id, emoji, nome, descr, persone, peso, limite, ordine) values
@@ -107,6 +111,18 @@ language sql stable security definer set search_path = public as $$
                     and (t->>'liberi')::int >= n)
 $$;
 
+-- si può mandare adesso un messaggio di questa campagna? Come camp_wa_ora_buona, ma con sabato_si
+-- si scrive anche di sabato (mai nei giorni di chiusura)
+create or replace function public.camp_ora_campagna(c text, t timestamptz) returns boolean
+language sql stable set search_path = public as $$
+  select case when coalesce((select sabato_si from public.camp_campagne where id = c), false)
+    then extract(hour from t at time zone 'Europe/Rome') between 10 and 19
+         and not (extract(dow from t at time zone 'Europe/Rome')::int
+                  = any(coalesce((select giorni_chiusura from public.club_impostazioni where id = 1), '{}'::int[])))
+    else public.camp_wa_ora_buona(t) end
+$$;
+
+revoke execute on function public.camp_ora_campagna(text, timestamptz) from public, anon, authenticated;
 revoke execute on function public.tf_impronta(text)         from public, anon, authenticated;
 revoke execute on function public.tf_gia_contattato(text)   from public, anon, authenticated;
 revoke execute on function public.tf_posto(date, int)       from public, anon, authenticated;
@@ -154,7 +170,8 @@ begin
       when exists (select 1 from public.tf_esclusi x where x.impronta = public.tf_impronta(tel)) then 'ha già usato il 50%'
       when tel is null or tel !~ '^\+393\d{8,10}$' then 'non è un cellulare italiano'
       when s is null then 'email senza data'
-      when extract(dow from s)::int = any(public.camp_giorni_no()) then 'prenotazione di sabato'
+      when extract(dow from s)::int = any(coalesce((select giorni_chiusura from public.club_impostazioni where id = 1), '{}'::int[]))
+        then 'giorno di chiusura'
     end;
     insert into public.tf_email (id, email_id, ricevuta, nome, telefono, email, persone, promo, sconto, sera, stato, motivo)
     values (rid, left(r->>'emailId', 80), coalesce(q, now()), left(trim(coalesce(r->>'nome', '')), 120), tel,
@@ -192,7 +209,7 @@ begin
   delete from public.tf_email where creato < now() - interval '24 months';
 
   select * into k from public.camp_campagne where id = 'diretto-thefork';
-  if k.id is null or not k.attiva or not k.wa_attivo or not public.camp_wa_ora_buona(now())
+  if k.id is null or not k.attiva or not k.wa_attivo or not public.camp_ora_campagna(k.id, now())
      or coalesce((select numero_id from public.wa_config where id = 1), '') = '' then
     return 0;
   end if;
@@ -239,6 +256,49 @@ end $$;
 
 revoke execute on function public.tf_pianifica() from public, anon, authenticated;
 grant execute on function public.tf_pianifica() to service_role;
+
+
+-- ---------- la coda: l'ora buona dipende dalla campagna (19-campagna-whatsapp.sql) ----------
+create or replace function public.wa_prendi_uscita(n int) returns jsonb
+language plpgsql volatile security definer set search_path = public as $$
+declare cfg public.wa_config; r record; lista jsonb := '[]'::jsonb; salta text;
+begin
+  select * into cfg from public.wa_config where id = 1;
+  for r in
+    select u.*, c.stop, c.ultimo_in, p.stato as pren_stato, p.voto, p.nome as pren_nome,
+           cc.premio as camp_premio, cc.disiscritto as camp_disiscritto
+      from public.wa_uscita u
+      left join public.wa_contatti c on c.telefono = u.telefono
+      left join public.pren_prenotazioni p on p.id = u.prenotazione
+      left join public.camp_contatti cc on cc.id = u.contatto
+     where u.stato = 'in_coda' and u.quando <= now()
+       and (u.tipo <> 'campagna'
+            or (public.camp_ora_campagna(cc.campagna, now())
+                and exists (select 1 from public.camp_campagne k where k.id = cc.campagna and k.attiva and k.wa_attivo)))
+     order by u.quando limit n for update of u skip locked
+  loop
+    salta := case
+      when coalesce(r.stop, false) and r.tipo not in ('stop', 'start') then 'ha scritto STOP'
+      when r.tipo = 'club' and exists (select 1 from public.club_iscritti where telefono = r.telefono) then 'già nel Club'
+      when r.tipo = 'voto' and (r.pren_stato in ('annullata', 'noshow') or r.voto is not null) then 'prenotazione annullata o voto già dato'
+      when r.tipo = 'campagna' and r.contatto is null then 'contatto cancellato'
+      when r.tipo = 'campagna' and r.camp_premio is not null then 'ha già scoperto il regalo'
+      when r.tipo = 'campagna' and r.camp_disiscritto is not null then 'disiscritto dalle email'
+      when r.modello is null and (r.ultimo_in is null or r.ultimo_in < now() - interval '23 hours 50 minutes')
+        then 'fuori dalle 24 ore'
+      end;
+    if salta is not null then
+      update public.wa_uscita set stato = 'saltato', errore = salta where id = r.id;
+    else
+      update public.wa_uscita set stato = 'invio' where id = r.id;
+      lista := lista || jsonb_build_object('id', r.id, 'telefono', r.telefono, 'tipo', r.tipo, 'modello', r.modello,
+                                           'parametri', r.parametri, 'link', r.link, 'testo', r.testo, 'lingua', r.lingua);
+    end if;
+  end loop;
+  return jsonb_build_object('numeroId', cfg.numero_id, 'messaggi', lista);
+end $$;
+revoke execute on function public.wa_prendi_uscita(int) from public, anon, authenticated;
+grant execute on function public.wa_prendi_uscita(int) to service_role;
 
 
 -- ---------- la campagna regalo non riscrive a chi ha già ricevuto questa ----------
@@ -357,11 +417,12 @@ begin
    order by power(random(), 1.0 / p.peso) desc limit 1;
   if pr.id is null then raise exception 'I regali sono finiti' using hint = 'finiti'; end if;
 
-  -- vale da stasera (o dalla prima sera buona) per k.sere sere: sabato e chiusura non contano
+  -- vale da stasera (o dalla prima sera buona) per k.sere sere: sabato e chiusura non contano mai,
+  -- ma con sabato_si il sabato il premio si può usare
   select * into imp from public.club_impostazioni where id = 1;
-  g  := imp.giorni_no || imp.giorni_chiusura;
+  g  := case when k.sabato_si then imp.giorni_chiusura else imp.giorni_no || imp.giorni_chiusura end;
   d1 := public.club_piu_sere(public.pr_sera(now()), 1, g);
-  d2 := public.club_piu_sere(d1, k.sere, g);
+  d2 := public.club_piu_sere(d1, k.sere, imp.giorni_no || imp.giorni_chiusura);
   loop
     cod := public.pr_casuale(7);
     exit when not exists (select 1 from public.club_premi where codice = cod);
@@ -500,3 +561,17 @@ grant execute on function public.tf_panoramica(text), public.tf_elenco(text), pu
 -- ================= OROLOGIO =================
 -- ogni 5 minuti: la coda la manda poi il lavoro "whatsapp-invia" (ogni 2 minuti)
 select cron.schedule('tf-pianifica', '*/5 * * * *', $tf$ select public.tf_pianifica(); $tf$);
+
+-- ogni 2 minuti (stesso lavoro di 19-campagna-whatsapp.sql): l'ora buona dipende dalla campagna
+select cron.schedule('whatsapp-invia', '*/2 * * * *', $wa$
+  select public.wa_pianifica();
+  select public.camp_pianifica_wa();
+  select net.http_post(
+    url     := 'https://agbvmhpktilpaoabjkre.supabase.co/functions/v1/whatsapp-invia',
+    body    := '{"azione":"invia"}'::jsonb,
+    headers := '{"Content-Type":"application/json","apikey":"sb_publishable_2O5l8ZbQqGnwDXwxZnsZ2Q_0Mt1V8T7"}'::jsonb)
+   where exists (select 1 from public.pren_prenotazioni where wa_stato = 'in_coda')
+      or exists (select 1 from public.wa_uscita u left join public.camp_contatti c on c.id = u.contatto
+                  where u.stato = 'in_coda' and u.quando <= now()
+                    and (u.tipo <> 'campagna' or public.camp_ora_campagna(c.campagna, now())));
+$wa$);
