@@ -93,6 +93,7 @@
     document.body.style.overflow = "hidden";
   }
   function chiudiFoglio() {
+    fermaAscolto();   // se si stava dettando una prenotazione
     $("#foglio").hidden = true;
     document.body.style.overflow = "";
   }
@@ -1341,6 +1342,7 @@
           '<span class="persone-tondo">' + x.persone + "</span>" +
           '<div class="cresce"><b><span class="ora-arrivo">' + C.esc(x.turno) + "</span> " + C.esc(x.nome) + "</b>" +
           '<div class="dim">' + (FONTI[x.fonte] || C.esc(x.fonte)) + (x.socio ? " · 💳 socio" : "") +
+          (x.telefono || x.stato === "annullata" ? "" : ' · <span class="manca-tel-riga">📞 manca il numero</span>') +
           (x.benvenuto ? " · 🥂 prosecco per " + x.benvenuto + (x.waAttivato ? " attivato" : x.whatsapp ? " (attende il CIAO)" : "") : "") +
           (x.regalo ? " · " + C.esc(x.regalo.emoji) + " regalo" + (x.regalo.usato ? " usato" : "") : "") +
           (x.suThefork ? " · ⚠️ anche su TheFork" : "") +
@@ -1426,6 +1428,12 @@
       '<p class="dim">' + C.esc(nomeGiorno(x.sera)) + (nomeGiorno(x.sera) !== C.dataBreve(x.sera) ? " " + C.dataBreve(x.sera) : "") +
         " alle " + C.esc(x.turno) + " · " + persone(x.persone) + ' · <span class="pill ' + st[0] + '">' + st[1] + "</span></p>" +
       htmlConversazione(x) +
+      (x.telefono || x.stato === "annullata" ? "" : '<div class="card manca-tel"><h3>📞 Manca il numero</h3>' +
+        (navigator.clipboard && navigator.clipboard.readText
+          ? '<button type="button" class="btn oro pieno pn-grande" id="pt-incolla">📋 Incolla il numero</button>' : "") +
+        '<div class="riga" style="margin-top:10px"><input type="tel" id="pt-tel" inputmode="tel" autocomplete="off" placeholder="oppure scrivilo qui">' +
+          '<button type="button" class="btn vuoto fisso" id="pt-salva">Salva</button></div>' +
+        '<p class="pn-errore" id="pt-errore" hidden></p></div>') +
       '<ul class="lista" style="margin-top:8px">' +
       // il tasto del messaggio fa due cose: se il cliente ha scritto nelle ultime 24 ore si risponde
       // da qui, dal numero del Vico; altrimenti WhatsApp non lo permette e si apre quello di questo telefono
@@ -1458,6 +1466,7 @@
         return '<button class="btn ' + a[2] + ' pieno" data-stato="' + a[0] + '">' + a[1] + "</button>";
       }).join("") + "</div>" +
       '<div class="card"><h3>✏️ Modifica</h3>' +
+      '<label class="campo"><span>Nome</span><input type="text" id="pm-nome" maxlength="60" autocomplete="off" value="' + C.esc(x.nome) + '"></label>' +
       '<div class="riga">' +
         '<label class="campo"><span>Persone</span><input type="number" inputmode="numeric" id="pm-persone" min="1" max="200" value="' + x.persone + '"></label>' +
         '<label class="campo"><span>Ora di arrivo</span><input type="time" id="pm-turno" value="' + C.esc(x.turno) + '"></label></div>' +
@@ -1487,9 +1496,21 @@
       });
     });
     $("#pm-salva").addEventListener("click", function () {
-      modificaPren(x, { persone: $("#pm-persone").value, turno: $("#pm-turno").value, sera: $("#pm-sera").value,
+      modificaPren(x, { nome: $("#pm-nome").value, persone: $("#pm-persone").value, turno: $("#pm-turno").value, sera: $("#pm-sera").value,
         nota: $("#pm-nota").value }, "Prenotazione aggiornata");
     });
+    // il numero aggiunto dopo (prenotazione dettata a voce o presa senza): incollato si salva subito
+    const salvaNumero = function (t) {
+      if (!telNormale(t)) { $("#pt-errore").textContent = "Il numero non sembra giusto: controllalo."; $("#pt-errore").hidden = false; return; }
+      modificaPren(x, { telefono: t }, "Numero aggiunto a " + x.nome);
+    };
+    const bIncolla = $("#pt-incolla");
+    if (bIncolla) bIncolla.addEventListener("click", async function () {
+      try { salvaNumero(await numeroCopiato()); }
+      catch (e) { $("#pt-errore").textContent = e.message; $("#pt-errore").hidden = false; }
+    });
+    const bNumero = $("#pt-salva");
+    if (bNumero) bNumero.addEventListener("click", function () { salvaNumero($("#pt-tel").value); });
     // il regalo della campagna si usa dalla pagina "Riscatta", come i premi del Club
     const bRegalo = $('[data-azione="regalo"]', $("#foglio-corpo"));
     if (bRegalo) bRegalo.addEventListener("click", function () {
@@ -1512,12 +1533,12 @@
      Sera → ora → persone → telefono → nome. Ogni tocco porta al passo dopo; in alto restano le scelte fatte
      e toccandole si torna a quel passo. Si fa in pochi tocchi, senza cercare i campi. */
   const PN_PASSI = [["📅", "Che sera?"], ["🕗", "A che ora arrivano?"], ["👥", "Quante persone?"],
-                    ["📞", "Il numero di telefono"], ["✍️", "Il nome"]];
+                    ["📞", "Il numero di telefono"], ["✍️", "Il nome"], ["✅", "Tutto giusto?"]];   // l'ultimo solo a voce
   const PN_FONTI = [["telefono", "📞 Telefono"], ["thefork", "🍴 TheFork"], ["google", "🔎 Google"], ["altro", "✍️ Altro"]];
   let pn = null;   // la prenotazione che si sta scrivendo
   $("#pr-nuova").addEventListener("click", function () {
     pn = { passo: 0, sera: null, ora: null, persone: null, piu: false, telefono: "", nome: "", nomeTrovato: false,
-           nota: "", fonte: "telefono", giorno: null };
+           nota: "", fonte: "telefono", giorno: null, voce: null };
     apriFoglio('<div class="pn" id="pn"></div>');
     disegnaPn();
   });
@@ -1529,12 +1550,12 @@
     box.innerHTML =
       '<div class="pn-testa">' +
         (pn.passo ? '<button type="button" class="pn-indietro" data-pn-vai="' + (pn.passo - 1) + '" aria-label="Indietro">‹</button>' : "") +
-        '<div class="pn-punti" aria-label="Passo ' + (pn.passo + 1) + " di " + PN_PASSI.length + '">' + PN_PASSI.map(function (x, i) {
+        '<div class="pn-punti" aria-label="Passo ' + Math.min(pn.passo + 1, 5) + ' di 5">' + PN_PASSI.slice(0, 5).map(function (x, i) {
           return '<i class="' + (i < pn.passo ? "fatto" : i === pn.passo ? "qui" : "") + '"></i>';
         }).join("") + "</div></div>" +
-      sceltePn() +
+      (pn.passo < 5 ? sceltePn() : "") +
       '<h2 class="pn-domanda">' + p[0] + " " + p[1] + "</h2>" +
-      '<div class="pn-corpo">' + [passoSera, passoOra, passoPersone, passoTelefono, passoNome][pn.passo]() + "</div>";
+      '<div class="pn-corpo">' + [passoSera, passoOra, passoPersone, passoTelefono, passoNome, passoConferma][pn.passo]() + "</div>";
     // la sera scelta resta in vista nella fila dei giorni
     const on = $(".pn-giorno.on", box);
     if (on) on.parentNode.scrollLeft = on.offsetLeft - 16;
@@ -1544,6 +1565,11 @@
     disegnaPn();
     $("#foglio .dentro").scrollTop = 0;
     if (n === 4 && !pn.nome) $("#pn-nome").focus();
+  }
+  // a voce si salta ai pezzi che mancano e poi al riepilogo; a mano si va al passo dopo
+  function avantiPn(n) { vaiPn(pn.voce ? primoMancante() : n); }
+  function primoMancante() {
+    return !pn.sera ? 0 : !pn.ora ? 1 : !pn.persone ? 2 : String(pn.nome).trim().length < 2 ? 4 : 5;
   }
   // le scelte già fatte, in alto: toccandone una si torna a quel passo
   function sceltePn() {
@@ -1579,12 +1605,15 @@
   }
   async function scegliSera(s) {
     pn.sera = s;
+    avantiPn(1);
+    caricaGiornoPn(s);
+  }
+  // i posti liberi di quella sera, per ogni orario e per gli avvisi (se non arrivano si va avanti lo stesso)
+  async function caricaGiornoPn(s) {
     pn.giorno = null;
-    vaiPn(1);
-    // i posti liberi di quella sera, per ogni orario (se non arrivano si va avanti lo stesso)
     try {
       const g = await conPin(function (p) { return S.prenGiorno(p, s); });
-      if (pn && pn.sera === s) { pn.giorno = g; if (pn.passo === 1) disegnaPn(); }
+      if (pn && pn.sera === s) { pn.giorno = g; if (pn.passo === 1 || pn.passo === 5) disegnaPn(); }
     } catch (e) {}
   }
 
@@ -1642,22 +1671,23 @@
     $("#pn-tel-errore").hidden = true;
     if (ok) cercaNomePn();
   }
-  async function incollaPn() {
-    const err = $("#pn-tel-errore");
-    let testo = "";
+  // il numero copiato dalle chiamate recenti: dal telefono può avere spazi e segni invisibili di direzione del testo
+  async function numeroCopiato() {
+    let testo;
     try { testo = await navigator.clipboard.readText(); }
-    catch (e) { err.textContent = "Non riesco a leggere il numero copiato: scrivilo qui sotto."; err.hidden = false; return; }
-    // dal telefono il numero copiato può avere spazi e segni invisibili di direzione del testo
-    testo = String(testo || "").replace(/[‎‏‪-‮⁦-⁩]/g, "").trim();
+    catch (e) { throw new Error("Non riesco a leggere il numero copiato: scrivilo qui sotto."); }
+    testo = String(testo || "").replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, "").trim();
     const t = telNormale(testo);
-    if (!t || /[^\d\s+().\/-]/.test(testo)) {
-      err.textContent = "Nel copiato non c'è un numero di telefono. Copialo dalle chiamate recenti e riprova.";
-      err.hidden = false;
-      return;
-    }
+    if (!t || /[^\d\s+().\/-]/.test(testo)) throw new Error("Nel copiato non c'è un numero di telefono. Copialo dalle chiamate recenti e riprova.");
+    return t;
+  }
+  async function incollaPn() {
+    let t;
+    try { t = await numeroCopiato(); }
+    catch (e) { $("#pn-tel-errore").textContent = e.message; $("#pn-tel-errore").hidden = false; return; }
     $("#pn-tel").value = telBello(t);
     scriviTelefono(telBello(t));
-    vaiPn(4);
+    avantiPn(4);
   }
   // se il numero è di un cliente già visto (prenotazioni, Club, asporto), il nome si scrive da solo
   async function cercaNomePn() {
@@ -1695,9 +1725,9 @@
     return a;
   }
   async function salvaPn(btn) {
-    pn.nome = $("#pn-nome").value.trim();
-    if (pn.nome.length < 2) { C.toast("Scrivi il nome", true); $("#pn-nome").focus(); return; }
-    const dati = { fonte: pn.fonte, sera: pn.sera, turno: pn.ora, persone: pn.persone, telefono: pn.telefono, nome: pn.nome, nota: $("#pn-nota").value };
+    pn.nome = String(pn.nome).trim();
+    if (pn.nome.length < 2) { C.toast("Scrivi il nome", true); if (pn.passo === 4) $("#pn-nome").focus(); else vaiPn(4); return; }
+    const dati = { fonte: pn.fonte, sera: pn.sera, turno: pn.ora, persone: pn.persone, telefono: pn.telefono, nome: pn.nome, nota: pn.nota };
     btn.disabled = true;
     try {
       await conPin(function (p) { return S.prenAggiungi(p, dati); });
@@ -1709,7 +1739,7 @@
     } catch (e) {
       btn.disabled = false;
       errore(e);
-      const passo = { sera: 0, turno: 1, persone: 2, telefono: 3 }[e.codice];   // si torna al passo da sistemare
+      const passo = { sera: 0, turno: 1, persone: 2, telefono: 3, nome: 4 }[e.codice];   // si torna al passo da sistemare
       if (passo != null) vaiPn(passo);
     }
   }
@@ -1720,15 +1750,15 @@
     if (!b || b.disabled) return;
     if (b.dataset.pnVai != null) vaiPn(Number(b.dataset.pnVai));
     else if (b.dataset.sera) scegliSera(b.dataset.sera);
-    else if (b.dataset.ora) { pn.ora = b.dataset.ora; vaiPn(2); }
+    else if (b.dataset.ora) { pn.ora = b.dataset.ora; avantiPn(2); }
     else if (b.id === "pn-altra-ora-ok") {
       const v = $("#pn-altra-ora").value;
       if (!/^\d\d:\d\d$/.test(v)) { C.toast("Scegli l'orario", true); return; }
       pn.ora = v;
-      vaiPn(2);
+      avantiPn(2);
     }
     else if (b.dataset.persone === "piu") { pn.piu = true; disegnaPn(); }
-    else if (b.dataset.persone) { pn.persone = Number(b.dataset.persone); pn.piu = false; vaiPn(3); }
+    else if (b.dataset.persone) { pn.persone = Number(b.dataset.persone); pn.piu = false; avantiPn(3); }
     else if (b.dataset.pnD) {
       const campo = $("#pn-n");
       campo.value = Math.min(200, Math.max(9, (parseInt(campo.value, 10) || 9) + Number(b.dataset.pnD)));
@@ -1737,11 +1767,12 @@
       const n = parseInt($("#pn-n").value, 10);
       if (!(n >= 1 && n <= 200)) { C.toast("Numero di persone non valido", true); return; }
       pn.persone = n;
-      vaiPn(3);
+      avantiPn(3);
     }
     else if (b.id === "pn-incolla") incollaPn();
-    else if (b.id === "pn-tel-ok") vaiPn(4);
-    else if (b.id === "pn-senza-tel") { scriviTelefono(""); vaiPn(4); }
+    else if (b.id === "pn-tel-ok") avantiPn(4);
+    else if (b.id === "pn-senza-tel") { scriviTelefono(""); avantiPn(4); }
+    else if (b.id === "pv-ridi") apriVoce();
     else if (b.dataset.fonte) {
       pn.fonte = b.dataset.fonte;
       $$("[data-fonte]", $("#pn")).forEach(function (x) { x.classList.toggle("on", x === b); });
@@ -1759,9 +1790,193 @@
   });
   $("#foglio-corpo").addEventListener("keydown", function (e) {
     if (!pn || e.key !== "Enter") return;
-    if (e.target.id === "pn-tel" && telNormale(pn.telefono)) { e.preventDefault(); vaiPn(4); }
+    if (e.target.id === "pn-tel" && telNormale(pn.telefono)) { e.preventDefault(); avantiPn(4); }
     else if (e.target.id === "pn-nome") { e.preventDefault(); e.target.blur(); }   // si chiude la tastiera e si vede il tasto Aggiungi
   });
+
+  /* --- prenotazione a voce: «Mario, 3 persone, oggi alle 21:30» ---
+     Si detta la frase e si apre il riepilogo, da confermare con un tocco. Quello che non si è capito
+     si chiede con i tasti grandi; il numero si aggiunge dopo, dalla prenotazione. */
+  const Riconosci = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let ascolto = null;
+  function fermaAscolto() {
+    if (!ascolto) return;
+    const r = ascolto;
+    ascolto = null;
+    try { r.abort(); } catch (e) {}
+  }
+  function apriVoce() {
+    fermaAscolto();
+    pn = null;
+    apriFoglio('<div class="pn" id="pv">' +
+      '<h2 class="pn-domanda">🎤 Dimmi la prenotazione</h2>' +
+      '<p class="dim">Per esempio: «Mario, 3 persone, oggi alle 21:30»</p>' +
+      '<button type="button" class="pv-microfono" id="pv-mic" aria-label="Ascolta di nuovo">🎤</button>' +
+      '<p class="pv-stato" id="pv-stato"></p>' +
+      '<textarea id="pv-testo" rows="2" placeholder="…oppure tocca qui e usa il microfono della tastiera"></textarea>' +
+      '<button type="button" class="btn oro pieno pn-grande" id="pv-ok" style="margin-top:12px">Avanti ›</button></div>');
+    ascolta();
+  }
+  $("#pr-voce").addEventListener("click", apriVoce);
+
+  function ascolta() {
+    const stato = $("#pv-stato"), mic = $("#pv-mic");
+    if (!Riconosci) {
+      mic.hidden = true;
+      stato.textContent = "Qui la dettatura diretta non c'è: tocca il campo qui sotto e usa il microfono della tastiera.";
+      return;
+    }
+    fermaAscolto();
+    const r = new Riconosci();
+    ascolto = r;
+    r.lang = "it-IT";
+    r.interimResults = true;
+    r.maxAlternatives = 3;
+    r.onstart = function () { mic.classList.add("ascolta"); stato.textContent = "Ti ascolto…"; };
+    r.onresult = function (e) {
+      const ris = e.results[e.results.length - 1];
+      $("#pv-testo").value = ris[0].transcript;
+      if (!ris.isFinal) return;
+      // fra quello che ha capito il telefono si tiene la frase in cui si riconoscono più cose
+      const frasi = Array.from(ris).map(function (a) { return a.transcript; });
+      const migliore = frasi.reduce(function (a, b) { return puntiFrase(b) > puntiFrase(a) ? b : a; });
+      fermaAscolto();
+      usaFrase(migliore);
+    };
+    r.onerror = function (e) {
+      if (ascolto !== r) return;
+      mic.classList.remove("ascolta");
+      stato.textContent = e.error === "no-speech" ? "Non ho sentito niente: tocca il microfono e riprova."
+        : e.error === "not-allowed" || e.error === "service-not-allowed"
+          ? "Il microfono non è permesso qui: tocca il campo qui sotto e usa il microfono della tastiera."
+          : "La dettatura non è partita: tocca il campo qui sotto e usa il microfono della tastiera.";
+    };
+    r.onend = function () {
+      mic.classList.remove("ascolta");
+      if (ascolto !== r) return;
+      ascolto = null;
+      if (stato.textContent === "Ti ascolto…") stato.textContent = "Tocca il microfono per riprovare.";
+    };
+    try { r.start(); } catch (e) { stato.textContent = "La dettatura non è partita: usa il microfono della tastiera qui sotto."; }
+  }
+  $("#foglio-corpo").addEventListener("click", function (e) {
+    if (!e.target.closest("#pv")) return;
+    if (e.target.closest("#pv-mic")) ascolta();
+    else if (e.target.closest("#pv-ok")) {
+      const testo = $("#pv-testo").value.trim();
+      if (!testo) { C.toast("Detta o scrivi la prenotazione", true); return; }
+      fermaAscolto();
+      usaFrase(testo);
+    }
+  });
+
+  // dalla frase al riepilogo (o al primo pezzo che manca)
+  function usaFrase(testo) {
+    const d = leggiFrase(testo);
+    pn = { passo: 0, sera: d.sera, ora: d.ora, persone: d.persone, piu: d.persone > 8, telefono: "", nome: d.nome, nomeTrovato: false,
+           nota: d.nota, fonte: "telefono", giorno: null, voce: testo };
+    $("#foglio-corpo").innerHTML = '<div class="pn" id="pn"></div>';
+    if (pn.sera) caricaGiornoPn(pn.sera);
+    vaiPn(primoMancante());
+  }
+  function passoConferma() {
+    const righe = [
+      [4, "✍️", pn.nome],
+      [0, "📅", nomeGiorno(pn.sera) + (nomeGiorno(pn.sera) === C.dataBreve(pn.sera) ? "" : " · " + C.dataBreve(pn.sera))],
+      [1, "🕗", "alle " + pn.ora],
+      [2, "👥", persone(pn.persone)],
+      [3, "📞", pn.telefono ? telBello(telNormale(pn.telefono)) : "il numero lo aggiungi dopo"],
+    ];
+    return '<div class="pv-riepilogo">' + righe.map(function (r) {
+      return '<button type="button" data-pn-vai="' + r[0] + '"' + (r[0] === 3 && !pn.telefono ? ' class="manca"' : "") + ">" +
+        "<span>" + r[1] + "</span><b>" + C.esc(r[2]) + "</b><i>cambia</i></button>";
+    }).join("") + "</div>" +
+      (pn.nota ? '<p class="small" style="margin-top:10px">📝 ' + C.esc(pn.nota) + "</p>" : "") +
+      '<p class="dim small" style="margin-top:10px">Hai detto: «' + C.esc(pn.voce) + "»</p>" +
+      avvisiPn().map(function (a) { return '<p class="avviso-sera" style="margin-top:10px">' + a + "</p>"; }).join("") +
+      '<button type="button" class="btn rosso pieno pn-grande" id="pn-salva" style="margin-top:14px">✅ Conferma prenotazione</button>' +
+      '<button type="button" class="btn vuoto pieno" id="pv-ridi" style="margin-top:10px">🎤 Ridilla</button>';
+  }
+
+  // «Mario, 3 persone, oggi alle 21:30» → { nome, persone, sera, ora, nota }; quello che non si capisce resta vuoto
+  const NUMERI_A_PAROLE = { un: 1, uno: 1, una: 1, due: 2, tre: 3, quattro: 4, cinque: 5, sei: 6, sette: 7, otto: 8, nove: 9,
+    dieci: 10, undici: 11, dodici: 12, tredici: 13, quattordici: 14, quindici: 15, sedici: 16, diciassette: 17, diciotto: 18,
+    diciannove: 19, venti: 20, ventuno: 21, ventidue: 22, ventitre: 23, ventiquattro: 24, venticinque: 25, ventisei: 26,
+    ventisette: 27, ventotto: 28, ventinove: 29, trenta: 30, trentuno: 31, quaranta: 40, cinquanta: 50 };
+  const GIORNI_A_VOCE = ["domenica", "lunedi", "martedi", "mercoledi", "giovedi", "venerdi", "sabato"];
+  const MESI_A_VOCE = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre",
+    "ottobre", "novembre", "dicembre"];
+  // parole che non fanno parte del nome
+  const PAROLE_DI_SERVIZIO = new Set(("a ad al alla alle allora aggiungi cena con da del della di e ed il in la le lo metti mettimi " +
+    "nome ok ore per persona persone pax coperti posti prenota prenotare prenotazione prossima prossimo questa sera " +
+    "segna siamo saremo sig signor signora sono tavolo tavoli verso ciao buonasera salve grazie vorrei volevo crea nuova " +
+    "fai fammi").split(" "));
+  function senzaAccenti(s) { return String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, ""); }
+  function puntiFrase(t) {
+    const d = leggiFrase(t);
+    return (d.nome ? 1 : 0) + (d.persone ? 1 : 0) + (d.sera ? 1 : 0) + (d.ora ? 1 : 0);
+  }
+  // il prossimo giorno «g» (di quel mese, o di questo o del prossimo): «il 15», «15 novembre»
+  function prossimaData(g, mese) {
+    const oggi = oggiCalendario();
+    let y = +oggi.slice(0, 4), m = mese || +oggi.slice(5, 7);
+    const fai = function () { return y + "-" + String(m).padStart(2, "0") + "-" + String(g).padStart(2, "0"); };
+    if (fai() < oggi) { if (mese) y++; else if (++m > 12) { m = 1; y++; } }
+    const s = fai();
+    return g >= 1 && g <= 31 && C.piuGiorni(s, 0) === s ? s : null;   // il 31 di un mese che non ce l'ha non vale
+  }
+  function leggiFrase(testo) {
+    const r = { nome: "", persone: null, sera: null, ora: null, nota: "" };
+    let resto = " " + String(testo || "") + " ";
+    // la nota: quello che viene dopo «nota», o dopo «con» se non sono persone (con seggiolone, con il cane…)
+    const n = resto.match(/\s(nota|note|con)\s+(.+)$/i);
+    if (n && !(n[1].toLowerCase() === "con" && /^\S+\s+(persone|persona|pax|coperti|posti)\b/i.test(n[2]))) {
+      r.nota = n[2].replace(/[.\s]+$/, "").trim();
+      resto = resto.slice(0, n.index) + " ";
+    }
+    let s = " " + senzaAccenti(resto) + " ";
+    s = s.replace(/\be\s+mezz[ao]\b/g, ":30").replace(/\be\s+un\s+quarto\b/g, ":15").replace(/\be\s+tre\s+quarti\b/g, ":45");
+    s = s.replace(/[a-z]+/g, function (w) { return NUMERI_A_PAROLE[w] != null ? String(NUMERI_A_PAROLE[w]) : w; });
+    s = s.replace(/(\d{1,2})\s*[:.]\s*(\d{2})\b/g, "$1:$2");
+    const via = function (m) { s = s.replace(m[0], " "); };
+    let m;
+    // l'ora: «alle 21:30», «alle 9 e mezza», «alle 21 e 30»; si lavora solo la sera, quindi «alle 9» sono le 21
+    m = s.match(/\b(?:alle|ore|per le|verso le|dalle)\s+(\d{1,2})(?::(\d{2})|\s+e\s+(\d{1,2})\b)?/) || s.match(/\b(\d{1,2}):(\d{2})\b/);
+    if (m) {
+      let h = +m[1];
+      const min = +(m[2] || m[3] || 0);
+      if (h >= 1 && h <= 11) h += 12;
+      if (h <= 23 && min <= 59) r.ora = String(h).padStart(2, "0") + ":" + String(min).padStart(2, "0");
+      via(m);
+    }
+    // le persone: «3 persone», «in quattro», «siamo in 5», «per 6»
+    m = s.match(/\b(\d{1,3})\s*(?:persone|persona|pax|coperti|posti|adulti)\b/) || s.match(/\b(?:siamo|saremo|in|per)\s+(?:in\s+)?(\d{1,3})\b(?!\s*(?:\/|gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre))/);
+    if (m && +m[1] >= 1 && +m[1] <= 200) { r.persone = +m[1]; via(m); }
+    // la sera: oggi, domani, dopodomani, «15 novembre», «15/11», «il 15», «sabato»
+    const oggi = oggiCalendario();
+    if ((m = s.match(/\bdopodomani\b/))) { r.sera = C.piuGiorni(oggi, 2); via(m); }
+    else if ((m = s.match(/\bdomani( sera)?\b/))) { r.sera = C.piuGiorni(oggi, 1); via(m); }
+    else if ((m = s.match(/\b(oggi|stasera|stanotte)( sera)?\b/))) { r.sera = oggi; via(m); }
+    else if ((m = s.match(new RegExp("\\b(\\d{1,2})\\s+(" + MESI_A_VOCE.join("|") + ")\\b")))) {
+      r.sera = prossimaData(+m[1], MESI_A_VOCE.indexOf(m[2]) + 1); via(m);
+    }
+    else if ((m = s.match(/\b(\d{1,2})\/(\d{1,2})\b/))) { r.sera = prossimaData(+m[1], +m[2] >= 1 && +m[2] <= 12 ? +m[2] : null); via(m); }
+    else if ((m = s.match(new RegExp("\\b(?:il|" + GIORNI_A_VOCE.join("|") + ")\\s+(\\d{1,2})\\b")))) { r.sera = prossimaData(+m[1], null); via(m); }
+    else if ((m = s.match(new RegExp("\\b(" + GIORNI_A_VOCE.join("|") + ")(\\s+prossim[oa])?\\b")))) {
+      let k = (GIORNI_A_VOCE.indexOf(m[1]) - C.giornoSettimana(oggi) + 7) % 7;
+      if (m[2] && k === 0) k = 7;
+      r.sera = C.piuGiorni(oggi, k);
+      via(m);
+    }
+    s = s.replace(new RegExp("\\b(" + GIORNI_A_VOCE.join("|") + ")\\b", "g"), " ");
+    // un numero rimasto da solo sono le persone: «Mario 3 oggi alle 21»
+    if (!r.persone && (m = s.match(/\b(\d{1,2})\b/)) && +m[1] >= 1) { r.persone = +m[1]; via(m); }
+    // il nome: le parole che restano, scritte come le ha scritte il telefono
+    const restano = new Set(s.replace(/[^a-z\s]/g, " ").split(/\s+/).filter(function (w) { return w && !PAROLE_DI_SERVIZIO.has(w); }));
+    r.nome = resto.split(/[\s,.;:!?«»"]+/).filter(function (w) { return w && restano.has(senzaAccenti(w)); })
+      .slice(0, 4).map(function (w) { return w.charAt(0).toUpperCase() + w.slice(1); }).join(" ");
+    return r;
+  }
 
   /* --- impostazioni --- */
   async function caricaImpostazioniPren() {

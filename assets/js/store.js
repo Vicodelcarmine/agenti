@@ -1192,6 +1192,21 @@ const Store = (function () {
       }
       if (dati.sera != null) x.sera = dati.sera;
       if (dati.nota != null) x.nota = String(dati.nota).trim().slice(0, 300);
+      if (dati.nome != null) {
+        const nome = String(dati.nome).trim();
+        if (nome.length < 2) throw errore("nome", "Scrivi il nome");
+        x.nome = nome.slice(0, 60);
+      }
+      // il numero si può aggiungere dopo (come club_telefono: senza prefisso è +39)
+      if (dati.telefono != null) {
+        let t = String(dati.telefono).replace(/[^0-9+]/g, "");
+        if (t) {
+          if (t.indexOf("00") === 0) t = "+" + t.slice(2);
+          t = t.charAt(0) === "+" ? "+" + t.slice(1).replace(/\+/g, "") : "+39" + t.replace(/\+/g, "");
+          if (t.length - 1 < 8 || t.length - 1 > 15) throw errore("telefono", "Numero di telefono non valido");
+        }
+        x.telefono = t;
+      }
       prenScrivi(db);
       return prenVista(x);
     });
