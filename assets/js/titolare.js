@@ -99,6 +99,38 @@
   $("#chiudi-foglio").addEventListener("click", chiudiFoglio);
   $("#foglio").addEventListener("click", function (e) { if (e.target.id === "foglio") chiudiFoglio(); });
 
+  /* ---------- pannelli a tendina ----------
+     Chiusi mostrano titolo, interruttore e un riassunto; toccando il titolo (o il riassunto) si apre il resto.
+     Su questo telefono si ricorda quali hai lasciato aperti. */
+  const CHIAVE_TENDINE = "vdcpr_tendine";
+  let tendineAperte = [];
+  try { tendineAperte = JSON.parse(localStorage.getItem(CHIAVE_TENDINE)) || []; } catch (e) {}
+  function preparaTendine(dentro) {
+    $$(".tendina", dentro).forEach(function (t) {
+      const testa = $(":scope > .tendina-testa", t);
+      if (!testa || $(":scope > .tendina-freccia", testa)) return;
+      testa.insertAdjacentHTML("beforeend", '<button type="button" class="tendina-freccia"></button>');
+      apriChiudi(t, tendineAperte.indexOf(t.dataset.tendina) >= 0, true);
+    });
+  }
+  function apriChiudi(t, aperta, senzaRicordare) {
+    t.classList.toggle("aperta", aperta);
+    const f = $(":scope > .tendina-testa > .tendina-freccia", t);
+    f.setAttribute("aria-expanded", aperta);
+    f.setAttribute("aria-label", aperta ? "Chiudi" : "Apri");
+    if (senzaRicordare) return;
+    tendineAperte = tendineAperte.filter(function (k) { return k !== t.dataset.tendina; });
+    if (aperta) tendineAperte.push(t.dataset.tendina);
+    try { localStorage.setItem(CHIAVE_TENDINE, JSON.stringify(tendineAperte)); } catch (e) {}
+  }
+  document.addEventListener("click", function (e) {
+    const zona = e.target.closest(".tendina-testa, .tendina > .riassunto");
+    if (!zona || e.target.closest("a, label, input, select, button:not(.tendina-freccia)")) return;
+    const t = zona.parentNode;
+    apriChiudi(t, !t.classList.contains("aperta"));
+  });
+  preparaTendine(document);
+
   // numerino rosso sull'icona Agenti: richieste "Diventa agente" da vedere
   function segnaRichieste(n) {
     const b = $('.tabbar [data-vai="agenti"]');
@@ -478,13 +510,16 @@
     try { tf = await conPin(S.tfPanoramica); } catch (e) { /* 29-prenota-diretto.sql non ancora installato */ }
     $("#cl-camp").innerHTML = lista.map(function (k) {
       if (k.id === CAMP_DIRETTO) return campDiretto(k, tf);
-      return '<p style="margin-top:4px"><b>' + C.esc(k.nome) + "</b>" + (k.attiva ? "" : ' <span class="pill">ferma</span>') + "</p>" +
+      // fuori i numeri che contano, il resto nella tendina
+      return '<div class="tendina sotto" data-tendina="camp-' + C.esc(k.id) + '">' +
+        '<div class="tendina-testa"><b class="titolo">' + C.esc(k.nome) + "</b>" + (k.attiva ? "" : '<span class="pill">ferma</span>') + "</div>" +
         '<div class="kpi" style="margin-top:8px">' +
-          "<div><b>" + k.contatti + "</b><span>contatti</span></div>" +
           "<div><b>" + k.aperti + "</b><span>hanno aperto il link</span></div>" +
-          '<div class="euro"><b>' + k.scoperti + "</b><span>regali scoperti</span></div></div>" +
-        '<div class="kpi" style="margin-top:8px">' +
-          '<div class="euro"><b>' + k.prenotati + "</b><span>hanno prenotato</span></div>" +
+          '<div class="euro"><b>' + k.scoperti + "</b><span>regali scoperti</span></div>" +
+          '<div class="euro"><b>' + k.prenotati + "</b><span>hanno prenotato</span></div></div>" +
+        '<div class="tendina-corpo">' +
+        '<div class="kpi">' +
+          "<div><b>" + k.contatti + "</b><span>contatti</span></div>" +
           "<div><b>" + k.usati + "</b><span>regali usati</span></div>" +
           "<div><b>" + k.disiscritti + "</b><span>disiscritti</span></div></div>" +
         '<ul class="lista" style="margin-top:8px">' + (k.premi || []).map(function (p) {
@@ -495,8 +530,9 @@
         }).join("") + "</ul>" +
         '<p class="dim" style="margin-top:6px">Il regalo vale ' + k.sere + " sere da quando lo scoprono, sabato escluso" +
         (k.scopriEntro ? " · i link danno regali fino al " + C.dataBreve(k.scopriEntro) : "") + "</p>" +
-        campWhatsapp(k);
+        campWhatsapp(k) + "</div></div>";
     }).join("");
+    preparaTendine($("#cl-camp"));
     $$("[data-camp-wa]", $("#cl-camp")).forEach(function (btn) {
       btn.addEventListener("click", async function () {
         const accendi = btn.dataset.campWa === "1";
@@ -527,11 +563,22 @@
     const giro = t.ultimoGiro ? C.dataBreve(C.sera(t.ultimoGiro)) + " " + C.ora(t.ultimoGiro) : "";
     // finché non c'è l'elenco storico di chi ha usato il 50% non si accende: scriverebbe anche a loro
     const senzaElenco = !w.attivo && t.impronte < 50;
-    return '<p style="margin-top:18px"><b>' + C.esc(k.nome) + "</b></p>" +
+    // fuori: acceso/spento, i numeri che contano e gli avvisi da guardare; il resto nella tendina
+    return '<div class="tendina sotto" data-tendina="camp-' + C.esc(k.id) + '">' +
+      '<div class="tendina-testa"><b class="titolo">' + C.esc(k.nome) + "</b>" +
+        '<span class="pill ' + (w.attivo ? "ok" : "no") + '">' + (w.attivo ? "acceso" : "spento") + "</span></div>" +
+      '<div class="kpi" style="margin-top:8px">' +
+        "<div><b>" + (w.inviati || 0) + "</b><span>WhatsApp partiti</span></div>" +
+        '<div class="euro"><b>' + k.scoperti + "</b><span>offerte attivate</span></div>" +
+        '<div class="euro"><b>' + (t.spostati || 0) + "</b><span>hanno prenotato dal sito</span></div></div>" +
+      (t.doppioni ? '<p class="dim" style="margin-top:8px">⚠️ ' + t.doppioni + " con la stessa sera anche su TheFork: " +
+        "controlla che l'abbiano annullata. Non annullarla tu: il contratto lo cita come trattamento scorretto.</p>" : "") +
+      (w.errori ? '<p class="dim" style="margin-top:6px">⚠️ ' + w.errori + " non partiti" +
+        (w.ultimoErrore ? ": " + C.esc(w.ultimoErrore) : "") + "</p>" : "") +
+      '<div class="tendina-corpo">' +
       '<p class="dim">Dalle email di TheFork: un solo WhatsApp a chi prenota per un\'altra sera, con l\'offerta per prenotare dal sito. ' +
       "Mai a chi ha usato il 50%. Parte dalle 10 alle 20, anche di sabato. Chi scrive STOP non lo riceve.</p>" +
       '<div class="riga" style="margin-top:8px;align-items:center">' +
-        '<span class="pill fisso ' + (w.attivo ? "ok" : "no") + '">' + (w.attivo ? "acceso" : "spento") + "</span>" +
         (senzaElenco ? '<span class="dim">Si potrà accendere quando è caricato l\'elenco di chi ha usato il 50%</span>'
           : '<button class="btn fisso ' + (w.attivo ? "vuoto " : "oro ") + 'piccolo" data-camp="' + C.esc(k.id) + '" data-camp-wa="' +
             (w.attivo ? "0" : "1") + '">' + (w.attivo ? "Spegni" : "Accendi") + "</button>") + "</div>" +
@@ -541,21 +588,14 @@
         "<div><b>" + t.senza + "</b><span>senza sconto</span></div></div>" +
       '<div class="kpi" style="margin-top:8px">' +
         "<div><b>" + t.esclusi + "</b><span>esclusi</span></div>" +
-        "<div><b>" + (w.inviati || 0) + "</b><span>WhatsApp partiti</span></div>" +
-        "<div><b>" + (w.letti || 0) + "</b><span>letti</span></div></div>" +
-      '<div class="kpi" style="margin-top:8px">' +
-        "<div><b>" + k.aperti + "</b><span>hanno aperto il link</span></div>" +
-        '<div class="euro"><b>' + k.scoperti + "</b><span>offerte attivate</span></div>" +
-        '<div class="euro"><b>' + (t.spostati || 0) + "</b><span>hanno prenotato dal sito</span></div></div>" +
-      (t.doppioni ? '<p class="dim" style="margin-top:8px">⚠️ ' + t.doppioni + " con la stessa sera anche su TheFork: " +
-        "controlla che l'abbiano annullata. Non annullarla tu: il contratto lo cita come trattamento scorretto.</p>" : "") +
-      (w.errori ? '<p class="dim" style="margin-top:6px">⚠️ ' + w.errori + " non partiti" +
-        (w.ultimoErrore ? ": " + C.esc(w.ultimoErrore) : "") + "</p>" : "") +
+        "<div><b>" + (w.letti || 0) + "</b><span>WhatsApp letti</span></div>" +
+        "<div><b>" + k.aperti + "</b><span>hanno aperto il link</span></div></div>" +
       '<p class="dim" style="margin-top:8px">📧 Posta: ' + (t.collegata ? (giro ? "ultimo controllo " + giro : "chiave creata, lo script non ha ancora chiamato") : "non collegata") + "</p>" +
       '<div class="riga" style="margin-top:8px;flex-wrap:wrap;gap:8px">' +
         '<button class="btn vuoto piccolo fisso" data-tf="elenco">📋 Elenco clienti</button>' +
         '<button class="btn vuoto piccolo fisso" data-tf="prova">📲 Manda una prova</button>' +
-        '<button class="btn vuoto piccolo fisso" data-tf="chiave">🔑 Chiave della posta</button></div>';
+        '<button class="btn vuoto piccolo fisso" data-tf="chiave">🔑 Chiave della posta</button></div>' +
+      "</div></div>";
   }
   const STATI_TF = { pronta: ["da inviare", "oro"], inviata: ["inviata", "ok"], esclusa: ["esclusa", "no"], saltata: ["saltata", ""], passata: ["passata", ""] };
   async function apriElencoTf() {
@@ -655,6 +695,7 @@
   }
 
   async function caricaClub() {
+    tuttiIscritti = false;
     cercaIscritti();
     caricaCampagne();
     try {
@@ -692,9 +733,12 @@
       chipGiorni($("#cl-giorni-no"), imp.giorniNo || []);
       chipGiorni($("#cl-giorni-chiusura"), imp.giorniChiusura || []);
       impClub = imp;
+      $("#cl-riassunto").textContent = imp.emoji + " " + (imp.nome.it || "") + " · per " + persone(Number(imp.persone)) +
+        " · vale " + imp.sere + (Number(imp.sere) === 1 ? " sera" : " sere");
       $("#cl-comp-per").value = imp.compleannoPer;
       $("#cl-comp-giorni").value = imp.compleannoGiorni;
       anteprimaCompleanno();
+      $("#cl-comp-riassunto").textContent = $("#cl-comp-anteprima").textContent.replace(/^= /, "");
       $("#cl-off-attive").checked = imp.offerteAttive;
       $("#cl-off-settimane").value = imp.offerteSettimane;
       $("#cl-off-pausa").value = imp.offertePausa;
@@ -706,6 +750,8 @@
         ? "Ultimo: " + C.nomeSera(C.sera(p.ultimoGiro)).toLowerCase() + " alle " + C.ora(p.ultimoGiro) +
           (p.ultimoEsito ? " · " + esitoGiro(p.ultimoEsito) : "")
         : "Ogni giorno verso le 11: compleanni e offerte";
+      $("#cl-av-riassunto").textContent = "🔔 " + p.conNotifiche + (p.conNotifiche === 1 ? " iscritto" : " iscritti") + " con le notifiche" +
+        (imp.emailAttive ? " · 📧 email accese" : "") + (p.inCoda ? " · " + p.inCoda + " in coda" : "");
       statoEmail(imp);
       caricaOfferte();
       caricaMessaggi();
@@ -737,6 +783,9 @@
     try {
       offerteBozza = JSON.parse(JSON.stringify(await conPin(S.clubOfferte)));
       disegnaOfferte();
+      const attive = offerteBozza.filter(function (o) { return o.attivo; }).length;
+      $("#cl-off-riassunto").textContent = "Dopo " + $("#cl-off-settimane").value + " settimane senza vederli · " +
+        attive + (attive === 1 ? " offerta attiva" : " offerte attive");
     } catch (e) { errore(e); }
   }
   function disegnaOfferte() {
@@ -781,6 +830,14 @@
       C.toast("Offerte salvate");
       caricaClub();
     } catch (e) { errore(e); }
+  });
+  // l'interruttore sta sul riquadro chiuso, quindi vale subito senza dover premere Salva
+  $("#cl-off-attive").addEventListener("change", async function () {
+    const acceso = this.checked;
+    try {
+      await conPin(function (p) { return S.clubSalvaImpostazioni(p, { offerteAttive: acceso }); });
+      C.toast(acceso ? "Offerte \"ci manchi\" accese" : "Offerte \"ci manchi\" spente");
+    } catch (e) { this.checked = !acceso; errore(e); }
   });
 
   /* --- avvisi: email, giro, ultimi messaggi --- */
@@ -842,18 +899,32 @@
     clearTimeout(timerCerca);
     timerCerca = setTimeout(cercaIscritti, 250);
   });
+  // senza ricerca si vedono solo gli ultimi iscritti; gli altri con "Mostra tutti" o cercando
+  const ISCRITTI_IN_VISTA = 5;
+  let tuttiIscritti = false;
   async function cercaIscritti() {
     const box = $("#cl-lista");
     try {
       const lista = await conPin(function (p) { return S.clubElenco(p, $("#cl-cerca").value); });
-      box.innerHTML = lista.length ? lista.map(function (i) {
+      const visti = tuttiIscritti || $("#cl-cerca").value.trim() ? lista : lista.slice(0, ISCRITTI_IN_VISTA);
+      // a tendina chiusa: l'ultimo arrivato (il numero degli iscritti è già nei riquadri sopra)
+      if (!$("#cl-cerca").value.trim()) {
+        $("#cl-lista-riassunto").textContent = lista.length
+          ? "Ultimo: " + lista[0].nome + " · dal " + C.dataBreve(C.sera(lista[0].creato)) + " · tocca per vederli e cercare"
+          : "Ancora nessun iscritto: arriveranno dal menu.";
+      }
+      box.innerHTML = lista.length ? visti.map(function (i) {
         return '<li data-iscritto="' + C.esc(i.id) + '" style="cursor:pointer"><div class="cresce"><b>' + C.esc(i.nome) + "</b>" +
           '<div class="dim">' + C.esc(telBello(i.telefono)) + " · dal " + C.dataBreve(C.sera(i.creato)) + "</div></div>" +
           (i.premi ? '<span class="pill oro">🎁 ' + i.premi + "</span>" : "") + "</li>";
-      }).join("") : '<li class="vuoto">' + ($("#cl-cerca").value.trim() ? "Nessuno con questo nome." : "Ancora nessun iscritto: arriveranno dal menu.") + "</li>";
+      }).join("") + (visti.length < lista.length
+        ? '<li><button type="button" class="btn vuoto piccolo pieno" id="cl-tutti">Mostra tutti gli iscritti · ' + lista.length + "</button></li>" : "")
+        : '<li class="vuoto">' + ($("#cl-cerca").value.trim() ? "Nessuno con questo nome." : "Ancora nessun iscritto: arriveranno dal menu.") + "</li>";
       $$("[data-iscritto]", box).forEach(function (li) {
         li.addEventListener("click", function () { apriIscritto(li.dataset.iscritto); });
       });
+      const tutti = $("#cl-tutti");
+      if (tutti) tutti.addEventListener("click", function () { tuttiIscritti = true; cercaIscritti(); });
     } catch (e) { errore(e); }
   }
 
@@ -1504,8 +1575,16 @@
       $("#pr-giorno-chiusura").textContent = gc.length
         ? "Chiuso ogni " + gc.map(function (g) { return C.NOMI_GIORNI[g]; }).join(" e ") + ": si cambia nella scheda Club."
         : "Giorno di chiusura settimanale: nessuno (si imposta nella scheda Club).";
+      riassuntoPren();
       statoAvvisiPren();
     } catch (e) { errore(e); }
+  }
+  // quello che si legge a tendina chiusa
+  function riassuntoPren() {
+    const turni = fasceScritte().map(function (f) { return f.dalle + "–" + f.alle; });
+    $("#pr-riassunto").textContent = (turni.length === 1 ? "Turno " : "Turni ") + turni.join(" e ") + " · " +
+      $("#pr-coperti").value + " coperti a turno · si prenota fino a " + $("#pr-avanti").value + " giorni prima" +
+      (prChiuse.length ? " · " + prChiuse.length + (prChiuse.length === 1 ? " sera chiusa" : " sere chiuse") : "");
   }
   // un turno = arrivi "dalle"–"alle"; il numero (1°, 2°…) segue l'ordine
   function rigaFascia(f) {
@@ -1612,28 +1691,33 @@
   }
   async function statoAvvisiPren() {
     const testo = $("#pr-avvisi-testo"), attiva = $("#pr-avvisi-attiva"), prova = $("#pr-avvisi-prova");
+    const corto = $("#pr-avvisi-riassunto");
     const altri = prImp && prImp.telefoni ? " Telefoni con gli avvisi: " + prImp.telefoni + "." : "";
     attiva.hidden = true;
     prova.hidden = true;
-    if (S.DEMO) { testo.textContent = "Nella demo le notifiche non partono."; return; }
+    if (S.DEMO) { testo.textContent = corto.textContent = "Nella demo le notifiche non partono."; return; }
     if (!supportaPush) {
       testo.innerHTML = suIphone && !installata
         ? "Su iPhone: tocca <b>Condividi</b> ↑ e poi <b>«Aggiungi alla schermata Home»</b>. Apri la dashboard da lì e attiva gli avvisi."
         : "Questo telefono non riceve notifiche." + C.esc(altri);
+      corto.textContent = suIphone && !installata ? "Spenti: prima aggiungi la dashboard alla schermata Home" : "Questo telefono non riceve notifiche";
       return;
     }
     if (Notification.permission === "denied") {
       testo.textContent = "Le notifiche sono bloccate: riattivale dalle impostazioni del telefono per questa app." + altri;
+      corto.textContent = "Bloccati dalle impostazioni del telefono";
       return;
     }
     const sub = Notification.permission === "granted" ? await iscrizionePush() : null;
     if (sub) {
       testo.textContent = "✅ Attivi: ti arriva una notifica a ogni prenotazione nuova o annullata dal sito." + altri;
+      corto.textContent = "✅ Attivi su questo telefono";
       prova.hidden = false;
       conPin(function (p) { return S.prenSalvaPush(p, sub.toJSON()); }).catch(function () {});   // la tengo fresca sul server
       return;
     }
     testo.textContent = "Ricevi una notifica a ogni prenotazione nuova o annullata dal sito, anche con la dashboard chiusa." + altri;
+    corto.textContent = "Spenti su questo telefono";
     attiva.hidden = false;
   }
   $("#pr-avvisi-attiva").addEventListener("click", async function () {
@@ -2046,6 +2130,7 @@
       $("#bonus-per").value = String(imp.bonusPer).replace(".", ",");
       disegnaGiorni(imp.giorniPausa || []);
       $("#fasce-standard").innerHTML = editorFasce(imp.fasce);
+      riassuntiAltro();
       const p = await conPin(S.panoramica);
       $$("[data-pagina]").forEach(function (a) { a.href = C.RADICE + a.dataset.pagina; });
       const primo = p.agenti.find(function (a) { return a.attivo; }) || p.agenti[0];
@@ -2054,12 +2139,31 @@
       caricaCanali();
     } catch (e) { errore(e); }
   }
+  // quello che si legge a tendine chiuse: si rifà dai campi, così dopo un Salva è già giusto
+  function riassuntiAltro() {
+    $("#al-chiusura").textContent = "I buoni valgono fino alle " + $("#chiusura").value;
+    const g = Number($("#bonus-giorni").value);
+    $("#al-bonus").textContent = g ? g + (g === 1 ? " giorno" : " giorni") + " con le tariffe ×" + $("#bonus-per").value : "Spenta: niente bonus ai nuovi";
+    const pausa = giorniAccesi($("#giorni-pausa"));
+    $("#al-pausa").textContent = pausa.length ? "Pausa di " + pausa.map(function (d) { return C.NOMI_GIORNI[d]; }).join(", ") : "Nessun giorno di pausa";
+    let da = 1;
+    $("#al-fasce").textContent = "A persona: " + leggiFasce($("#fasce-standard")).map(function (f) {
+      const quali = f.fino ? da + "ª–" + f.fino + "ª\u00a0" : "dalla\u00a0" + da + "ª\u00a0";
+      da = Number(f.fino) + 1;
+      return quali + f.euro + "\u00a0€";
+    }).join(" · ");
+  }
 
   // ricerca PR: per ogni canale richieste, agenti e chi ha già fatto sedere il primo tavolo
   async function caricaCanali() {
     const box = $("#canali-numeri");
     let lista = [];
-    try { lista = await conPin(S.canali); } catch (e) { box.innerHTML = ""; return; }
+    try { lista = await conPin(S.canali); } catch (e) { box.innerHTML = ""; $("#al-canali").textContent = ""; return; }
+    const tot = lista.reduce(function (s, r) { return { richieste: s.richieste + r.richieste, agenti: s.agenti + r.agenti }; }, { richieste: 0, agenti: 0 });
+    $("#al-canali").textContent = lista.length
+      ? tot.richieste + (tot.richieste === 1 ? " richiesta" : " richieste") + " da " + lista.length + (lista.length === 1 ? " canale" : " canali") +
+        " · " + tot.agenti + (tot.agenti === 1 ? " agente" : " agenti")
+      : "Ancora nessuna richiesta arrivata da un link";
     box.innerHTML = lista.length ? '<ul class="lista">' + lista.map(function (r) {
       return '<li><div class="cresce"><b>' + C.esc(nomeCanale(r.canale)) + '</b><div class="dim">' +
         r.richieste + (r.richieste === 1 ? " richiesta" : " richieste") + " · " +
@@ -2116,6 +2220,7 @@
     try {
       await conPin(function (p) { return S.salvaImpostazioni(p, { giorniPausa: giorni }); });
       C.toast(giorni.length ? "Pausa: " + giorni.map(function (g) { return C.NOMI_GIORNI[g]; }).join(", ") : "Nessun giorno di pausa");
+      riassuntiAltro();
     } catch (e) { errore(e); }
   });
   $("#salva-bonus").addEventListener("click", async function () {
@@ -2124,14 +2229,15 @@
         return S.salvaImpostazioni(p, { bonusGiorni: $("#bonus-giorni").value, bonusPer: $("#bonus-per").value });
       });
       C.toast("Settimana di benvenuto salvata");
+      riassuntiAltro();
     } catch (e) { errore(e); }
   });
   $("#salva-chiusura").addEventListener("click", async function () {
-    try { await conPin(function (p) { return S.salvaImpostazioni(p, { chiusura: $("#chiusura").value }); }); C.toast("Orario salvato"); }
+    try { await conPin(function (p) { return S.salvaImpostazioni(p, { chiusura: $("#chiusura").value }); }); C.toast("Orario salvato"); riassuntiAltro(); }
     catch (e) { errore(e); }
   });
   $("#salva-fasce").addEventListener("click", async function () {
-    try { await conPin(function (p) { return S.salvaImpostazioni(p, { fasce: leggiFasce($("#fasce-standard")) }); }); C.toast("Tariffe salvate per i nuovi agenti"); }
+    try { await conPin(function (p) { return S.salvaImpostazioni(p, { fasce: leggiFasce($("#fasce-standard")) }); }); C.toast("Tariffe salvate per i nuovi agenti"); riassuntiAltro(); }
     catch (e) { errore(e); }
   });
   $("#esci").addEventListener("click", function () {

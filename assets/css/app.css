@@ -227,3 +227,45 @@ input[type=date] {
 .conv .bolla.sua { background: rgba(255, 255, 255, .08); border-bottom-left-radius: 4px; }
 .conv .bolla.sua.nuova { background: rgba(255, 138, 0, .18); border: 1px solid #ff8a00; }
 .conv .bolla.mia { background: rgba(134, 182, 74, .22); border-bottom-right-radius: 4px; margin-left: auto; }
+
+/* ---------- pannelli a tendina: chiusi mostrano titolo, interruttore e un riassunto; il resto si apre toccando il titolo ---------- */
+.gruppo {
+  margin: 26px 4px 2px; color: var(--dim);
+  font-size: .72rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+}
+.card.tendina { padding: 14px 16px; margin: 10px 0; transition: border-color .2s; }
+.card.tendina.aperta { border-color: rgba(230,178,74,.4); }
+.tendina-testa {
+  display: flex; align-items: center; gap: 10px; min-height: 34px;
+  cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;
+}
+.tendina-testa h3, .tendina-testa .titolo { flex: 1; min-width: 0; margin: 0; }
+.tendina-testa h3 { font-size: 1.02rem; }
+.tendina-freccia {
+  flex: 0 0 auto; width: 32px; height: 32px; border-radius: 50%; cursor: pointer;
+  border: 1px solid var(--line); background: rgba(0,0,0,.22); color: var(--gold-soft);
+  display: grid; place-items: center;
+}
+.tendina-freccia::before {
+  content: ""; width: 7px; height: 7px; margin-top: -4px;
+  border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+  transform: rotate(45deg); transition: transform .2s, margin .2s;
+}
+.tendina.aperta > .tendina-testa > .tendina-freccia::before { transform: rotate(225deg); margin-top: 3px; }
+.tendina > .riassunto { margin-top: 6px; color: var(--muted); font-size: .85rem; cursor: pointer; }
+.tendina > .riassunto:empty { display: none; }
+.tendina.aperta > .riassunto.solo-chiusa { display: none; }
+.tendina:not(.aperta) > .tendina-corpo { display: none; }
+.tendina > .tendina-corpo {
+  margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line);
+  animation: tendina-apre .18s ease-out;
+}
+@keyframes tendina-apre { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+/* dentro un riquadro: le campagne, una sotto l'altra */
+.tendina.sotto { margin-top: 10px; }
+.tendina.sotto + .tendina.sotto { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.tendina.sotto .tendina-freccia { width: 28px; height: 28px; }
+@media (prefers-reduced-motion: reduce) {
+  .tendina > .tendina-corpo { animation: none; }
+  .tendina-freccia::before { transition: none; }
+}

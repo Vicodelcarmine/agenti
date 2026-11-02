@@ -96,10 +96,13 @@
       <p class="avviso-sera" id="pr-chiuso" hidden>🔒 Sera chiusa: dal sito non si prenota.</p>
       <div id="pr-turni"></div>
       <div class="card"><h3>📆 Prossimi 14 giorni</h3><ul class="lista" id="pr-prossimi"></ul></div>
-      <div class="card">
-        <div class="riga"><h3 class="cresce" style="margin:0">🌐 Prenotazioni dal sito</h3>
-          <label class="switch fisso"><input type="checkbox" id="pr-attive"><i></i></label></div>
-        <p class="dim" style="margin-top:6px">Il cliente sceglie l'ora in cui arriva; i coperti si contano per turno. Si confermano da sole finché nel turno c'è posto, e contano anche le prenotazioni che aggiungi tu.</p>
+      <p class="gruppo">Impostazioni · tocca per aprire</p>
+      <div class="card tendina" data-tendina="pr-sito">
+        <div class="tendina-testa"><h3>🌐 Prenotazioni dal sito</h3>
+          <label class="switch"><input type="checkbox" id="pr-attive"><i></i></label></div>
+        <p class="riassunto solo-chiusa" id="pr-riassunto"></p>
+        <div class="tendina-corpo">
+        <p class="dim">Il cliente sceglie l'ora in cui arriva; i coperti si contano per turno. Si confermano da sole finché nel turno c'è posto, e contano anche le prenotazioni che aggiungi tu.</p>
         <p class="muted small" style="margin-top:12px">Turni: arrivi dalle – alle</p>
         <div id="pr-fasce"></div>
         <button class="btn vuoto piccolo" id="pr-fascia-piu" type="button">＋ Turno</button>
@@ -120,13 +123,15 @@
         <ul class="lista" id="pr-chiuse"></ul>
         <p class="dim small" id="pr-giorno-chiusura"></p>
         <button class="btn oro pieno" id="pr-salva" style="margin-top:12px">Salva</button>
+        </div>
       </div>
-      <div class="card">
-        <div class="riga"><h3 class="cresce" style="margin:0">🛍️ Asporto</h3>
-          <label class="switch fisso"><input type="checkbox" id="as-attive"><i></i></label></div>
-        <p class="dim" style="margin-top:6px">Dal sito si apre il menu in modalità asporto: il cliente sceglie i piatti e l'ora di ritiro di stasera, e paga al ritiro. Gli ordini arrivano sul Banco, a parte dai tavoli.</p>
-        <p class="small" id="as-stasera" style="margin-top:8px"></p>
-        <button class="btn vuoto pieno" id="as-storico" type="button" style="margin-top:8px">📋 Ordini e storico</button>
+      <div class="card tendina" data-tendina="pr-asporto">
+        <div class="tendina-testa"><h3>🛍️ Asporto</h3>
+          <label class="switch"><input type="checkbox" id="as-attive"><i></i></label></div>
+        <p class="riassunto" id="as-stasera"></p>
+        <button class="btn vuoto piccolo pieno" id="as-storico" type="button" style="margin-top:10px">📋 Ordini e storico</button>
+        <div class="tendina-corpo">
+        <p class="dim">Dal sito si apre il menu in modalità asporto: il cliente sceglie i piatti e l'ora di ritiro di stasera, e paga al ritiro. Gli ordini arrivano sul Banco, a parte dai tavoli.</p>
         <div class="riga">
           <label class="campo"><span>Primo ritiro</span><input type="time" id="as-dalle"></label>
           <label class="campo"><span>Ultimo ritiro</span><input type="time" id="as-alle"></label>
@@ -145,13 +150,15 @@
           <li><span class="cresce">Schermata del Banco<span class="dim" style="display:block">dove arrivano gli ordini</span></span>
             <a class="btn vuoto piccolo" href="https://vicodelcarmine.github.io/menu/banco.html" target="_blank" rel="noopener">Apri</a></li>
         </ul>
+        </div>
       </div>
-      <div class="card">
-        <div class="riga"><h3 class="cresce" style="margin:0">📲 WhatsApp di conferma</h3>
-          <label class="switch fisso"><input type="checkbox" id="wa-attivo"><i></i></label></div>
-        <p class="dim" style="margin-top:6px">Dopo ogni prenotazione dal sito parte un WhatsApp con la conferma; al cliente nuovo anche il prosecco di benvenuto, da mostrare al cameriere. Se il messaggio arriva, il numero è giusto (nella prenotazione vedi ✅ verificato).</p>
-        <p class="small" id="wa-stato" style="margin-top:8px"></p>
-        <button class="btn vuoto pieno" id="wa-messaggi" type="button" style="margin-top:8px">💬 Messaggi ricevuti</button>
+      <div class="card tendina" data-tendina="pr-whatsapp">
+        <div class="tendina-testa"><h3>📲 WhatsApp di conferma</h3>
+          <label class="switch"><input type="checkbox" id="wa-attivo"><i></i></label></div>
+        <p class="riassunto" id="wa-stato"></p>
+        <button class="btn vuoto piccolo pieno" id="wa-messaggi" type="button" style="margin-top:10px">💬 Messaggi ricevuti</button>
+        <div class="tendina-corpo">
+        <p class="dim">Dopo ogni prenotazione dal sito parte un WhatsApp con la conferma; al cliente nuovo anche il prosecco di benvenuto, da mostrare al cameriere. Se il messaggio arriva, il numero è giusto (nella prenotazione vedi ✅ verificato).</p>
         <label class="campo"><span>Prosecco di benvenuto al cliente nuovo: al massimo per (persone)</span><input type="number" inputmode="numeric" id="wa-benvenuto" min="0" max="20"></label>
         <label class="campo"><span>Link per le recensioni Google (a chi dà 4 o 5)</span><input type="url" id="wa-recensioni" placeholder="https://g.page/r/…/review" autocomplete="off"></label>
         <div class="riga">
@@ -168,20 +175,27 @@
           <label class="riga" style="gap:8px;margin-top:8px"><input type="checkbox" id="wa-inglese"><span class="small">Modelli in inglese approvati (ai turisti in inglese)</span></label>
         </details>
         <button class="btn oro pieno" id="wa-salva" style="margin-top:12px">Salva</button>
+        </div>
       </div>
-      <div class="card">
-        <h3>🔔 Avvisi su questo telefono</h3>
+      <div class="card tendina" data-tendina="pr-avvisi">
+        <div class="tendina-testa"><h3>🔔 Avvisi su questo telefono</h3></div>
+        <p class="riassunto solo-chiusa" id="pr-avvisi-riassunto"></p>
+        <button class="btn rosso pieno" id="pr-avvisi-attiva" hidden style="margin-top:10px">Attiva gli avvisi</button>
+        <div class="tendina-corpo">
         <p class="dim" id="pr-avvisi-testo"></p>
-        <button class="btn rosso pieno" id="pr-avvisi-attiva" hidden>Attiva gli avvisi</button>
         <button class="btn vuoto piccolo" id="pr-avvisi-prova" hidden style="margin-top:10px">Manda una prova</button>
+        </div>
       </div>
-      <div class="card">
-        <h3>🔗 Pagina per prenotare</h3>
+      <div class="card tendina" data-tendina="pr-pagina">
+        <div class="tendina-testa"><h3>🔗 Pagina per prenotare</h3></div>
+        <p class="riassunto solo-chiusa">vicodelcarmine.it · il link da mettere su Google, Instagram e Facebook</p>
+        <div class="tendina-corpo">
         <ul class="lista">
           <li><span class="cresce">vicodelcarmine.it<span class="dim" style="display:block">da mettere su Google, Instagram e Facebook</span></span>
             <a class="btn vuoto piccolo" href="https://vicodelcarmine.it/#prenota" target="_blank" rel="noopener">Apri</a>
             <button class="btn oro piccolo" id="pr-copia" type="button">Copia</button></li>
         </ul>
+        </div>
       </div>
     </section>
 
@@ -197,13 +211,19 @@
       <div class="card"><h3>🌙 Premi usati stasera</h3><ul class="lista" id="cl-stasera"></ul>
         <p class="dim" id="cl-mese" style="margin-top:6px"></p></div>
       <div class="card" id="cl-compleanni-box" hidden><h3>🎂 Compleanni nei prossimi 7 giorni</h3><ul class="lista" id="cl-compleanni"></ul></div>
-      <div class="card">
-        <h3>👤 Iscritti</h3>
+      <div class="card tendina" data-tendina="cl-iscritti">
+        <div class="tendina-testa"><h3>👤 Iscritti</h3></div>
+        <p class="riassunto solo-chiusa" id="cl-lista-riassunto"></p>
+        <div class="tendina-corpo">
         <input type="search" id="cl-cerca" placeholder="Cerca per nome, email o telefono" autocomplete="off">
         <ul class="lista" id="cl-lista" style="margin-top:8px"></ul>
+        </div>
       </div>
-      <div class="card">
-        <h3>🎁 Premio di benvenuto</h3>
+      <p class="gruppo">Impostazioni del Club · tocca per aprire</p>
+      <div class="card tendina" data-tendina="cl-benvenuto">
+        <div class="tendina-testa"><h3>🎁 Premio di benvenuto</h3></div>
+        <p class="riassunto solo-chiusa" id="cl-riassunto"></p>
+        <div class="tendina-corpo">
         <p class="dim">Lo riceve chi si iscrive dal menu e vale dalla sera dopo. I cambi valgono per i nuovi iscritti: chi ha già il premio lo tiene come gli è stato promesso.</p>
         <div class="riga" style="margin-top:10px">
           <input type="text" id="cl-emoji" class="fisso" style="width:62px;text-align:center;font-size:1.4rem" aria-label="Emoji">
@@ -219,9 +239,12 @@
         <p class="muted small" style="margin-top:12px">Giorno di chiusura del ristorante (non si conta mai):</p>
         <div class="giorni" id="cl-giorni-chiusura"></div>
         <button class="btn oro pieno" id="cl-salva" style="margin-top:14px">Salva</button>
+        </div>
       </div>
-      <div class="card">
-        <h3>🎂 Regalo di compleanno</h3>
+      <div class="card tendina" data-tendina="cl-compleanno">
+        <div class="tendina-testa"><h3>🎂 Regalo di compleanno</h3></div>
+        <p class="riassunto solo-chiusa" id="cl-comp-riassunto"></p>
+        <div class="tendina-corpo">
         <p class="dim">Esce da solo nei giorni intorno al compleanno di ogni iscritto e vale anche di sabato. L'avviso arriva solo a chi ha accettato le offerte; il regalo lo trovano tutti nella tessera.</p>
         <div class="riga" style="margin-top:6px">
           <label class="campo"><span>Premio di benvenuto ×</span><input type="number" inputmode="numeric" id="cl-comp-per" min="1" max="5"></label>
@@ -229,11 +252,14 @@
         </div>
         <p class="muted small" id="cl-comp-anteprima"></p>
         <button class="btn oro pieno" id="cl-comp-salva" style="margin-top:10px">Salva</button>
+        </div>
       </div>
-      <div class="card">
-        <div class="riga"><h3 class="cresce" style="margin:0">💌 Offerte "ci manchi"</h3>
-          <label class="switch fisso"><input type="checkbox" id="cl-off-attive"><i></i></label></div>
-        <p class="dim" style="margin-top:6px">A chi ha accettato le offerte, ha gli avvisi accesi e non si vede da qualche settimana arriva un'offerta: una a giro fra quelle qui sotto. Il sabato non si conta.</p>
+      <div class="card tendina" data-tendina="cl-offerte">
+        <div class="tendina-testa"><h3>💌 Offerte "ci manchi"</h3>
+          <label class="switch"><input type="checkbox" id="cl-off-attive"><i></i></label></div>
+        <p class="riassunto solo-chiusa" id="cl-off-riassunto"></p>
+        <div class="tendina-corpo">
+        <p class="dim">A chi ha accettato le offerte, ha gli avvisi accesi e non si vede da qualche settimana arriva un'offerta: una a giro fra quelle qui sotto. Il sabato non si conta.</p>
         <div class="riga">
           <label class="campo"><span>Dopo settimane senza vederli</span><input type="number" inputmode="numeric" id="cl-off-settimane" min="1" max="12"></label>
           <label class="campo"><span>Giorni minimi fra due offerte</span><input type="number" inputmode="numeric" id="cl-off-pausa" min="7" max="90"></label>
@@ -245,9 +271,12 @@
         <div id="cl-offerte"></div>
         <button class="btn vuoto piccolo" id="cl-off-nuova">＋ Offerta</button>
         <button class="btn oro pieno" id="cl-off-salva" style="margin-top:12px">Salva offerte</button>
+        </div>
       </div>
-      <div class="card">
-        <h3>📨 Avvisi</h3>
+      <div class="card tendina" data-tendina="cl-avvisi">
+        <div class="tendina-testa"><h3>📨 Avvisi</h3></div>
+        <p class="riassunto solo-chiusa" id="cl-av-riassunto"></p>
+        <div class="tendina-corpo">
         <ul class="lista">
           <li><span class="cresce">🔔 Notifiche sul telefono<span class="dim" style="display:block" id="cl-av-notifiche"></span></span><span class="pill ok fisso">accese</span></li>
           <li><span class="cresce">📧 Email<span class="dim" style="display:block" id="cl-av-email-stato"></span></span>
@@ -257,6 +286,7 @@
         </ul>
         <h3 style="margin-top:14px">Ultimi avvisi</h3>
         <ul class="lista" id="cl-messaggi"></ul>
+        </div>
       </div>
     </section>
 
@@ -278,41 +308,59 @@
     <!-- ALTRO -->
     <section data-tab="altro" hidden>
       <h2 style="margin:8px 0">⚙️ Impostazioni</h2>
-      <div class="card">
-        <h3>⏰ Chiusura</h3>
+      <p class="gruppo" style="margin-top:4px">Tocca un riquadro per aprirlo</p>
+      <div class="card tendina" data-tendina="al-chiusura">
+        <div class="tendina-testa"><h3>⏰ Chiusura</h3></div>
+        <p class="riassunto solo-chiusa" id="al-chiusura"></p>
+        <div class="tendina-corpo">
         <p class="dim">I buoni valgono solo la sera stessa, fino a quest'ora.</p>
         <div class="riga" style="margin-top:10px">
           <input type="time" id="chiusura">
           <button class="btn oro fisso" id="salva-chiusura">Salva</button>
         </div>
+        </div>
       </div>
-      <div class="card">
-        <h3>🔥 Settimana di benvenuto</h3>
+      <div class="card tendina" data-tendina="al-bonus">
+        <div class="tendina-testa"><h3>🔥 Settimana di benvenuto</h3></div>
+        <p class="riassunto solo-chiusa" id="al-bonus"></p>
+        <div class="tendina-corpo">
         <p class="dim">I primi giorni di ogni agente, a partire da quando lo crei, le sue tariffe vengono moltiplicate. Il sabato non si conta. 0 giorni = niente bonus.</p>
         <div class="riga">
           <label class="campo"><span>Giorni</span><input type="number" inputmode="numeric" id="bonus-giorni" min="0" max="60"></label>
           <label class="campo"><span>Tariffe ×</span><input type="text" inputmode="decimal" id="bonus-per"></label>
         </div>
         <button class="btn oro pieno" id="salva-bonus">Salva</button>
+        </div>
       </div>
-      <div class="card">
-        <h3>😊 Giorni di pausa</h3>
+      <div class="card tendina" data-tendina="al-pausa">
+        <div class="tendina-testa"><h3>😊 Giorni di pausa</h3></div>
+        <p class="riassunto solo-chiusa" id="al-pausa"></p>
+        <div class="tendina-corpo">
         <p class="dim">Le sere in cui siamo già al completo: il gioco non dà buoni e gli agenti lo vedono nell'app.</p>
         <div class="giorni" id="giorni-pausa"></div>
         <button class="btn oro pieno" id="salva-pausa" style="margin-top:12px">Salva</button>
+        </div>
       </div>
-      <div class="card">
-        <h3>💶 Tariffe per i nuovi agenti</h3>
+      <div class="card tendina" data-tendina="al-tariffe">
+        <div class="tendina-testa"><h3>💶 Tariffe per i nuovi agenti</h3></div>
+        <p class="riassunto solo-chiusa" id="al-fasce"></p>
+        <div class="tendina-corpo">
         <p class="dim">Euro a persona, si riparte da zero ogni sera. Ogni agente poi può avere le sue.</p>
         <div id="fasce-standard"></div>
         <button class="btn oro pieno" id="salva-fasce" style="margin-top:6px">Salva tariffe</button>
+        </div>
       </div>
-      <div class="card">
-        <h3>🔑 PIN</h3>
+      <div class="card tendina" data-tendina="al-pin">
+        <div class="tendina-testa"><h3>🔑 PIN</h3></div>
+        <p class="riassunto solo-chiusa">Lo stesso PIN da titolare del menu</p>
+        <div class="tendina-corpo">
         <p class="dim">È lo stesso PIN da titolare del menu: se lo cambi lì, cambia anche qui.</p>
+        </div>
       </div>
-      <div class="card">
-        <h3>🔗 Pagine</h3>
+      <div class="card tendina" data-tendina="al-pagine">
+        <div class="tendina-testa"><h3>🔗 Pagine</h3></div>
+        <p class="riassunto solo-chiusa">Statistiche, gioco, guide turistiche, Lavora come PR</p>
+        <div class="tendina-corpo">
         <ul class="lista">
           <li><span class="cresce">Dashboard da computer<span class="dim" style="display:block">statistiche, storico, clienti e campagne</span></span>
             <a class="btn vuoto piccolo" id="vai-desktop-2" href="../desktop/">Apri</a></li>
@@ -324,9 +372,12 @@
             <a class="btn vuoto piccolo" data-pagina="diventa/" target="_blank" rel="noopener">Apri</a>
             <button class="btn oro piccolo" data-copia="diventa/">Copia</button></li>
         </ul>
+        </div>
       </div>
-      <div class="card">
-        <h3>📣 Ricerca PR: da dove arrivano</h3>
+      <div class="card tendina" data-tendina="al-canali">
+        <div class="tendina-testa"><h3>📣 Ricerca PR: da dove arrivano</h3></div>
+        <p class="riassunto solo-chiusa" id="al-canali"></p>
+        <div class="tendina-corpo">
         <p class="dim">Per ogni posto dove pubblichi l'annuncio usa il suo link: chi si candida da lì viene contato con quel canale, e lo vedi anche nella richiesta e nella scheda dell'agente.</p>
         <div id="canali-numeri" style="margin-top:10px"></div>
         <p class="muted small" style="margin-top:14px">I link della pagina "Lavora come PR":</p>
@@ -335,6 +386,7 @@
         <div class="riga" style="margin-top:6px">
           <input type="text" id="canale-nuovo" placeholder="es. fb-studenti-polimoda" maxlength="40" autocapitalize="none" autocomplete="off">
           <button class="btn oro piccolo fisso" id="canale-copia" type="button">Copia</button>
+        </div>
         </div>
       </div>
       <button class="btn vuoto pieno" id="esci">Esci da questo telefono</button>
