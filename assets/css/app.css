@@ -269,3 +269,90 @@ input[type=date] {
   .tendina > .tendina-corpo { animation: none; }
   .tendina-freccia::before { transition: none; }
 }
+
+/* ---------- nuova prenotazione: un passo alla volta, tasti grandi da toccare al volo ---------- */
+.pn { min-height: 70vh; min-height: 70dvh; }
+.pn-testa { display: flex; align-items: center; gap: 14px; min-height: 44px; }
+.pn-indietro {
+  flex: 0 0 auto; width: 44px; height: 44px; border-radius: 50%; cursor: pointer;
+  border: 1px solid var(--line); background: rgba(0,0,0,.25); color: var(--cream); font-size: 1.7rem; line-height: 1;
+}
+.pn-punti { display: flex; gap: 6px; align-items: center; }
+.pn-punti i { width: 8px; height: 8px; border-radius: 4px; background: rgba(255,255,255,.15); transition: width .2s; }
+.pn-punti i.fatto { background: rgba(230,178,74,.55); }
+.pn-punti i.qui { background: var(--gold); width: 24px; }
+.pn-scelte { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.pn-scelte button {
+  border: 1px solid rgba(230,178,74,.35); background: rgba(230,178,74,.12); color: var(--gold-soft);
+  border-radius: 999px; padding: 7px 13px; font: inherit; font-size: .92rem; font-weight: 600; cursor: pointer;
+}
+.pn-scelte button.qui { background: var(--gold); color: #2a1a08; }
+.pn-domanda { font-size: 1.65rem; color: var(--cream); margin: 18px 0 14px; }
+.pn-corpo { animation: pn-entra .2s ease-out; }
+@keyframes pn-entra { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+
+/* i giorni: quadri che scorrono di lato, come sul sito ma più grandi */
+.pn-giorni {
+  position: relative; display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x proximity; scroll-padding-left: 16px;
+  margin: 0 -16px; padding: 2px 16px 12px; scrollbar-width: none;
+}
+.pn-giorni::-webkit-scrollbar { display: none; }
+.pn-giorno {
+  position: relative; flex: 0 0 auto; width: 78px; min-height: 100px; border-radius: 16px; scroll-snap-align: start;
+  border: 1px solid var(--line); background: rgba(0,0,0,.25); color: var(--cream); font: inherit; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+}
+.pn-giorno span { font-size: .78rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.pn-giorno b { font-family: var(--font-display); font-size: 2.1rem; line-height: 1.05; }
+.pn-giorno.on { background: var(--gold); border-color: var(--gold); color: #2a1a08; }
+.pn-giorno.on span { color: #2a1a08; }
+.pn-giorno:disabled { opacity: .3; cursor: default; }
+.pn-giorno.altra b { font-family: inherit; font-size: 1.6rem; }
+.pn-giorno.altra input { position: absolute; inset: 0; width: 100%; min-height: 0; padding: 0; border: 0; opacity: 0; cursor: pointer; }
+
+/* gli orari, con i posti liberi del turno sotto */
+.pn-ore { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.pn-ora {
+  min-height: 74px; border-radius: 16px; border: 1px solid var(--line); background: rgba(0,0,0,.25); color: var(--cream);
+  font: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+}
+.pn-ora b { font-size: 1.3rem; font-variant-numeric: tabular-nums; }
+.pn-ora span { font-size: .75rem; color: var(--muted); }
+.pn-ora.pieno span { color: #ffa198; }
+.pn-ora.a-capo { grid-column-start: 1; }
+.pn-ora.on { background: var(--gold); border-color: var(--gold); color: #2a1a08; }
+.pn-ora.on span { color: #2a1a08; }
+
+/* le persone: 1–8 a portata di pollice, poi un numero libero */
+.pn-persone { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.pn-persone button {
+  min-height: 78px; border-radius: 16px; border: 1px solid var(--line); background: rgba(0,0,0,.25); color: var(--cream);
+  font: inherit; font-size: 2.1rem; font-weight: 700; cursor: pointer;
+}
+.pn-persone button.on { background: var(--gold); border-color: var(--gold); color: #2a1a08; }
+.pn-persone .pn-piu { grid-column: 1 / -1; min-height: 60px; font-size: 1.15rem; font-weight: 600; }
+.pn-stepper { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 18px 0 14px; }
+.pn-stepper button {
+  width: 66px; height: 66px; border-radius: 50%; border: 1px solid var(--line); background: var(--card-2);
+  color: var(--cream); font-size: 2rem; font-weight: 700; cursor: pointer;
+}
+.pn-stepper input { width: 120px; min-height: 66px; text-align: center; font-size: 2.2rem; font-weight: 700; }
+
+/* telefono e nome: campi grandi, centrati */
+.pn-grande { min-height: 64px; font-size: 1.2rem; }
+.pn .btn { white-space: nowrap; }
+.pn .btn.vuoto { padding: 12px 22px; }   /* la classe .vuoto dei messaggi "nessun…" allargava questi tasti */
+.pn input.pn-tel, .pn input.pn-nome { min-height: 66px; margin-top: 14px; text-align: center; font-size: 1.55rem; }
+.pn input.pn-tel { font-variant-numeric: tabular-nums; letter-spacing: .03em; }
+.pn-errore { margin-top: 10px; text-align: center; color: #ffa198; font-size: .92rem; }
+.pn-trovato { margin-top: 10px; text-align: center; color: #b5dc84; font-weight: 600; }
+.pn-fonti { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 18px 0 6px; }
+.pn-fonti button {
+  min-height: 46px; border-radius: 12px; border: 1px solid var(--line); background: rgba(0,0,0,.25);
+  color: var(--muted); font: inherit; font-weight: 600; cursor: pointer;
+}
+.pn-fonti button.on { background: var(--brick); border-color: var(--flame); color: #fff; }
+.pn-nota { margin: 10px 0 12px; }
+.pn-nota summary { cursor: pointer; color: var(--muted); font-size: .92rem; padding: 8px 0; }
+.pn-nota textarea { margin-top: 6px; }
+@media (prefers-reduced-motion: reduce) { .pn-corpo { animation: none; } }

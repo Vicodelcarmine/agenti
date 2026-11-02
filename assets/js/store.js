@@ -1142,6 +1142,19 @@ const Store = (function () {
       };
     });
   }
+  // il nome di un cliente già visto, dal suo numero (come dash_cerca: prenotazioni e Club)
+  function prenNomeDaTelefono(pin, telefono) {
+    return rete(function () {
+      controllaPin(leggi(), pin);
+      const cifre = String(telefono || "").replace(/\D/g, "").slice(-9);
+      if (cifre.length < 8) return null;
+      const trova = function (l) {
+        const x = l.filter(function (r) { return String(r.telefono || "").replace(/\D/g, "").slice(-9) === cifre; }).pop();
+        return x ? x.nome : null;
+      };
+      return trova(prenLeggi().prenotazioni) || trova(clubLeggi().iscritti);
+    });
+  }
   function prenAggiungi(pin, dati) {
     return rete(function () {
       controllaPin(leggi(), pin);
@@ -1405,7 +1418,7 @@ const Store = (function () {
     clubOfferte, clubSalvaOfferte, clubMessaggi, clubGiroOra, clubProvaAvviso,
     clubStatoInvii: function () { return Promise.resolve({ email: false }); },
     clubInvia: function () { return Promise.resolve({ inviati: 0 }); },
-    prenGiorno, prenAggiungi, prenModifica, prenImpostazioni, prenSalvaImpostazioni, prenNovita, prenVisto,
+    prenGiorno, prenAggiungi, prenNomeDaTelefono, prenModifica, prenImpostazioni, prenSalvaImpostazioni, prenNovita, prenVisto,
     prenSalvaPush: function () { return Promise.reject(errore("demo", "Nella demo le notifiche non partono")); },
     prenProvaAvviso: function () { return Promise.reject(errore("demo", "Nella demo le notifiche non partono")); },
     aspImpostazioni, aspSalvaImpostazioni, aspStorico, waImpostazioni, waSalva, waMessaggi, waRispondi,
@@ -1548,6 +1561,15 @@ const Store = (function () {
     // Prenotazioni dal sito (funzioni SQL: supabase/10-prenotazioni.sql)
     prenGiorno: function (pin, sera) { return rpc("pren_giorno", { p_pin: pin, p_sera: sera || "" }); },
     prenAggiungi: function (pin, dati) { return rpc("pren_aggiungi", { p_pin: pin, p_dati: dati }); },
+    // il nome di un cliente già visto dal suo numero: la ricerca della dashboard da computer (21-dashboard-statistiche.sql)
+    prenNomeDaTelefono: function (pin, telefono) {
+      const cifre = String(telefono || "").replace(/\D/g, "").slice(-9);
+      if (cifre.length < 8) return Promise.resolve(null);
+      return rpc("dash_cerca", { p_pin: pin, p_cerca: cifre }).then(function (l) {
+        const x = (l || []).find(function (r) { return String(r.telefono || "").replace(/\D/g, "").slice(-9) === cifre; });
+        return x ? x.nome : null;
+      });
+    },
     prenModifica: function (pin, id, dati) { return rpc("pren_modifica", { p_pin: pin, p_id: id, p_dati: dati }); },
     prenImpostazioni: function (pin) { return rpc("pren_impostazioni", { p_pin: pin }); },
     prenSalvaImpostazioni: function (pin, dati) { return rpc("pren_salva_impostazioni", { p_pin: pin, p_dati: dati }); },

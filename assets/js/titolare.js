@@ -1508,53 +1508,259 @@
     } catch (e) { errore(e); }
   }
 
+  /* --- nuova prenotazione (telefono, TheFork, Google): un passo alla volta, con tasti grandi ---
+     Sera → ora → persone → telefono → nome. Ogni tocco porta al passo dopo; in alto restano le scelte fatte
+     e toccandole si torna a quel passo. Si fa in pochi tocchi, senza cercare i campi. */
+  const PN_PASSI = [["📅", "Che sera?"], ["🕗", "A che ora arrivano?"], ["👥", "Quante persone?"],
+                    ["📞", "Il numero di telefono"], ["✍️", "Il nome"]];
+  const PN_FONTI = [["telefono", "📞 Telefono"], ["thefork", "🍴 TheFork"], ["google", "🔎 Google"], ["altro", "✍️ Altro"]];
+  let pn = null;   // la prenotazione che si sta scrivendo
   $("#pr-nuova").addEventListener("click", function () {
-    const turni = (prImp && prImp.orari) || ["19:00", "19:30", "20:00", "20:30", "21:00", "21:30", "22:00", "22:30"];
-    apriFoglio(
-      "<h2>＋ Nuova prenotazione</h2>" +
-      '<p class="dim">Per quelle arrivate al telefono, da TheFork o da Google: così i coperti sul sito tornano giusti.</p>' +
-      '<label class="campo"><span>Da dove arriva</span><select id="pn-fonte">' +
-        '<option value="telefono">📞 Telefono</option><option value="thefork">🍴 TheFork</option>' +
-        '<option value="google">🔎 Google</option><option value="altro">✍️ Altro</option></select></label>' +
-      '<label class="campo"><span>Sera</span><input type="date" id="pn-sera" value="' + (prSera && prSera > oggiCalendario() ? prSera : oggiCalendario()) + '"></label>' +
-      '<p class="muted small">Ora di arrivo</p><div class="turni-scelta" id="pn-turni">' +
-        turni.map(function (t, i) { return '<button type="button" data-ora="' + t + '" class="' + (i ? "" : "on") + '">' + t + "</button>"; }).join("") +
-        '<input type="time" id="pn-altro" aria-label="Altro orario"></div>' +
-      '<div class="riga">' +
-        '<label class="campo"><span>Persone</span><input type="number" inputmode="numeric" id="pn-persone" min="1" max="200" value="2"></label>' +
-        '<label class="campo"><span>Telefono (se c\'è)</span><input type="tel" id="pn-telefono" autocomplete="off"></label></div>' +
-      '<label class="campo"><span>Nome</span><input type="text" id="pn-nome" autocomplete="off" maxlength="60"></label>' +
-      '<label class="campo"><span>Nota</span><textarea id="pn-nota" rows="2" maxlength="300" placeholder="allergie, seggiolone, compleanno…"></textarea></label>' +
-      '<button class="btn oro pieno" id="pn-salva">Aggiungi</button>'
-    );
-    const box = $("#pn-turni");
-    box.addEventListener("click", function (e) {
-      if (e.target.dataset.ora == null) return;
-      $$("button", box).forEach(function (b) { b.classList.toggle("on", b === e.target); });
-      $("#pn-altro").value = "";
-    });
-    $("#pn-altro").addEventListener("input", function () { $$("button", box).forEach(function (b) { b.classList.remove("on"); }); });
-    $("#pn-salva").addEventListener("click", async function () {
-      const scelto = $("button.on", box);
-      const dati = {
-        fonte: $("#pn-fonte").value, sera: $("#pn-sera").value, turno: $("#pn-altro").value || (scelto && scelto.dataset.ora) || "",
-        persone: $("#pn-persone").value, telefono: $("#pn-telefono").value, nome: $("#pn-nome").value, nota: $("#pn-nota").value,
-      };
-      // fuori dai coperti del turno: si può, ma meglio saperlo
-      if (prDati && dati.sera === prDati.sera) {
-        const t = prDati.turni.find(function (x) { return x.previsto && dati.turno >= x.dalle && dati.turno <= x.alle; });
-        const dopo = t ? t.prenotati + Number(dati.persone || 0) : 0;
-        if (t && dopo > prDati.coperti && !confirm("Con questa il " + t.numero + "° turno (" + t.ora + ") arriva a " + dopo +
-            " coperti su " + prDati.coperti + ". La aggiungo lo stesso?")) return;
-      }
-      try {
-        await conPin(function (p) { return S.prenAggiungi(p, dati); });
-        chiudiFoglio();
-        C.toast("Prenotazione aggiunta");
-        prSera = dati.sera;
-        caricaSeraPren();
-      } catch (e) { errore(e); }
-    });
+    pn = { passo: 0, sera: null, ora: null, persone: null, piu: false, telefono: "", nome: "", nomeTrovato: false,
+           nota: "", fonte: "telefono", giorno: null };
+    apriFoglio('<div class="pn" id="pn"></div>');
+    disegnaPn();
+  });
+
+  function disegnaPn() {
+    const box = $("#pn");
+    if (!pn || !box) return;
+    const p = PN_PASSI[pn.passo];
+    box.innerHTML =
+      '<div class="pn-testa">' +
+        (pn.passo ? '<button type="button" class="pn-indietro" data-pn-vai="' + (pn.passo - 1) + '" aria-label="Indietro">‹</button>' : "") +
+        '<div class="pn-punti" aria-label="Passo ' + (pn.passo + 1) + " di " + PN_PASSI.length + '">' + PN_PASSI.map(function (x, i) {
+          return '<i class="' + (i < pn.passo ? "fatto" : i === pn.passo ? "qui" : "") + '"></i>';
+        }).join("") + "</div></div>" +
+      sceltePn() +
+      '<h2 class="pn-domanda">' + p[0] + " " + p[1] + "</h2>" +
+      '<div class="pn-corpo">' + [passoSera, passoOra, passoPersone, passoTelefono, passoNome][pn.passo]() + "</div>";
+    // la sera scelta resta in vista nella fila dei giorni
+    const on = $(".pn-giorno.on", box);
+    if (on) on.parentNode.scrollLeft = on.offsetLeft - 16;
+  }
+  function vaiPn(n) {
+    pn.passo = n;
+    disegnaPn();
+    $("#foglio .dentro").scrollTop = 0;
+    if (n === 4 && !pn.nome) $("#pn-nome").focus();
+  }
+  // le scelte già fatte, in alto: toccandone una si torna a quel passo
+  function sceltePn() {
+    const c = [];
+    if (pn.sera) c.push([0, "📅 " + nomeGiorno(pn.sera)]);
+    if (pn.ora) c.push([1, "🕗 " + pn.ora]);
+    if (pn.persone) c.push([2, "👥 " + pn.persone]);
+    if (pn.passo > 3) c.push([3, pn.telefono ? "📞 " + telBello(telNormale(pn.telefono)) : "📞 senza numero"]);
+    return c.length ? '<div class="pn-scelte">' + c.map(function (x) {
+      return '<button type="button" data-pn-vai="' + x[0] + '"' + (x[0] === pn.passo ? ' class="qui"' : "") + ">" + C.esc(x[1]) + "</button>";
+    }).join("") + "</div>" : "";
+  }
+  function seraChiusa(s) {
+    return !!prImp && (((prImp.giorniChiusura || []).indexOf(C.giornoSettimana(s)) >= 0) || (prImp.dateChiuse || []).indexOf(s) >= 0);
+  }
+  // il turno (fascia di arrivi) di un orario, con i coperti già presi quella sera
+  function turnoDi(g, ora) {
+    return g && ora ? g.turni.find(function (t) { return t.previsto && ora >= t.dalle && ora <= t.alle; }) : null;
+  }
+
+  function passoSera() {
+    const oggi = oggiCalendario(), quanti = Math.max(60, (prImp && prImp.giorniAvanti) || 0);
+    let html = '<div class="pn-giorni">';
+    for (let i = 0; i < quanti; i++) {
+      const s = C.piuGiorni(oggi, i), chiusa = seraChiusa(s);
+      html += '<button type="button" class="pn-giorno' + (s === pn.sera ? " on" : "") + '" data-sera="' + s + '"' + (chiusa ? " disabled" : "") + ">" +
+        "<span>" + (i === 0 ? "oggi" : i === 1 ? "domani" : C.NOMI_GIORNI[C.giornoSettimana(s)].slice(0, 3)) + "</span>" +
+        "<b>" + Number(s.slice(8)) + "</b><span>" + (chiusa ? "chiuso" : C.nomeMese(s).slice(0, 3)) + "</span></button>";
+    }
+    return html + '<label class="pn-giorno altra"><span>altra</span><b>📅</b><span>data</span>' +
+      '<input type="date" id="pn-altra" min="' + oggi + '" aria-label="Un\'altra data"></label></div>' +
+      '<p class="dim center">Scorri di lato per gli altri giorni</p>';
+  }
+  async function scegliSera(s) {
+    pn.sera = s;
+    pn.giorno = null;
+    vaiPn(1);
+    // i posti liberi di quella sera, per ogni orario (se non arrivano si va avanti lo stesso)
+    try {
+      const g = await conPin(function (p) { return S.prenGiorno(p, s); });
+      if (pn && pn.sera === s) { pn.giorno = g; if (pn.passo === 1) disegnaPn(); }
+    } catch (e) {}
+  }
+
+  function passoOra() {
+    const orari = (prImp && prImp.orari) || ["19:00", "19:30", "20:00", "20:30", "21:00", "21:30", "22:00", "22:30"];
+    let prima = null;
+    return '<div class="pn-ore">' + orari.map(function (o) {
+      const t = turnoDi(pn.giorno, o), liberi = t ? pn.giorno.coperti - t.prenotati : null;
+      // ogni turno comincia su una riga nuova, come sul sito
+      const aCapo = t && prima !== null && t.numero !== prima;
+      if (t) prima = t.numero;
+      return '<button type="button" class="pn-ora' + (o === pn.ora ? " on" : "") + (aCapo ? " a-capo" : "") + (liberi != null && liberi < 1 ? " pieno" : "") +
+        '" data-ora="' + o + '"><b>' + o + "</b><span>" + (liberi == null ? "&nbsp;" : liberi > 0 ? liberi + " liberi" : "pieno") + "</span></button>";
+    }).join("") + "</div>" +
+      '<p class="muted small" style="margin-top:16px">Un altro orario</p>' +
+      '<div class="riga"><input type="time" id="pn-altra-ora" aria-label="Un altro orario"' +
+        (pn.ora && orari.indexOf(pn.ora) < 0 ? ' value="' + C.esc(pn.ora) + '"' : "") + ">" +
+        '<button type="button" class="btn vuoto fisso" id="pn-altra-ora-ok">Avanti ›</button></div>';
+  }
+
+  function passoPersone() {
+    const piu = pn.piu || pn.persone > 8;
+    return '<div class="pn-persone">' + [1, 2, 3, 4, 5, 6, 7, 8].map(function (n) {
+      return '<button type="button" data-persone="' + n + '"' + (n === pn.persone ? ' class="on"' : "") + ">" + n + "</button>";
+    }).join("") + '<button type="button" class="pn-piu' + (piu ? " on" : "") + '" data-persone="piu">Più di 8</button></div>' +
+      (piu ? '<div class="pn-stepper"><button type="button" data-pn-d="-1" aria-label="Meno">−</button>' +
+          '<input type="number" inputmode="numeric" id="pn-n" min="9" max="200" value="' + (pn.persone > 8 ? pn.persone : 9) + '" aria-label="Persone">' +
+          '<button type="button" data-pn-d="1" aria-label="Più">+</button></div>' +
+        '<button type="button" class="btn oro pieno pn-grande" id="pn-n-ok">Avanti ›</button>' : "");
+  }
+
+  // come club_telefono nel database: senza prefisso si intende +39
+  function telNormale(t) {
+    let x = String(t || "").replace(/[^0-9+]/g, "");
+    if (x.indexOf("00") === 0) x = "+" + x.slice(2);
+    x = x.charAt(0) === "+" ? "+" + x.slice(1).replace(/\+/g, "") : "+39" + x.replace(/\+/g, "");
+    return x.length - 1 >= 8 && x.length - 1 <= 15 ? x : null;
+  }
+  function passoTelefono() {
+    const ok = !!telNormale(pn.telefono);
+    return (navigator.clipboard && navigator.clipboard.readText
+        ? '<button type="button" class="btn oro pieno pn-grande" id="pn-incolla">📋 Incolla il numero copiato</button>' +
+          '<p class="dim center" style="margin-top:8px">Dalle chiamate recenti: tieni premuto sul numero → Copia, poi tocca qui sopra.</p>' : "") +
+      '<input type="tel" class="pn-tel" id="pn-tel" inputmode="tel" autocomplete="off" placeholder="oppure scrivilo qui" value="' + C.esc(pn.telefono) + '">' +
+      '<p class="pn-errore" id="pn-tel-errore" hidden></p>' +
+      '<button type="button" class="btn oro pieno pn-grande" id="pn-tel-ok" style="margin-top:12px"' + (ok ? "" : " hidden") + ">Avanti ›</button>" +
+      '<button type="button" class="btn vuoto pieno" id="pn-senza-tel" style="margin-top:12px"' + (ok ? " hidden" : "") + ">Senza numero ›</button>";
+  }
+  function scriviTelefono(t) {
+    pn.telefono = t;
+    if (pn.nomeTrovato) { pn.nome = ""; pn.nomeTrovato = false; }   // era il nome di un altro numero
+    const ok = !!telNormale(t);
+    $("#pn-tel-ok").hidden = !ok;
+    $("#pn-senza-tel").hidden = ok;
+    $("#pn-tel-errore").hidden = true;
+    if (ok) cercaNomePn();
+  }
+  async function incollaPn() {
+    const err = $("#pn-tel-errore");
+    let testo = "";
+    try { testo = await navigator.clipboard.readText(); }
+    catch (e) { err.textContent = "Non riesco a leggere il numero copiato: scrivilo qui sotto."; err.hidden = false; return; }
+    // dal telefono il numero copiato può avere spazi e segni invisibili di direzione del testo
+    testo = String(testo || "").replace(/[‎‏‪-‮⁦-⁩]/g, "").trim();
+    const t = telNormale(testo);
+    if (!t || /[^\d\s+().\/-]/.test(testo)) {
+      err.textContent = "Nel copiato non c'è un numero di telefono. Copialo dalle chiamate recenti e riprova.";
+      err.hidden = false;
+      return;
+    }
+    $("#pn-tel").value = telBello(t);
+    scriviTelefono(telBello(t));
+    vaiPn(4);
+  }
+  // se il numero è di un cliente già visto (prenotazioni, Club, asporto), il nome si scrive da solo
+  async function cercaNomePn() {
+    const tel = pn.telefono;
+    let nome = null;
+    try { nome = await conPin(function (p) { return S.prenNomeDaTelefono(p, tel); }); } catch (e) { return; }
+    if (!nome || !pn || pn.telefono !== tel || pn.nome) return;
+    pn.nome = nome;
+    pn.nomeTrovato = true;
+    const campo = $("#pn-nome");
+    if (pn.passo === 4 && campo && !campo.value) { campo.value = nome; campo.blur(); $("#pn-nome-nota").outerHTML = notaNomePn(); }
+  }
+
+  function notaNomePn() {
+    return pn.nomeTrovato ? '<p class="pn-trovato" id="pn-nome-nota">✓ Già cliente: il nome viene dal numero</p>'
+      : '<p class="dim center" id="pn-nome-nota" style="margin-top:8px">Puoi anche dettarlo col microfono della tastiera.</p>';
+  }
+  function passoNome() {
+    return '<input type="text" class="pn-nome" id="pn-nome" autocomplete="off" autocapitalize="words" maxlength="60" placeholder="Nome del cliente" value="' + C.esc(pn.nome) + '">' +
+      notaNomePn() +
+      '<div class="pn-fonti">' + PN_FONTI.map(function (f) {
+        return '<button type="button" data-fonte="' + f[0] + '"' + (pn.fonte === f[0] ? ' class="on"' : "") + ">" + f[1] + "</button>";
+      }).join("") + "</div>" +
+      '<details class="pn-nota"' + (pn.nota ? " open" : "") + "><summary>＋ Nota (allergie, seggiolone, compleanno…)</summary>" +
+        '<textarea id="pn-nota" rows="2" maxlength="300">' + C.esc(pn.nota) + "</textarea></details>" +
+      avvisiPn().map(function (a) { return '<p class="avviso-sera">' + a + "</p>"; }).join("") +
+      '<button type="button" class="btn rosso pieno pn-grande" id="pn-salva">✅ Aggiungi prenotazione</button>';
+  }
+  // si può sempre aggiungere, ma meglio saperlo prima di toccare il tasto
+  function avvisiPn() {
+    const a = [];
+    if (seraChiusa(pn.sera) || (pn.giorno && pn.giorno.chiuso)) a.push("🔒 Quella sera è chiusa: la aggiungo lo stesso.");
+    const t = turnoDi(pn.giorno, pn.ora), dopo = t ? t.prenotati + pn.persone : 0;
+    if (t && dopo > pn.giorno.coperti) a.push("⚠️ Con questa il " + t.numero + "° turno arriva a " + dopo + " coperti su " + pn.giorno.coperti + ".");
+    return a;
+  }
+  async function salvaPn(btn) {
+    pn.nome = $("#pn-nome").value.trim();
+    if (pn.nome.length < 2) { C.toast("Scrivi il nome", true); $("#pn-nome").focus(); return; }
+    const dati = { fonte: pn.fonte, sera: pn.sera, turno: pn.ora, persone: pn.persone, telefono: pn.telefono, nome: pn.nome, nota: $("#pn-nota").value };
+    btn.disabled = true;
+    try {
+      await conPin(function (p) { return S.prenAggiungi(p, dati); });
+      pn = null;
+      chiudiFoglio();
+      C.toast("Aggiunta: " + nomeGiorno(dati.sera) + " alle " + dati.turno + " · " + persone(dati.persone));
+      prSera = dati.sera;
+      caricaSeraPren();
+    } catch (e) {
+      btn.disabled = false;
+      errore(e);
+      const passo = { sera: 0, turno: 1, persone: 2, telefono: 3 }[e.codice];   // si torna al passo da sistemare
+      if (passo != null) vaiPn(passo);
+    }
+  }
+
+  $("#foglio-corpo").addEventListener("click", function (e) {
+    if (!pn || !e.target.closest("#pn")) return;
+    const b = e.target.closest("button");
+    if (!b || b.disabled) return;
+    if (b.dataset.pnVai != null) vaiPn(Number(b.dataset.pnVai));
+    else if (b.dataset.sera) scegliSera(b.dataset.sera);
+    else if (b.dataset.ora) { pn.ora = b.dataset.ora; vaiPn(2); }
+    else if (b.id === "pn-altra-ora-ok") {
+      const v = $("#pn-altra-ora").value;
+      if (!/^\d\d:\d\d$/.test(v)) { C.toast("Scegli l'orario", true); return; }
+      pn.ora = v;
+      vaiPn(2);
+    }
+    else if (b.dataset.persone === "piu") { pn.piu = true; disegnaPn(); }
+    else if (b.dataset.persone) { pn.persone = Number(b.dataset.persone); pn.piu = false; vaiPn(3); }
+    else if (b.dataset.pnD) {
+      const campo = $("#pn-n");
+      campo.value = Math.min(200, Math.max(9, (parseInt(campo.value, 10) || 9) + Number(b.dataset.pnD)));
+    }
+    else if (b.id === "pn-n-ok") {
+      const n = parseInt($("#pn-n").value, 10);
+      if (!(n >= 1 && n <= 200)) { C.toast("Numero di persone non valido", true); return; }
+      pn.persone = n;
+      vaiPn(3);
+    }
+    else if (b.id === "pn-incolla") incollaPn();
+    else if (b.id === "pn-tel-ok") vaiPn(4);
+    else if (b.id === "pn-senza-tel") { scriviTelefono(""); vaiPn(4); }
+    else if (b.dataset.fonte) {
+      pn.fonte = b.dataset.fonte;
+      $$("[data-fonte]", $("#pn")).forEach(function (x) { x.classList.toggle("on", x === b); });
+    }
+    else if (b.id === "pn-salva") salvaPn(b);
+  });
+  $("#foglio-corpo").addEventListener("input", function (e) {
+    if (!pn) return;
+    if (e.target.id === "pn-tel") scriviTelefono(e.target.value);
+    else if (e.target.id === "pn-nome") { pn.nome = e.target.value; pn.nomeTrovato = false; }
+    else if (e.target.id === "pn-nota") pn.nota = e.target.value;
+  });
+  $("#foglio-corpo").addEventListener("change", function (e) {
+    if (pn && e.target.id === "pn-altra" && e.target.value) scegliSera(e.target.value);
+  });
+  $("#foglio-corpo").addEventListener("keydown", function (e) {
+    if (!pn || e.key !== "Enter") return;
+    if (e.target.id === "pn-tel" && telNormale(pn.telefono)) { e.preventDefault(); vaiPn(4); }
+    else if (e.target.id === "pn-nome") { e.preventDefault(); e.target.blur(); }   // si chiude la tastiera e si vede il tasto Aggiungi
   });
 
   /* --- impostazioni --- */
