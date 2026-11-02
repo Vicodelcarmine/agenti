@@ -1958,7 +1958,8 @@
     const oggi = oggiCalendario();
     if ((m = s.match(/\bdopodomani\b/))) { r.sera = C.piuGiorni(oggi, 2); via(m); }
     else if ((m = s.match(/\bdomani( sera)?\b/))) { r.sera = C.piuGiorni(oggi, 1); via(m); }
-    else if ((m = s.match(/\b(oggi|stasera|stanotte)( sera)?\b/))) { r.sera = oggi; via(m); }
+    // «stasera» il telefono lo scrive anche «sta sera», «'sta sera» o «questa sera»
+    else if ((m = s.match(/\b(oggi|stasera|stanotte|(?:questa|sta)\s+(?:sera|notte))(\s+sera)?\b/))) { r.sera = oggi; via(m); }
     else if ((m = s.match(new RegExp("\\b(\\d{1,2})\\s+(" + MESI_A_VOCE.join("|") + ")\\b")))) {
       r.sera = prossimaData(+m[1], MESI_A_VOCE.indexOf(m[2]) + 1); via(m);
     }
