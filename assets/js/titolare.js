@@ -1308,7 +1308,9 @@
       $("#pr-dopo").disabled = !d.dopo;
       $("#pr-oggi").hidden = d.sera === d.oggi;
       $("#pr-chiuso").hidden = !d.chiuso;
-      $("#pr-turni").innerHTML = d.turni.length ? d.turni.map(function (t) { return disegnaTurno(t, d.coperti); }).join("")
+      // dal 2° turno in poi, un turno senza prenotazioni non si mostra; il 1° resta sempre, con i suoi coperti
+      const turni = d.turni.filter(function (t, i) { return i === 0 || t.lista.length > 0; });
+      $("#pr-turni").innerHTML = turni.length ? turni.map(function (t) { return disegnaTurno(t, d.coperti); }).join("")
         : '<div class="card"><p class="vuoto">Nessun turno impostato.</p></div>';
       // dei prossimi 14 giorni si vedono solo quelli con almeno una prenotazione
       const conPren = d.prossimi.filter(function (g) { return g.prenotazioni > 0; });
