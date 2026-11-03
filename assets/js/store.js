@@ -779,11 +779,17 @@ const Store = (function () {
     });
   }
   // la campagna "regalo a sorpresa" della demo: numeri finti, per vedere il riquadro
-  let campWaDemo = false, campWaDiretto = false;
+  let campWaDemo = false, campWaDiretto = false, campScadeDemo = false;
   function campWaAttiva(pin, id, attivo) {
     return rete(function () {
       controllaPin(leggi(), pin);
       if (id === "diretto-thefork") campWaDiretto = !!attivo; else campWaDemo = !!attivo;
+    }).then(function () { return campPanoramica(pin); });
+  }
+  function campScadeAttiva(pin, id, attivo) {
+    return rete(function () {
+      controllaPin(leggi(), pin);
+      campScadeDemo = !!attivo;
     }).then(function () { return campPanoramica(pin); });
   }
   function campPanoramica(pin) {
@@ -794,6 +800,9 @@ const Store = (function () {
         contatti: 384, aperti: 96, scoperti: 41, prenotati: 23, usati: 9, disiscritti: 6,
         wa: { attivo: campWaDemo, modello: "regalo_sorpresa_richiamo", giorni: 3, inviati: campWaDemo ? 38 : 0,
               letti: campWaDemo ? 31 : 0, errori: 0, scopertiDopo: campWaDemo ? 7 : 0, ultimoErrore: null },
+        scade: { attivo: campScadeDemo, modello: "regalo_in_scadenza", sere: 3, inviati: campScadeDemo ? 5 : 0,
+                 letti: campScadeDemo ? 4 : 0, errori: 0, prenotatiDopo: campScadeDemo ? 2 : 0, ultimoErrore: null,
+                 prossimi: [{ giorno: "2026-11-08", quanti: 1 }, { giorno: "2026-11-11", quanti: 4 }, { giorno: "2026-11-16", quanti: 2 }] },
         gruppi: [
           { gruppo: 1, email: ore(10, 26), wa: ore(10, 29), contatti: 50, scoperti: 14, whatsapp: campWaDemo ? 36 : 0 },
           { gruppo: 2, email: ore(10, 28), wa: ore(11, 1), contatti: 50, scoperti: 9, whatsapp: 0 },
@@ -1428,7 +1437,7 @@ const Store = (function () {
     entra, leggiBuono, riscatta, annulla, panoramica, dettaglioAgente, salvaAgente, nuovaChiave, eliminaAgente,
     pagamento, premi, salvaPremi, impostazioni, salvaImpostazioni,
     candidatura, candidature, approvaCandidatura, scartaCandidatura, canali,
-    clubPanoramica, clubElenco, clubDettaglio, clubLeggiPremio, clubUsa, clubAnnulla, campPanoramica, campWaAttiva, tfPanoramica, tfElenco, tfNuovaChiave, tfProva,
+    clubPanoramica, clubElenco, clubDettaglio, clubLeggiPremio, clubUsa, clubAnnulla, campPanoramica, campWaAttiva, campScadeAttiva, tfPanoramica, tfElenco, tfNuovaChiave, tfProva,
     clubImpostazioni, clubSalvaImpostazioni, clubElimina,
     clubOfferte, clubSalvaOfferte, clubMessaggi, clubGiroOra, clubProvaAvviso,
     clubStatoInvii: function () { return Promise.resolve({ email: false }); },
@@ -1556,6 +1565,8 @@ const Store = (function () {
     campPanoramica: function (pin) { return rpc("camp_panoramica", { p_pin: pin }); },
     // il WhatsApp di richiamo della campagna (supabase/19-campagna-whatsapp.sql)
     campWaAttiva: function (pin, id, attivo) { return rpc("camp_wa_attiva", { p_pin: pin, p_campagna: id, p_attivo: !!attivo }); },
+    // il promemoria "il tuo regalo scade" (supabase/32-regalo-scadenza.sql)
+    campScadeAttiva: function (pin, id, attivo) { return rpc("camp_scade_attiva", { p_pin: pin, p_campagna: id, p_attivo: !!attivo }); },
     // "Prenota diretto": le email di TheFork lette dallo script di Google (supabase/29-prenota-diretto.sql)
     tfPanoramica: function (pin) { return rpc("tf_panoramica", { p_pin: pin }); },
     tfElenco: function (pin) { return rpc("tf_elenco", { p_pin: pin }); },

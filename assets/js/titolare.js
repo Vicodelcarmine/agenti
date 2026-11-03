@@ -531,7 +531,7 @@
         }).join("") + "</ul>" +
         '<p class="dim" style="margin-top:6px">Il regalo vale ' + k.sere + " sere da quando lo scoprono, sabato escluso" +
         (k.scopriEntro ? " · i link danno regali fino al " + C.dataBreve(k.scopriEntro) : "") + "</p>" +
-        campWhatsapp(k) + "</div></div>";
+        campWhatsapp(k) + campScadenza(k) + "</div></div>";
     }).join("");
     preparaTendine($("#cl-camp"));
     $$("[data-camp-wa]", $("#cl-camp")).forEach(function (btn) {
@@ -553,6 +553,23 @@
         if (accendi && !confirm("Accendo il WhatsApp di richiamo? Parte solo se Meta ha approvato il modello, " +
           "ai clienti che non hanno ancora scoperto il regalo, " + "qualche giorno dopo l'email del loro gruppo.")) return;
         cambia();
+      });
+    });
+    $$("[data-camp-scade]", $("#cl-camp")).forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        const accendi = btn.dataset.campScade === "1";
+        const cambia = async function () {
+          btn.disabled = true;
+          try { await conPin(function (pp) { return S.campScadeAttiva(pp, btn.dataset.camp, accendi); }); caricaCampagne(); }
+          catch (e) { errore(e); btn.disabled = false; }
+        };
+        if (!accendi) return cambia();
+        // la domanda nel foglio, non in confirm(): alcuni browser la bloccano senza dire niente
+        apriFoglio("<h2>⏰ Accendo il promemoria?</h2>" +
+          '<p class="dim" style="margin-top:6px">Parte solo se Meta ha approvato il modello «regalo_in_scadenza». ' +
+          "Un solo WhatsApp a chi ha scoperto il regalo e non l'ha ancora usato né prenotato, qualche sera prima che scada.</p>" +
+          '<button class="btn oro" id="camp-scade-si" style="margin-top:12px">Sì, accendi</button>');
+        $("#camp-scade-si").addEventListener("click", function () { chiudiFoglio(); cambia(); });
       });
     });
   }
@@ -693,6 +710,28 @@
       }).join("") + "</ul>" : "") +
       (k.senzaGruppo ? '<p class="dim" style="margin-top:6px">' + k.senzaGruppo +
         " contatti non hanno ancora l'email programmata: niente WhatsApp finché non parte la loro.</p>" : "");
+  }
+
+  // il promemoria "il tuo regalo scade" (supabase/32-regalo-scadenza.sql): acceso o no, quanti e quando
+  function campScadenza(k) {
+    const s = k.scade;
+    if (!s) return "";
+    const prossimi = (s.prossimi || []).filter(function (p) { return p.quanti; });
+    return '<p style="margin-top:14px"><b>⏰ Promemoria prima della scadenza</b></p>' +
+      '<p class="dim">A chi ha scoperto il regalo e non l\'ha ancora usato né prenotato: un solo WhatsApp, ' + s.sere +
+      " sere prima dell'ultima (sabato escluso, dalle 10 alle 20). Chi scrive STOP non lo riceve.</p>" +
+      '<div class="riga" style="margin-top:8px;align-items:center">' +
+        '<span class="pill fisso ' + (s.attivo ? "ok" : "no") + '">' + (s.attivo ? "acceso" : "spento") + "</span>" +
+        '<button class="btn fisso ' + (s.attivo ? "vuoto " : "oro ") + 'piccolo" data-camp="' + C.esc(k.id) + '" data-camp-scade="' +
+          (s.attivo ? "0" : "1") + '">' + (s.attivo ? "Spegni" : "Accendi") + "</button></div>" +
+      (s.attivo || s.inviati ? '<div class="kpi" style="margin-top:8px">' +
+        "<div><b>" + s.inviati + "</b><span>promemoria partiti</span></div>" +
+        "<div><b>" + s.letti + "</b><span>letti</span></div>" +
+        '<div class="euro"><b>' + s.prenotatiDopo + "</b><span>hanno prenotato dopo</span></div></div>" : "") +
+      (s.errori ? '<p class="dim" style="margin-top:6px">⚠️ ' + s.errori + " non partiti" +
+        (s.ultimoErrore ? ": " + C.esc(s.ultimoErrore) : "") + "</p>" : "") +
+      (prossimi.length ? '<p class="dim" style="margin-top:6px">📅 ' + (s.attivo ? "Prossimi: " : "Se lo accendi: ") +
+        prossimi.map(function (p) { return C.esc(C.dataBreve(p.giorno)) + " (" + p.quanti + ")"; }).join(" · ") + "</p>" : "");
   }
 
   async function caricaClub() {
