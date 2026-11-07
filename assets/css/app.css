@@ -167,9 +167,11 @@ input[type=date] {
 }
 .barra-coperti { height: 6px; border-radius: 3px; background: rgba(255,255,255,.07); margin: 10px 0 4px; overflow: hidden; }
 .barra-coperti i { display: block; height: 100%; background: linear-gradient(90deg, var(--basil), var(--gold)); border-radius: 3px; }
+/* quante persone: grande e pieno, si legge a colpo d'occhio */
 .persone-tondo {
-  flex: 0 0 auto; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center;
-  background: rgba(230,178,74,.14); color: var(--gold-soft); font-weight: 700;
+  flex: 0 0 auto; width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--gold); color: #1a1210; font-weight: 800; font-size: 1.65rem; line-height: 1;
+  font-variant-numeric: tabular-nums; box-shadow: 0 0 0 3px rgba(230,178,74,.25);
 }
 .lista li.spenta { opacity: .45; }
 .lista li.spenta b { text-decoration: line-through; }
