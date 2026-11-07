@@ -387,3 +387,27 @@ input[type=date] {
 /* il numero da aggiungere dopo */
 .card.manca-tel { border-color: rgba(230,178,74,.5); }
 .manca-tel-riga { color: var(--gold-soft); font-weight: 600; }
+
+/* ---------- arrivi: a colpo d'occhio chi è ancora da segnare ---------- */
+/* arrivati o non venuti: trasparenti, non c'è più niente da fare (con una novità da leggere restano accesi) */
+.lista li.pren-fatta:not(.pren-nuova) { opacity: .38; }
+/* è l'ora e non sono ancora segnati: riquadro che lampeggia; mezz'ora dopo diventa rosso */
+.lista li.pren-ora, .lista li.pren-ritardo {
+  padding-left: 10px; padding-right: 10px; margin: 4px 0; border-radius: 10px; border-bottom-color: transparent;
+}
+.lista li.pren-ora { animation: lampo-oro 1.2s ease-in-out infinite; }
+.lista li.pren-ritardo { animation: lampo-rosso .9s ease-in-out infinite; }
+.lista li.pren-ritardo.ferma { animation: none; box-shadow: inset 0 0 0 2px rgba(255, 45, 85, .7); }
+@keyframes lampo-oro {
+  0%, 100% { box-shadow: inset 0 0 0 3px #ffd23f, 0 0 14px rgba(255, 210, 63, .55); }
+  50%      { box-shadow: inset 0 0 0 3px rgba(255, 210, 63, .12), 0 0 0 rgba(255, 210, 63, 0); }
+}
+@keyframes lampo-rosso {
+  0%, 100% { box-shadow: inset 0 0 0 3px #ff2d55, 0 0 16px rgba(255, 45, 85, .7); background-color: rgba(255, 45, 85, .12); }
+  50%      { box-shadow: inset 0 0 0 3px rgba(255, 45, 85, .15), 0 0 0 rgba(255, 45, 85, 0); background-color: transparent; }
+}
+/* con "Riduci movimento" acceso sul telefono: riquadro fisso, stesso colore */
+@media (prefers-reduced-motion: reduce) {
+  .lista li.pren-ora { animation: none; box-shadow: inset 0 0 0 3px #ffd23f; }
+  .lista li.pren-ritardo { animation: none; box-shadow: inset 0 0 0 3px #ff2d55; }
+}

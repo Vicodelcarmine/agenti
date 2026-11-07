@@ -1067,7 +1067,7 @@
                errore: "⚠️ WhatsApp non arrivato: numero da controllare" };
   const WA_BREVE = { in_coda: "📲", inviato: "📲", consegnato: "✅ verificato", letto: "✅ verificato", errore: "⚠️ numero?" };
   const STATO_PREN = {
-    confermata: ["ok", "confermata"], arrivati: ["oro", "arrivati"], noshow: ["no", "non venuti"], annullata: ["no", "annullata"],
+    confermata: ["ok", "confermata"], arrivati: ["oro", "✅ arrivati"], noshow: ["no", "non venuti"], annullata: ["no", "annullata"],
   };
   let prSera = null;    // la sera che si sta guardando; null = oggi
   let prDati = null;    // l'ultima sera caricata
@@ -1351,6 +1351,7 @@
       const turni = d.turni.filter(function (t, i) { return i === 0 || t.lista.length > 0; });
       $("#pr-turni").innerHTML = turni.length ? turni.map(function (t) { return disegnaTurno(t, d.coperti); }).join("")
         : '<div class="card"><p class="vuoto">Nessun turno impostato.</p></div>';
+      segnaArrivi();
       // dei prossimi 14 giorni si vedono solo quelli con almeno una prenotazione
       const conPren = d.prossimi.filter(function (g) { return g.prenotazioni > 0; });
       $("#pr-prossimi").innerHTML = conPren.length ? conPren.map(function (g) {
@@ -1378,8 +1379,11 @@
         const nov = x.novita || {};
         const suoi = (x.conversazione || []).filter(function (m) { return m.da === "cliente"; });
         const ultimo = suoi[suoi.length - 1];
+        const arrivo = x.stato === "confermata" ? istanteArrivo(x) : 0;
         return '<li data-pren="' + C.esc(x.id) + '" class="' + (x.stato === "annullata" ? "spenta" : "") +
-          (nov.nuova || nov.annullata || nov.messaggi ? " pren-nuova" : "") + '" style="cursor:pointer">' +
+          (x.stato === "arrivati" || x.stato === "noshow" ? " pren-fatta" : "") +
+          (nov.nuova || nov.annullata || nov.messaggi ? " pren-nuova" : "") + '"' +
+          (arrivo ? ' data-arrivo="' + arrivo + '" data-sera="' + C.esc(x.sera) + '"' : "") + ' style="cursor:pointer">' +
           '<span class="persone-tondo">' + x.persone + "</span>" +
           '<div class="cresce"><b><span class="ora-arrivo">' + C.esc(x.turno) + "</span> " + C.esc(x.nome) + "</b>" +
           '<div class="dim">' + (FONTI[x.fonte] || C.esc(x.fonte)) + (x.socio ? " · 💳 socio" : "") +
@@ -1395,6 +1399,27 @@
           (x.stato === "confermata" ? "" : '<span class="pill ' + st[0] + '">' + st[1] + "</span>") + "</li>";
       }).join("") : '<li class="vuoto">Nessuna prenotazione.</li>') + "</ul></div>";
   }
+
+  /* --- arrivi: a colpo d'occhio chi è ancora da segnare ---
+     Arrivati o non venuti = riga trasparente. Ancora "confermata" quando è l'ora = riquadro che lampeggia (oro);
+     mezz'ora dopo lampeggia di rosso, finché non si segna. Una sera già finita: riquadro rosso fermo. */
+  const MEZZORA = 30 * 60e3;
+  function istanteArrivo(x) {
+    return /^\d\d?:\d\d$/.test(x.turno || "") && /^\d{4}-\d\d-\d\d$/.test(x.sera || "")
+      ? C.scadenza(x.sera, x.turno).getTime() : 0;
+  }
+  function segnaArrivi() {
+    const adesso = Date.now(), stasera = C.sera();
+    $$("li[data-arrivo]", $("#pr-turni")).forEach(function (li) {
+      const t = +li.dataset.arrivo, finita = li.dataset.sera < stasera, stessa = li.dataset.sera === stasera;
+      li.classList.toggle("pren-ora", stessa && adesso >= t && adesso < t + MEZZORA);
+      li.classList.toggle("pren-ritardo", finita || (stessa && adesso >= t + MEZZORA));
+      li.classList.toggle("ferma", finita);
+    });
+  }
+  // l'ora passa anche senza ricaricare: si ricontrolla ogni 20 secondi (solo il colore, niente rete)
+  setInterval(function () { if (!document.hidden) segnaArrivi(); }, 20000);
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) segnaArrivi(); });
 
   $("#pr-turni").addEventListener("click", function (e) {
     const li = e.target.closest("[data-pren]");
