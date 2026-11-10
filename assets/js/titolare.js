@@ -2268,6 +2268,17 @@
     return "https://wa.me/" + intl + (testo ? "?text=" + encodeURIComponent(testo) : "");
   }
 
+  // il primo messaggio a chi si è candidato: cambia con il ruolo scelto nel modulo (pagina guide o pagina PR)
+  function testoScrivigli(c) {
+    const r = String(c.ruolo || "").toLowerCase();
+    let per = "";
+    if (r.indexOf("pr") === 0) per = " per fare il PR";
+    else if (r.indexOf("tassista") >= 0) per = " per consigliare il nostro ristorante ai clienti del tuo taxi";
+    else if (r.indexOf("ncc") >= 0) per = " per consigliare il nostro ristorante ai clienti che accompagni";
+    else if (/guida|accompagnatore|tour leader/.test(r)) per = " per consigliare il nostro ristorante ai tuoi gruppi";
+    return "Ciao " + String(c.nome || "").trim().split(/\s+/)[0] + "! Abbiamo visto la tua richiesta" + per + ".";
+  }
+
   async function caricaRichieste() {
     const box = $("#richieste");
     let lista = [];
@@ -2283,7 +2294,7 @@
           (c.canale ? ' <span class="pill ok">📣 ' + C.esc(nomeCanale(c.canale)) + "</span>" : "") + "</div>" +
           '<span class="dim fisso">' + C.esc(C.dataBreve(C.sera(c.creato))) + "</span></div>" +
           '<p class="small" style="margin-top:8px">📞 ' + C.esc(c.telefono) +
-          ' · <a target="_blank" rel="noopener" href="' + linkChat(c.telefono, "Ciao " + c.nome.split(/\s+/)[0] + "! Abbiamo visto la tua richiesta per fare il PR.") +
+          ' · <a target="_blank" rel="noopener" href="' + linkChat(c.telefono, testoScrivigli(c)) +
           '">💬 Scrivigli</a></p>' +
           (c.note ? '<p class="small muted" style="margin-top:6px">' + C.esc(c.note) + "</p>" : "") +
           '<div class="riga" style="margin-top:12px"><button class="btn verde piccolo" data-approva>✅ Approva</button>' +
